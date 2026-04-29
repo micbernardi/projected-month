@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resultado Projetado - Abril/26</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+  <style>
+    /* Reset & Base */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface2: #f1f5f9;
+      --surface3: #e2e8f0;
+      --border: #cbd5e1;
+      --text: #0f172a;
+      --text2: #475569;
+
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --accent-glow: rgba(79, 70, 229, 0.2);
+
+      --green: #059669;
+      --green-glow: rgba(16, 185, 129, 0.15);
+      --red: #dc2626;
+      --red-glow: rgba(239, 68, 68, 0.15);
+      --yellow: #d97706;
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+    }
+
+    body.dark-theme {
+      --bg: #09090b;
+      --surface: #121217;
+      --surface2: #1e1e24;
+      --surface3: #272730;
+      --border: #27272a;
+      --text: #f4f4f5;
+      --text2: #a1a1aa;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.4);
+      --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.2);
+      --red: #ef4444;
+      --red-glow: rgba(239, 68, 68, 0.2);
+    }
+
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+      font-size: 0.85rem;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--surface2);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--surface3);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text2);
+    }
+
+    /* Typography */
+    h1,
+    h2,
+    h3,
+    .logo,
+    .section-title {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    .card-value {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    /* Header */
+    .header {
+      background: rgba(255, 255, 255, 0.85);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .header-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 4px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+
+    .logo-icon {
+      font-size: 1.3rem;
+    }
+
+    /* Buttons */
+    .btn {
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 8px 16px;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-icon {
+      padding: 6px;
+      font-size: 1.1rem;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+
+    .btn-icon:hover {
+      background: var(--surface2);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 10px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .btn-export {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-export:hover:not(:disabled) {
+      background: var(--surface2);
+      border-color: var(--accent);
+    }
+
+    .btn-export:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Main Layout */
+    .main-content {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 8px 24px;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Upload Zone */
+    .upload-section {
+      margin-bottom: 24px;
+    }
+
+    .upload-zone {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-md);
+      padding: 30px 16px;
+      text-align: center;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+
+    .upload-zone::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at center, var(--accent-glow) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .upload-zone:hover::before,
+    .upload-zone.drag-over::before {
+      opacity: 0.1;
+    }
+
+    .upload-icon {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+      display: inline-block;
+      transition: transform 0.2s ease;
+    }
+
+    .upload-zone:hover .upload-icon {
+      transform: scale(1.05) translateY(-3px);
+    }
+
+    .upload-zone h2 {
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .upload-zone p {
+      color: var(--text2);
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+    }
+
+    .file-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      justify-content: center;
+    }
+
+    .file-tag {
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background-color: var(--surface2);
+    }
+
+    /* Controls */
+    .controls-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 6px 12px;
+      margin-bottom: 6px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+    }
+
+    .control-group.control-highlight input {
+      border: 2px solid var(--accent);
+      background: var(--surface2);
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--accent);
+    }
+
+    .control-group.control-highlight label {
+      color: var(--accent);
+    }
+
+    .controls-grid {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .control-group select,
+    .control-group input {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 4px 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+      appearance: none;
+    }
+
+    .control-group input[type="number"] {
+      width: 70px;
+    }
+
+    .control-group select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 14px;
+      padding-right: 32px;
+    }
+
+    .control-group select:focus,
+    .control-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    /* Cards */
+    .cards-section {
+      margin-bottom: 8px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      position: relative;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+      border-color: var(--border);
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--card-color, var(--accent));
+    }
+
+    .card-icon {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      font-size: 1.2rem;
+      opacity: 0.2;
+      color: var(--card-color, var(--text));
+    }
+
+    .card-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text2);
+      margin-bottom: 6px;
+    }
+
+    .card-value {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .trend-icon {
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Rankings */
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::before {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 3px;
+    }
+
+    .rankings-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .ranking-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    }
+
+    .ranking-header {
+      padding: 12px 16px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface2);
+      transition: background 0.2s;
+      color: var(--text);
+    }
+
+    .ranking-header:hover {
+      background: var(--surface3);
+    }
+
+    .ranking-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .ranking-body.open {
+      max-height: none;
+      overflow: visible;
+    }
+
+    .ranking-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.7rem;
+      white-space: nowrap;
+    }
+
+    .ranking-table th {
+      background: var(--surface2);
+      padding: 4px 6px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      font-size: 0.6rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--border);
+      line-height: 1.1;
+    }
+
+    .ranking-table td {
+      padding: 3px 4px;
+      border-bottom: 1px solid var(--surface2);
+      line-height: 1.1;
+    }
+
+    .ranking-table td:nth-child(2) {
+      max-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+
+    .ranking-table td:nth-child(3),
+    .ranking-table td:nth-child(4) {
+      text-align: right;
+    }
+
+    .ranking-table tr {
+      transition: background 0.1s;
+    }
+
+    .ranking-table tr:hover {
+      background: var(--surface3);
+    }
+
+    .ranking-table tbody tr:nth-child(even) {
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+    body.dark-theme .ranking-table tbody tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .ranking-table tbody tr:nth-child(even):hover {
+      background: var(--surface3);
+    }
+
+    .medal {
+      font-size: 0.85rem;
+    }
+
+    .rank-num {
+      font-weight: 700;
+      color: var(--text2);
+    }
+
+    /* Main table */
+    .table-section {
+      margin-bottom: 24px;
+    }
+
+    .table-header-wrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .table-info {
+      font-size: 0.8rem;
+      color: var(--text2);
+      background: var(--surface);
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+    }
+
+    #mainTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.7rem;
+      white-space: nowrap;
+    }
+
+    #mainTable th {
+      background: var(--surface2);
+      padding: 6px 8px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text2);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border-bottom: 1px solid var(--border);
+      line-height: 1.1;
+    }
+
+    #mainTable td {
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--surface2);
+      line-height: 1.1;
+    }
+
+    #mainTable tbody tr {
+      transition: background 0.1s;
+    }
+
+    #mainTable tbody tr:hover {
+      background: var(--surface3);
+    }
+
+    #mainTable tbody tr:nth-child(even) {
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+    body.dark-theme #mainTable tbody tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    #mainTable tbody tr:nth-child(even):hover {
+      background: var(--surface3);
+    }
+
+    /* Status & Colors */
+    .val-pos {
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    .val-neg {
+      color: var(--red);
+      font-weight: 600;
+    }
+
+    .status-above {
+      background: var(--green-glow);
+      color: var(--green);
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      display: inline-block;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-below {
+      background: var(--red-glow);
+      color: var(--red);
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      display: inline-block;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 16px;
+    }
+
+    .pagination button {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      min-width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .pagination button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      font-weight: 600;
+      color: #fff;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+
+    .pagination button:hover:not(.active) {
+      background: var(--surface2);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: var(--radius-sm);
+      padding: 12px 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      z-index: 999;
+      animation: slideIn 0.3s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      color: var(--text);
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @media(max-width: 1024px) {
+      .controls-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      }
+
+      .cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      }
+
+      .rankings-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo"><span class="logo-icon">📊</span> Resultado Projetado<span id="headerFileName"
+          style="font-weight:400;font-size:0.8rem;color:var(--text2);margin-left:8px;"></span></div>
+      <div class="header-actions" style="display:flex;gap:8px;align-items:center;">
+        <button id="btnThemeToggle" class="btn-icon" title="Alternar Tema">🌙</button>
+
+        <button id="btnExportCSV" class="btn btn-export" style="padding:6px 12px; font-size:0.75rem;" disabled>⬇
+          CSV</button>
+        <a href="index.html" class="btn btn-export" style="padding:6px 12px; font-size:0.75rem;">Voltar - Mercado
+          Montado</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- UPLOAD SECTION -->
+    <section class="upload-section" id="uploadSection">
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">📁</div>
+        <h2>Arraste a planilha aqui</h2>
+        <p>ou clique para selecionar o arquivo .xlsx / .xls</p>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+        <button class="btn btn-primary" id="btnSelectFiles">Selecionar Arquivo</button>
+      </div>
+    </section>
+
+    <!-- CONTROLS -->
+    <section class="controls-section" id="controlsSection" style="display:none">
+      <div class="controls-grid">
+        <div class="control-group">
+          <label>Tipo de Aba</label>
+          <select id="filterType">
+            <option value="all">Todos</option>
+            <option value="pharmacies">Farmácias/PDVs</option>
+            <option value="brands">Marcas</option>
+            <option value="products">Produtos</option>
+            <option value="cities">Cidades</option>
+            <option value="other">Outros</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>Mês Base</label>
+          <select id="filterMonthBase"></select>
+        </div>
+        <div class="control-group">
+          <label>Mês Comparação</label>
+          <select id="filterMonthCompare"></select>
+        </div>
+        <div class="control-group control-highlight">
+          <label>🎯 Meta de Crescimento (%)</label>
+          <input type="number" id="targetPct" value="14.2" step="0.1" min="0">
+        </div>
+      </div>
+    </section>
+
+    <!-- SUMMARY CARDS -->
+    <section class="cards-section" id="cardsSection" style="display:none">
+      <div class="cards-grid">
+        <div class="card" style="--card-color: #6366f1;">
+          <div class="card-icon">📅</div>
+          <div class="card-label" id="lblBase">Total Mês Base</div>
+          <div class="card-value" id="cardBase">R$ 0,00</div>
+        </div>
+        <div class="card" style="--card-color: #8b5cf6;">
+          <div class="card-icon">📆</div>
+          <div class="card-label" id="lblCompare">Total Mês Comparação</div>
+          <div class="card-value" id="cardCompare">R$ 0,00</div>
+        </div>
+        <div class="card" style="--card-color: #10b981;">
+          <div class="card-icon">📈</div>
+          <div class="card-label" id="lblVar">Variação BRL</div>
+          <div class="card-value" id="cardVar">R$ 0,00</div>
+        </div>
+        <div class="card" style="--card-color: #f59e0b;">
+          <div class="card-icon">⚡</div>
+          <div class="card-label" id="lblPct">Evolução %</div>
+          <div class="card-value" id="cardPct">0,00%</div>
+        </div>
+        <div class="card" style="--card-color: #10b981; background: var(--green-glow);">
+          <div class="card-icon">🎯</div>
+          <div class="card-label" id="lblTarget">Valor Meta Total</div>
+          <div class="card-value" id="cardTarget">R$ 0,00</div>
+        </div>
+        <div class="card" style="--card-color: #ef4444;">
+          <div class="card-icon">⚠️</div>
+          <div class="card-label" id="lblMissing">Faltam p/ Meta</div>
+          <div class="card-value" id="cardMissing">R$ 0,00</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RANKINGS -->
+    <section class="rankings-section" id="rankingsSection" style="display:none">
+      <h2 class="section-title">📈 Crescimento</h2>
+      <div class="rankings-grid" id="rankingsGridTop"></div>
+      <h2 class="section-title" style="margin-top:24px">📉 Queda</h2>
+      <div class="rankings-grid" id="rankingsGridBottom"></div>
+    </section>
+
+    <!-- MAIN TABLE -->
+    <!-- <section class="table-section" id="tableSection" style="display:none">
+      <h2 class="section-title">📋 Dados Detalhados</h2>
+      <div class="table-info"><span id="tableCount">0</span> registros</div>
+      <div class="table-wrapper">
+        <table id="mainTable">
+          <thead>
+            <tr>
+              <th>Equipe</th>
+              <th>Aba</th>
+              <th>Tipo</th>
+              <th>Nome</th>
+              <th>Mês Base</th>
+              <th>Mês Comp.</th>
+              <th>Var. BRL</th>
+              <th>Evol. %</th>
+              <th>Meta %</th>
+              <th>Meta BRL</th>
+              <th>Falta p/ Meta</th>
+              <th>Projeção</th>
+              <th>GAP</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </section>
+  </main> -->
+
+    <script>
+      /* ========== STATE ========== */
+      let allRows = [];
+      let filteredRows = [];
+      let currentPage = 1;
+      const PAGE_SIZE = 9999;
+      const monthMap = {
+        'jan': '01', 'fev': '02', 'feb': '02', 'mar': '03', 'abr': '04', 'apr': '04', 'mai': '05', 'may': '05', 'jun': '06',
+        'jul': '07', 'ago': '08', 'aug': '08', 'set': '09', 'sep': '09', 'out': '10', 'oct': '10', 'nov': '11', 'nov': '11', 'dez': '12', 'dec': '12'
+      };
+      const monthLabels = { '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez' };
+
+      /* ========== HELPERS ========== */
+      function parseBRL(v) {
+        if (v == null || v === '') return 0;
+        if (typeof v === 'number') return v;
+        let s = String(v).trim();
+        if (!s) return 0;
+        let neg = /^-|^\(|R\$\s*-|-\s*R\$/.test(s) || s.includes('(');
+        s = s.replace(/R\$/g, '').replace(/[()\-\s\u00a0]/g, '');
+
+        let match = s.match(/[.,]/g);
+        if (!match) {
+          let n = parseFloat(s);
+          return neg ? -n : (isNaN(n) ? 0 : n);
+        }
+
+        let lastSepPos = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
+        let digitsAfterLastSep = s.length - 1 - lastSepPos;
+
+        if (digitsAfterLastSep === 1 || digitsAfterLastSep === 2) {
+          let before = s.slice(0, lastSepPos).replace(/[.,]/g, '');
+          let after = s.slice(lastSepPos + 1);
+          s = before + '.' + after;
+        } else {
+          s = s.replace(/[.,]/g, '');
+        }
+
+        let n = parseFloat(s);
+        if (isNaN(n)) return 0;
+        return neg ? -n : n;
+      }
+      function parsePct(v) {
+        if (v == null || v === '') return 0;
+        if (typeof v === 'number') return v;
+        let s = String(v).trim();
+        if (!s) return 0;
+        let neg = s.includes('-');
+        s = s.replace(/[%\-\s\u00a0]/g, '');
+
+        let match = s.match(/[.,]/g);
+        if (!match) {
+          let n = parseFloat(s);
+          return neg ? -n : (isNaN(n) ? 0 : n);
+        }
+
+        let lastSepPos = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
+        let digitsAfterLastSep = s.length - 1 - lastSepPos;
+
+        if (digitsAfterLastSep === 1 || digitsAfterLastSep === 2) {
+          let before = s.slice(0, lastSepPos).replace(/[.,]/g, '');
+          let after = s.slice(lastSepPos + 1);
+          s = before + '.' + after;
+        } else {
+          s = s.replace(/[.,]/g, '');
+        }
+
+        let n = parseFloat(s);
+        if (isNaN(n)) return 0;
+        return neg ? -n : n;
+      }
+      function fmtBRL(n) {
+        if (n == null) return '—';
+        let prefix = n < 0 ? '-R$ ' : 'R$ ';
+        let abs = Math.abs(n);
+        return prefix + abs.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      function fmtPct(n) {
+        if (n == null) return '—';
+        return (n * 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+      }
+      function toast(msg) {
+        let d = document.createElement('div');
+        d.className = 'toast';
+        d.textContent = msg;
+        document.body.appendChild(d);
+        setTimeout(() => d.remove(), 3000);
+      }
+      function normalizeCol(s) { return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(); }
+
+      /* ========== CLASSIFICATION ========== */
+      function classifySheet(sheetName, firstCol) {
+        let sn = normalizeCol(sheetName);
+        let fc = normalizeCol(firstCol || '');
+        if (/pdv|farmacia|drogaria|cnpj/.test(sn + ' ' + fc)) return 'pharmacies';
+        if (/marca|brand/.test(sn + ' ' + fc)) return 'brands';
+        if (/produto|product|sku/.test(sn + ' ' + fc)) return 'products';
+        if (/cidade|city|municipio|estado/.test(sn + ' ' + fc)) return 'cities';
+        return 'other';
+      }
+      function typeLabel(t) {
+        return { pharmacies: 'Farmácias/PDVs', brands: 'Marcas', products: 'Produtos', cities: 'Cidades', other: 'Outros' }[t] || t;
+      }
+
+      /* ========== MONTH DETECTION ========== */
+      function detectMonthKey(col) {
+        let c = normalizeCol(col);
+
+        // 1. Try to match month names/abbreviations (e.g. jan/25, fevereiro 2025)
+        for (let [abbr, num] of Object.entries(monthMap)) {
+          // Match month abbreviation followed by optional separator and 2-4 digit year
+          // Handles: jan/25, jan-25, jan 25, jan25, jan/2025, jan 2025
+          let regex = new RegExp(abbr + '[a-z]*[\\s/\\-]*' + '(\\d{2,4})');
+          let m = c.match(regex);
+          if (m) {
+            let y = m[1]; if (y.length === 4) y = y.slice(2);
+            return num + '/' + y;
+          }
+        }
+
+        // 2. Try to match standard date formats from SheetJS (e.g. 01/01/25, 1/2025)
+        // Check DD/MM/YY or DD/MM/YYYY
+        let fullDateMatch = c.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+        if (fullDateMatch) {
+          let m = fullDateMatch[2].padStart(2, '0');
+          let y = fullDateMatch[3]; if (y.length === 4) y = y.slice(2);
+          return m + '/' + y;
+        }
+        // Check MM/YY or MM/YYYY
+        let shortDateMatch = c.match(/^(\d{1,2})[\/\-](\d{2,4})$/);
+        if (shortDateMatch) {
+          let m = shortDateMatch[1].padStart(2, '0');
+          let y = shortDateMatch[2]; if (y.length === 4) y = y.slice(2);
+          return m + '/' + y;
+        }
+
+        return null;
+      }
+
+      /* ========== FILE PROCESSING ========== */
+      function processFile(file) {
+        return new Promise((resolve, reject) => {
+          let reader = new FileReader();
+          reader.onload = function (e) {
+            try {
+              let teamName = file.name.replace(/\.[^.]+$/, '');
+              let wb = XLSX.read(e.target.result, { type: 'array' });
+              let rows = [];
+              let tabCount = wb.SheetNames.length;
+              wb.SheetNames.forEach(sheetName => {
+                let ws = wb.Sheets[sheetName];
+                // Use raw array mode to scan for the header row
+                let rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+                if (!rawData.length) return;
+
+                // Scan rows to find the header row (the one with most month-like cells)
+                let headerRowIdx = -1;
+                let bestMonthCount = 0;
+                for (let i = 0; i < Math.min(rawData.length, 15); i++) {
+                  let row = rawData[i];
+                  if (!Array.isArray(row)) continue;
+                  let monthCount = 0;
+                  row.forEach(cell => {
+                    if (cell && detectMonthKey(String(cell)) !== null) monthCount++;
+                  });
+                  if (monthCount > bestMonthCount) {
+                    bestMonthCount = monthCount;
+                    headerRowIdx = i;
+                  }
+                }
+                if (headerRowIdx < 0 || bestMonthCount < 2) {
+                  console.warn('[Projected-Month] Sheet', sheetName, ': no header row with month columns found. Skipping.');
+                  return;
+                }
+
+                let headerRow = rawData[headerRowIdx].map(h => String(h || '').trim());
+                console.log('[Projected-Month] Sheet:', sheetName, '| Header row index:', headerRowIdx, '| Headers:', headerRow);
+
+                // Classify sheet type from sheet name and first header cell
+                let firstCol = headerRow[0] || '';
+                let sheetType = classifySheet(sheetName, firstCol);
+
+                // Map headers to month keys and special columns
+                let monthCols = {}; // monthKey -> column index
+                let projColIdx = -1, gapColIdx = -1, nameColIdx = 0;
+                headerRow.forEach((h, idx) => {
+                  if (!h) return;
+                  let mk = detectMonthKey(h);
+                  if (mk) { monthCols[mk] = idx; return; }
+                  let nc = normalizeCol(h);
+                  if (nc.includes('projecao') || nc.includes('projeção')) projColIdx = idx;
+                  if (nc === 'gap') gapColIdx = idx;
+                  // Detect name column
+                  if (/pdv|farmacia|marca|produto|cidade|nome|name|descricao/.test(nc)) nameColIdx = idx;
+                });
+
+                console.log('[Projected-Month] Sheet:', sheetName, '| Detected months:', Object.keys(monthCols), '| Name col:', headerRow[nameColIdx]);
+
+                // Parse data rows (everything after header row)
+                for (let i = headerRowIdx + 1; i < rawData.length; i++) {
+                  let row = rawData[i];
+                  if (!Array.isArray(row)) continue;
+                  let name = String(row[nameColIdx] || '').trim();
+                  if (!name) continue;
+                  // Skip summary/total rows
+                  let nameLower = normalizeCol(name);
+                  if (/^total\s*geral|^total$|^sub\s*total|^grand\s*total/.test(nameLower)) continue;
+                  let monthValues = {};
+                  for (let [mk, colIdx] of Object.entries(monthCols)) {
+                    monthValues[mk] = parseBRL(row[colIdx]);
+                  }
+                  let proj = projColIdx >= 0 ? parsePct(row[projColIdx]) : null;
+                  let gap = gapColIdx >= 0 ? parseBRL(row[gapColIdx]) : null;
+                  rows.push({ team: teamName, sheet: sheetName, type: sheetType, name, monthValues, projection: proj, gap });
+                }
+              });
+              // Debug: log first 3 rows of first sheet to console
+              if (rows.length > 0) {
+                console.log('[Projected-Month] Team:', teamName, '| Tabs:', tabCount, '| Total rows:', rows.length);
+                console.log('[Projected-Month] Sample rows:', rows.slice(0, 3).map(r => ({ name: r.name, sheet: r.sheet, type: r.type, months: r.monthValues, proj: r.projection, gap: r.gap })));
+              }
+              resolve({ rows, tabCount });
+            } catch (err) { reject(err); }
+          };
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(file);
+        });
+      }
+
+      /* ========== UI INIT ========== */
+      const $ = id => document.getElementById(id);
+      const uploadZone = $('uploadZone'), fileInput = $('fileInput');
+
+      $('btnSelectFiles').addEventListener('click', () => fileInput.click());
+      uploadZone.addEventListener('click', (e) => { if (e.target === uploadZone || e.target.closest('.upload-zone')) fileInput.click(); });
+      uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+      uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+      uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+      fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+      async function handleFiles(files) {
+        // Single-file mode: clear previous data
+        allRows = [];
+        let fileListEl = $('fileList');
+        if (fileListEl) fileListEl.innerHTML = '';
+        let f = files[0];
+        if (!f) return;
+        try {
+          let result = await processFile(f);
+          allRows = result.rows;
+          $('headerFileName').textContent = '— ' + f.name + ' (' + result.tabCount + ' abas, ' + allRows.length + ' linhas)';
+        } catch (err) {
+          toast('Erro ao ler: ' + f.name);
+          console.error(err);
+          return;
+        }
+        if (allRows.length) {
+          populateFilters();
+          applyFilters();
+          showSections();
+          toast(allRows.length + ' registros carregados!');
+        }
+      }
+
+      function showSections() {
+        ['controlsSection', 'cardsSection', 'rankingsSection'].forEach(id => {
+          let el = $(id); if (el) el.style.display = '';
+        });
+        $('uploadSection').style.display = 'none';
+        $('btnExportCSV').disabled = false;
+      }
+
+      /* ========== THEME TOGGLE ========== */
+      $('btnThemeToggle').addEventListener('click', () => {
+        document.body.classList.toggle('dark-theme');
+        let isDark = document.body.classList.contains('dark-theme');
+        $('btnThemeToggle').innerHTML = isDark ? '☀️' : '🌙';
+      });
+
+      /* ========== FILTERS ========== */
+      function populateFilters() {
+        // Months - collect all month keys from all rows
+        let allMonths = new Set();
+        allRows.forEach(r => Object.keys(r.monthValues).forEach(k => allMonths.add(k)));
+        console.log('[Projected-Month] Detected months:', [...allMonths]);
+        let sorted = [...allMonths].sort((a, b) => {
+          let [am, ay] = a.split('/'); let [bm, by] = b.split('/');
+          return (ay + am).localeCompare(by + bm);
+        });
+        let baseSelect = $('filterMonthBase'), compSelect = $('filterMonthCompare');
+        baseSelect.innerHTML = ''; compSelect.innerHTML = '';
+        sorted.forEach(mk => {
+          let [m, y] = mk.split('/');
+          let label = (monthLabels[m] || m) + '/20' + y;
+          let o1 = document.createElement('option'); o1.value = mk; o1.textContent = label;
+          let o2 = o1.cloneNode(true);
+          baseSelect.appendChild(o1); compSelect.appendChild(o2);
+        });
+        // Auto-select abr/25 and abr/26 if available
+        if (sorted.includes('04/25')) baseSelect.value = '04/25';
+        if (sorted.includes('04/26')) compSelect.value = '04/26';
+      }
+
+      // Attach filter listeners
+      ['filterType', 'filterMonthBase', 'filterMonthCompare'].forEach(id => {
+        $(id).addEventListener('change', () => { currentPage = 1; applyFilters(); });
+      });
+      $('targetPct').addEventListener('input', () => applyFilters());
+
+      function applyFilters() {
+        let type = $('filterType').value;
+        let mBase = $('filterMonthBase').value;
+        let mComp = $('filterMonthCompare').value;
+        let tgtPct = parseFloat($('targetPct').value) || 0;
+
+        // Build computed rows
+        let computed = allRows.map(r => {
+          let base = r.monthValues[mBase] || 0;
+          let comp = r.monthValues[mComp] || 0;
+          let brlVar = comp - base;
+          let pctVar = base !== 0 ? (comp / base) - 1 : null;
+          let targetVal = base * (1 + tgtPct / 100);
+          let missing = targetVal - comp;
+          let status = comp >= targetVal ? 'above' : 'below';
+          return { ...r, base, comp, brlVar, pctVar, targetPct: tgtPct, targetVal, missing, status };
+        });
+
+        // Filter
+        if (type !== 'all') computed = computed.filter(r => r.type === type);
+
+        // Sort by variation (default)
+        computed.sort((a, b) => b.brlVar - a.brlVar);
+
+        filteredRows = computed;
+        renderCards(computed);
+        renderRankings(computed);
+        // renderTable();
+      }
+
+      /* ========== CARDS ========== */
+      function renderCards(rows) {
+        let mBase = $('filterMonthBase').value;
+        let mComp = $('filterMonthCompare').value;
+        let baseLabel = '', compLabel = '';
+        if (mBase) { let [m, y] = mBase.split('/'); baseLabel = (monthLabels[m] || m) + '/' + y; }
+        if (mComp) { let [m, y] = mComp.split('/'); compLabel = (monthLabels[m] || m) + '/' + y; }
+
+        $('lblBase').textContent = `Total ${baseLabel}`;
+        $('lblCompare').textContent = `Total ${compLabel}`;
+        $('lblVar').textContent = `Var. BRL (${baseLabel} ➔ ${compLabel})`;
+        $('lblPct').textContent = `Evolução % (${baseLabel} ➔ ${compLabel})`;
+        $('lblTarget').textContent = `Meta Total (${compLabel})`;
+        $('lblMissing').textContent = `Faltam p/ Meta (${compLabel})`;
+
+        let cardRows = rows;
+        // If rows contain multiple categories (e.g. from all 3 tabs), we must pick only ONE 
+        // category to sum. Otherwise, the totals will be multiplied by the number of tabs.
+        let types = [...new Set(rows.map(r => r.type))];
+        if (types.length > 1) {
+          let selectedType = types.includes('pharmacies') ? 'pharmacies' :
+            types.includes('brands') ? 'brands' :
+              types.includes('products') ? 'products' :
+                types.includes('cities') ? 'cities' : types[0];
+          cardRows = rows.filter(r => r.type === selectedType);
+        }
+
+        let totBase = cardRows.reduce((s, r) => s + r.base, 0);
+        let totComp = cardRows.reduce((s, r) => s + r.comp, 0);
+        let totVar = totComp - totBase;
+        let totPct = totBase !== 0 ? (totComp / totBase) - 1 : null;
+        let totTarget = cardRows.reduce((s, r) => s + r.targetVal, 0);
+        let totMissing = totTarget - totComp;
+
+        $('cardBase').textContent = fmtBRL(totBase);
+        $('cardCompare').textContent = fmtBRL(totComp);
+        let varEl = $('cardVar'); varEl.innerHTML = `<span class="trend-icon">${totVar >= 0 ? '↑' : '↓'}</span> ` + fmtBRL(totVar); varEl.className = 'card-value ' + (totVar >= 0 ? 'val-pos' : 'val-neg');
+        let pctEl = $('cardPct'); pctEl.innerHTML = `<span class="trend-icon">${totPct !== null && totPct >= 0 ? '↑' : '↓'}</span> ` + fmtPct(totPct); pctEl.className = 'card-value ' + (totPct !== null && totPct >= 0 ? 'val-pos' : 'val-neg');
+        $('cardTarget').textContent = fmtBRL(totTarget); $('cardTarget').className = 'card-value val-pos';
+        let missEl = $('cardMissing'); missEl.innerHTML = `<span class="trend-icon">${totMissing <= 0 ? '↑' : '↓'}</span> ` + fmtBRL(totMissing); missEl.className = 'card-value ' + (totMissing <= 0 ? 'val-pos' : 'val-neg');
+      }
+
+      /* ========== RANKINGS ========== */
+      function renderRankings(rows) {
+        let gridTop = $('rankingsGridTop');
+        let gridBottom = $('rankingsGridBottom');
+        gridTop.innerHTML = '';
+        gridBottom.innerHTML = '';
+        let categories = [
+          { type: 'pharmacies', label: 'PDVs' },
+          { type: 'brands', label: 'Marcas' },
+          { type: 'products', label: 'Produtos' },
+          { type: 'cities', label: 'Cidades' }
+        ];
+
+        categories.forEach(cat => {
+          let catRows = rows.filter(r => r.type === cat.type);
+          if (!catRows.length) return;
+          let sorted = [...catRows].sort((a, b) => b.brlVar - a.brlVar);
+          let top10 = sorted.slice(0, 10);
+          let bottom10 = sorted.slice(-10).reverse();
+          gridTop.appendChild(buildRankingCard('🟢 Top 10 ' + cat.label, top10));
+          gridBottom.appendChild(buildRankingCard('🔴 10 Piores ' + cat.label, bottom10));
+        });
+      }
+
+      function buildRankingCard(title, rows) {
+        let card = document.createElement('div');
+        card.className = 'ranking-card';
+        let header = document.createElement('div');
+        header.className = 'ranking-header';
+        header.innerHTML = '<span>' + title + '</span><span>▼</span>';
+        let body = document.createElement('div');
+        body.className = 'ranking-body open';
+        let table = document.createElement('table');
+        table.className = 'ranking-table';
+        table.innerHTML = '<thead><tr><th>#</th><th>Nome</th><th>Var. BRL</th><th>Evol. %</th></tr></thead>';
+
+        let isTop = title.includes('Top');
+        let tbody = document.createElement('tbody');
+        rows.forEach((r, i) => {
+          let tr = document.createElement('tr');
+          let cls = r.brlVar >= 0 ? 'val-pos' : 'val-neg';
+          let rankHtml = (isTop && i === 0) ? '<span class="medal">🥇</span>' :
+            (isTop && i === 1) ? '<span class="medal">🥈</span>' :
+              (isTop && i === 2) ? '<span class="medal">🥉</span>' :
+                '<span class="rank-num">' + (i + 1) + '</span>';
+          tr.innerHTML = '<td>' + rankHtml + '</td><td title="' + r.name + '">' + r.name + '</td><td class="' + cls + '">' + fmtBRL(r.brlVar) + '</td><td class="' + cls + '">' + fmtPct(r.pctVar) + '</td>';
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        body.appendChild(table);
+        header.addEventListener('click', () => body.classList.toggle('open'));
+        card.appendChild(header);
+        card.appendChild(body);
+        return card;
+      }
+
+      /* ========== MAIN TABLE ========== */
+      function renderTable() {
+        let tbody = $('tableBody');
+        tbody.innerHTML = '';
+        let totalPages = Math.ceil(filteredRows.length / PAGE_SIZE) || 1;
+        if (currentPage > totalPages) currentPage = totalPages;
+        let start = (currentPage - 1) * PAGE_SIZE;
+        let pageRows = filteredRows.slice(start, start + PAGE_SIZE);
+        $('tableCount').textContent = filteredRows.length;
+
+        pageRows.forEach(r => {
+          let tr = document.createElement('tr');
+          let vc = r.brlVar >= 0 ? 'val-pos' : 'val-neg';
+          let sc = r.status === 'above' ? 'status-above' : 'status-below';
+          let sl = r.status === 'above' ? 'Acima' : 'Abaixo';
+          tr.innerHTML =
+            '<td>' + r.team + '</td>' +
+            '<td>' + r.sheet + '</td>' +
+            '<td>' + typeLabel(r.type) + '</td>' +
+            '<td title="' + r.name + '">' + (r.name.length > 40 ? r.name.slice(0, 40) + '…' : r.name) + '</td>' +
+            '<td>' + fmtBRL(r.base) + '</td>' +
+            '<td>' + fmtBRL(r.comp) + '</td>' +
+            '<td class="' + vc + '">' + fmtBRL(r.brlVar) + '</td>' +
+            '<td class="' + vc + '">' + fmtPct(r.pctVar) + '</td>' +
+            '<td>' + r.targetPct.toLocaleString('pt-BR') + '%</td>' +
+            '<td>' + fmtBRL(r.targetVal) + '</td>' +
+            '<td class="' + (r.missing > 0 ? 'val-neg' : 'val-pos') + '">' + fmtBRL(r.missing) + '</td>' +
+            '<td>' + (r.projection != null ? fmtPct(r.projection / 100) : '—') + '</td>' +
+            '<td class="' + (r.gap != null && r.gap < 0 ? 'val-neg' : 'val-pos') + '">' + (r.gap != null ? fmtBRL(r.gap) : '—') + '</td>' +
+            '<td><span class="' + sc + '">' + sl + '</span></td>';
+          tbody.appendChild(tr);
+        });
+        renderPagination(totalPages);
+      }
+
+      function renderPagination(totalPages) {
+        let pg = $('pagination');
+        pg.innerHTML = '';
+        if (totalPages <= 1) return;
+        let maxShow = 7;
+        let pages = [];
+        if (totalPages <= maxShow) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
+        else {
+          pages.push(1);
+          let s = Math.max(2, currentPage - 1), e = Math.min(totalPages - 1, currentPage + 1);
+          if (s > 2) pages.push('...');
+          for (let i = s; i <= e; i++) pages.push(i);
+          if (e < totalPages - 1) pages.push('...');
+          pages.push(totalPages);
+        }
+        pages.forEach(p => {
+          let btn = document.createElement('button');
+          if (p === '...') { btn.textContent = '…'; btn.disabled = true; }
+          else {
+            btn.textContent = p;
+            if (p === currentPage) btn.classList.add('active');
+            btn.addEventListener('click', () => { currentPage = p; });
+          }
+          pg.appendChild(btn);
+        });
+      }
+
+      /* ========== CSV EXPORT ========== */
+      $('btnExportCSV').addEventListener('click', exportCSV);
+
+      function exportCSV() {
+        if (!filteredRows.length) return;
+        let sep = ';';
+        let headers = ['Equipe', 'Aba', 'Tipo', 'Nome', 'Mes Base', 'Mes Comparacao', 'Var BRL', 'Evol %', 'Meta %', 'Meta BRL', 'Falta p/ Meta', 'Projecao', 'GAP', 'Status'];
+        let lines = [headers.join(sep)];
+        filteredRows.forEach(r => {
+          let row = [
+            r.team, r.sheet, typeLabel(r.type), '"' + r.name.replace(/"/g, '""') + '"',
+            fmtBRL(r.base), fmtBRL(r.comp), fmtBRL(r.brlVar), fmtPct(r.pctVar),
+            r.targetPct.toLocaleString('pt-BR') + '%',
+            fmtBRL(r.targetVal), fmtBRL(r.missing),
+            r.projection != null ? fmtPct(r.projection / 100) : '',
+            r.gap != null ? fmtBRL(r.gap) : '',
+            r.status === 'above' ? 'Acima' : 'Abaixo'
+          ];
+          lines.push(row.join(sep));
+        });
+        let bom = '\uFEFF';
+        let blob = new Blob([bom + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url; a.download = 'projected_month_export.csv'; a.click();
+        URL.revokeObjectURL(url);
+        toast('CSV exportado!');
+      }
+    </script>
+</body>
+
+</html>

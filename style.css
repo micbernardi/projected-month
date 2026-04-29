@@ -1,0 +1,1969 @@
+/* ════════════════════════════════════════
+   SUPERA RX — ANÁLISE ESTRATÉGICA
+   style.css v3 — header da tabela fixo e ordenável,
+                  modais de bricks e layout alinhado aos prints
+   ════════════════════════════════════════ */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0
+}
+
+:root {
+    /* v3.8 — paleta híbrida: header em azul-marinho discreto (bem menos
+       agressivo que o slate-800) com texto branco, e demais barras (KPI,
+       tabs, filtros) em cinza claro com texto escuro. Combina identidade
+       corporativa com conforto visual.                                    */
+    --navy: #25395a;
+    /* header — azul-marinho discreto (navy suave)   */
+    --navy2: #eef2f8;
+    /* KPI bar  — cinza claro (quase branco)         */
+    --navy3: #e5eaf2;
+    /* tabs     — cinza um pouco mais marcado         */
+    --navy4: #cbd2e0;
+    /* bordas/separadores nas barras claras           */
+    /* tokens de texto para as barras claras (KPI/tabs/filtros) */
+    --top-txt: #1e293b;
+    /* texto principal                              */
+    --top-txt2: #475569;
+    /* texto secundário                             */
+    --top-txt3: #64748b;
+    /* labels discretos                             */
+    --top-accent: #1d4ed8;
+    /* azul de destaque (tab ativa, focus)          */
+    --bg: #f3f5fa;
+    --s1: #ffffff;
+    --s2: #f5f7fc;
+    --s3: #e9edf5;
+    --brd: #dbe1ed;
+    --txt: #1e293b;
+    /* slate-800 para textos principais              */
+    --txt2: #475569;
+    /* slate-600 para secundários                    */
+    --txt3: #94a3b8;
+    /* slate-400 para discretos                      */
+
+    /* cores das recomendações */
+    --c-lider: #059669;
+    --c-crescer: #1d4ed8;
+    --c-oport: #ea580c;
+    --c-acomp: #64748b;
+    --c-entrar: #dc2626;
+
+    --acc: #1e40af;
+    --grn: #059669;
+    --red: #dc2626;
+    --ylw: #d97706;
+
+    /* alturas das barras sticky */
+    --hdr-h: 60px;
+    --kpi-h: 48px;
+    --tab-h: 38px;
+    --fb-h: 46px;
+    --r: 5px;
+
+    --sticky-tab: calc(var(--hdr-h) + var(--kpi-h));
+    --sticky-fb: calc(var(--hdr-h) + var(--kpi-h) + var(--tab-h));
+    --sticky-tbl: calc(var(--hdr-h) + var(--kpi-h) + var(--tab-h) + var(--fb-h));
+}
+
+html {
+    scroll-behavior: smooth
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--txt);
+    font-size: 13px;
+    min-height: 100vh;
+    /* v3.6 (rev) — body rola horizontal junto com a tabela larga.
+       As barras superiores são `position: fixed` para não saírem da tela. */
+    overflow-x: auto;
+}
+
+/* ════════════════════════════════════════
+   HEADER PRINCIPAL
+════════════════════════════════════════ */
+.hdr {
+    background: var(--navy);
+    height: var(--hdr-h);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 400;
+    border-bottom: 1px solid #1a2a44;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, .15);
+    gap: 16px;
+}
+
+.hdr-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0
+}
+
+.hdr-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    line-height: 1
+}
+
+.hdr-sup {
+    font-size: 11px;
+    font-weight: 800;
+    color: #93c5fd;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+
+.hdr-sep {
+    color: rgba(255, 255, 255, .3);
+    font-size: 14px
+}
+
+.hdr-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+}
+
+.hdr-sub {
+    font-size: 11px;
+    color: #a9c2e8;
+    font-weight: 500;
+    letter-spacing: .2px;
+}
+
+.hdr-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0
+}
+
+.period-grp,
+.unit-grp {
+    display: flex;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: var(--r);
+    overflow: hidden;
+}
+
+.period-btn,
+.unit-btn {
+    background: rgba(255, 255, 255, .06);
+    color: #c9d9f0;
+    border: none;
+    border-right: 1px solid rgba(255, 255, 255, .18);
+    padding: 5px 11px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: .3px;
+    transition: background .15s, color .15s;
+}
+
+.period-btn:last-child,
+.unit-btn:last-child {
+    border-right: none
+}
+
+.period-btn.active,
+.unit-btn.active {
+    background: #3b82f6;
+    color: #fff;
+}
+
+.period-btn:hover:not(.active),
+.unit-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, .14);
+    color: #fff
+}
+
+.hdr-upload-btn,
+.hdr-send-btn {
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: var(--r);
+    padding: 6px 13px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+}
+
+.hdr-upload-btn {
+    background: rgba(255, 255, 255, .08);
+    color: #e6eefb
+}
+
+.hdr-upload-btn:hover {
+    background: rgba(255, 255, 255, .18)
+}
+
+.hdr-send-btn {
+    background: #3b82f6;
+    color: #fff;
+    border-color: #3b82f6
+}
+
+.hdr-send-btn:hover {
+    background: #2563eb
+}
+
+/* ════════════════════════════════════════
+   KPI STRIP
+════════════════════════════════════════ */
+.kpi-strip {
+    background: var(--navy2);
+    border-bottom: 1px solid var(--navy4);
+    height: var(--kpi-h);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 0;
+    overflow-x: auto;
+    position: fixed;
+    top: var(--hdr-h);
+    left: 0;
+    right: 0;
+    z-index: 350;
+    flex-shrink: 0;
+}
+
+.kpi-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 16px;
+    border-right: 1px solid var(--navy4);
+    flex-shrink: 0;
+}
+
+.kpi-lbl {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--top-txt3);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+}
+
+.kpi-val {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--top-txt);
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.kpi-sep {
+    width: 1px;
+    height: 28px;
+    background: var(--navy4);
+    margin: 0 8px;
+    flex-shrink: 0;
+}
+
+.kpi-rec {
+    min-width: 72px
+}
+
+.kpi-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.b-lider {
+    background: var(--c-lider);
+    color: #fff
+}
+
+.b-crescer {
+    background: var(--c-crescer);
+    color: #fff
+}
+
+.b-oport {
+    background: var(--c-oport);
+    color: #fff
+}
+
+.b-acomp {
+    background: var(--c-acomp);
+    color: #fff
+}
+
+.b-entrar {
+    background: var(--c-entrar);
+    color: #fff
+}
+
+/* ════════════════════════════════════════
+   UPLOAD SCREEN
+════════════════════════════════════════ */
+.upload-screen {
+    min-height: calc(100vh - var(--hdr-h));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+}
+
+.upload-box {
+    background: var(--s1);
+    border: 2px dashed var(--brd);
+    border-radius: 16px;
+    padding: 56px 40px;
+    text-align: center;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 6px 26px rgba(0, 0, 0, .08);
+    transition: border-color .2s, background .2s;
+}
+
+.upload-box:hover,
+.upload-box.drag {
+    border-color: var(--acc)
+}
+
+.upload-box.drag {
+    background: rgba(30, 64, 175, .04)
+}
+
+.upload-icon {
+    font-size: 48px;
+    margin-bottom: 16px
+}
+
+.upload-box h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--txt);
+    margin-bottom: 10px
+}
+
+.upload-box p {
+    color: var(--txt2);
+    font-size: 13px;
+    line-height: 1.6
+}
+
+.btn-primary {
+    background: var(--acc);
+    color: #fff;
+    border: none;
+    border-radius: var(--r);
+    padding: 10px 24px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.btn-primary:hover {
+    background: #1e3a8a
+}
+
+/* ════════════════════════════════════════
+   TAB RAIL
+════════════════════════════════════════ */
+/* v3.5 — tab-rail permite quebra em 2 linhas para caber todos os setores
+   visíveis na tela sem overflow horizontal. A altura final é medida via
+   JS (recomputeStickyOffsets) e aplicada a `--sticky-fb` / `--sticky-tbl`. */
+.tab-rail {
+    background: var(--navy3);
+    min-height: var(--tab-h);
+    display: flex;
+    align-items: center;
+    padding: 4px 12px;
+    gap: 3px 6px;
+    position: fixed;
+    top: calc(var(--hdr-h) + var(--kpi-h));
+    left: 0;
+    right: 0;
+    z-index: 300;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--navy4);
+}
+
+.tab-rail::-webkit-scrollbar {
+    height: 0
+}
+
+.tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--top-txt2);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color .15s, border-color .15s;
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.tab.active {
+    color: var(--top-accent);
+    border-bottom-color: var(--top-accent)
+}
+
+.tab:hover:not(.active) {
+    color: var(--top-txt)
+}
+
+.tab-rail-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--navy4);
+    margin: 0 6px;
+    flex-shrink: 0
+}
+
+.tab-view {
+    padding: 0;
+    padding-top: var(--sticky-tbl);
+}
+
+/* ════════════════════════════════════════
+   FILTER BAR
+════════════════════════════════════════ */
+.filter-bar {
+    background: #ffffff;
+    height: var(--fb-h);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+    position: fixed;
+    top: var(--sticky-fb);
+    left: 0;
+    right: 0;
+    z-index: 280;
+    border-bottom: 1px solid var(--navy4);
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+
+.filter-bar::-webkit-scrollbar {
+    height: 0
+}
+
+.fb-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--top-txt3);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    white-space: nowrap;
+}
+
+.filter-bar select,
+.filter-bar input {
+    background: #f8fafc;
+    border: 1px solid var(--navy4);
+    color: var(--top-txt);
+    border-radius: var(--r);
+    padding: 4px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+}
+
+.filter-bar select {
+    max-width: 170px
+}
+
+.filter-bar select option {
+    background: #ffffff;
+    color: var(--top-txt)
+}
+
+.filter-bar select:focus,
+.filter-bar input:focus {
+    border-color: var(--top-accent);
+    background: #fff
+}
+
+.fb-search-wrap {
+    flex-shrink: 0
+}
+
+.fb-search {
+    width: 220px
+}
+
+.fb-search::placeholder {
+    color: var(--top-txt3)
+}
+
+.fb-spacer {
+    flex: 1
+}
+
+.fb-btn {
+    border: 1px solid var(--navy4);
+    border-radius: var(--r);
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+    background: #fff;
+    color: var(--top-txt);
+}
+
+.fb-btn:hover {
+    background: #f1f5f9
+}
+
+/* ════════════════════════════════════════
+   TABELA PRINCIPAL — HEADER FIXO E ORDENÁVEL
+════════════════════════════════════════ */
+/* v3.3 — wrapper só com scroll horizontal; vertical fica visible para o
+   sticky do <thead> ancorar no viewport (atrás das barras superiores). */
+/* IMPORTANTE: SEM overflow aqui. Quando o overflow-x é auto, o navegador
+   promove overflow-y automáticamente, criando um scroll container e
+   quebrando o sticky do <th> no topo do viewport. Como nossa tabela do
+   Resumo não precisa rolar horizontalmente (cabe na tela), deixamos o
+   <body> como único scroll container. */
+.tbl-wrap {
+    border-bottom: 1px solid var(--brd);
+    background: var(--s1);
+}
+
+.main-tbl {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12.5px;
+    min-width: 1100px;
+}
+
+/* cabeçalho sticky e fixo */
+.main-tbl thead.tbl-head-fixed th {
+    background: var(--navy);
+    color: #e2eaf6;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    padding: 11px 10px;
+    border-bottom: 2px solid #1a2a44;
+    white-space: nowrap;
+    position: sticky;
+    top: var(--sticky-tbl);
+    z-index: 50;
+    user-select: none;
+    text-align: left;
+}
+
+.main-tbl thead th.r {
+    text-align: right
+}
+
+.main-tbl thead th.c {
+    text-align: center
+}
+
+.main-tbl thead th.sortable {
+    cursor: pointer;
+    transition: background .15s, color .15s
+}
+
+.main-tbl thead th.sortable:hover {
+    background: #1a2a44;
+    color: #93c5fd
+}
+
+.sort-arr {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 10px;
+    opacity: .55;
+    vertical-align: middle;
+    color: #93c5fd;
+}
+
+.sort-arr.on {
+    opacity: 1;
+    color: #60a5fa
+}
+
+/* destaque dos cabeçalhos de recomendação */
+.main-tbl thead th.c-lider {
+    color: #6ee7b7
+}
+
+.main-tbl thead th.c-crescer {
+    color: #93c5fd
+}
+
+.main-tbl thead th.c-oport {
+    color: #fdba74
+}
+
+.main-tbl thead th.c-acomp {
+    color: #cbd5e1
+}
+
+.main-tbl thead th.c-entrar {
+    color: #fca5a5
+}
+
+/* corpo */
+.main-tbl tbody tr {
+    border-bottom: 1px solid var(--brd);
+    transition: background .1s
+}
+
+.main-tbl tbody tr:nth-child(even) td {
+    background: rgba(0, 0, 0, .015)
+}
+
+.main-tbl tbody tr:hover td {
+    background: rgba(30, 64, 175, .08)
+}
+
+.main-tbl tbody td {
+    padding: 6px 10px;
+    vertical-align: middle;
+    color: var(--txt);
+    border-bottom: 1px solid var(--brd)
+}
+
+.main-tbl tbody td.r {
+    text-align: right
+}
+
+.main-tbl tbody td.c {
+    text-align: center
+}
+
+.mkt-row {
+    background: #fff
+}
+
+.mkt-row td {
+    font-weight: 500;
+    padding: 6px 10px
+}
+
+.mkt-name {
+    font-weight: 700;
+    color: var(--txt);
+    font-size: 12.5px
+}
+
+.mkt-sec {
+    font-size: 10px;
+    color: var(--txt3);
+    margin-top: 2px;
+    letter-spacing: .3px
+}
+
+.expand-cell {
+    text-align: center;
+    padding: 6px !important
+}
+
+.expand-btn {
+    background: var(--navy);
+    border: 1px solid #1a2a44;
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    color: #e2eaf6;
+    transition: background .15s, transform .1s;
+}
+
+.expand-btn:hover {
+    background: #1a2a44;
+    transform: scale(1.08)
+}
+
+.bricks-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--s3);
+    color: var(--txt2);
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    min-width: 34px;
+}
+
+.share-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.sbar {
+    display: inline-block;
+    width: 60px;
+    height: 5px;
+    background: var(--s3);
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.sbar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width .25s
+}
+
+/* badges de recomendação */
+.rec-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 24px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 9px;
+    cursor: pointer;
+    transition: transform .1s, box-shadow .15s;
+    white-space: nowrap;
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .1);
+}
+
+.rec-badge:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 7px rgba(0, 0, 0, .2)
+}
+
+.rec-badge.zero {
+    background: transparent;
+    color: var(--txt3);
+    cursor: default;
+    box-shadow: none;
+    font-weight: 500;
+}
+
+.rec-badge.zero:hover {
+    transform: none
+}
+
+.rb-lider {
+    background: var(--c-lider)
+}
+
+.rb-crescer {
+    background: var(--c-crescer)
+}
+
+.rb-oport {
+    background: var(--c-oport)
+}
+
+.rb-acomp {
+    background: var(--c-acomp)
+}
+
+.rb-entrar {
+    background: var(--c-entrar)
+}
+
+/* botão ver */
+.ver-btn {
+    background: #fff;
+    border: 1px solid var(--brd);
+    color: var(--acc);
+    border-radius: var(--r);
+    padding: 5px 11px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+
+.ver-btn:hover {
+    background: var(--acc);
+    color: #fff;
+    border-color: var(--acc)
+}
+
+/* helpers */
+.vpos {
+    color: var(--grn);
+    font-weight: 600
+}
+
+.vneg {
+    color: var(--red);
+    font-weight: 600
+}
+
+.vacc {
+    color: var(--acc);
+    font-weight: 700
+}
+
+/* linhas expandidas (bricks) */
+.brick-row td {
+    background: #f7f9ff !important
+}
+
+.brick-cell {
+    padding-left: 18px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.brick-loc {
+    font-size: 11px;
+    color: var(--txt2)
+}
+
+.brick-code {
+    font-size: 10px;
+    color: var(--txt3);
+    font-family: 'Inter', monospace;
+    letter-spacing: .3px
+}
+
+.brick-sector {
+    font-size: 9px;
+    color: var(--txt3);
+    text-transform: uppercase;
+    letter-spacing: .4px
+}
+
+.brick-code-mono {
+    font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+    font-size: 12px;
+    background: #eef2f8;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--navy)
+}
+
+.rec-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: .4px;
+}
+
+.flash {
+    animation: flash 1.5s ease
+}
+
+@keyframes flash {
+    0% {
+        background: rgba(96, 165, 250, .4)
+    }
+
+    100% {
+        background: transparent
+    }
+}
+
+.tbl-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--txt3);
+    font-size: 14px;
+}
+
+/* ════════════════════════════════════════
+   MODAL
+════════════════════════════════════════ */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .6);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+}
+
+.modal-overlay.open {
+    display: flex
+}
+
+.modal {
+    background: var(--s1);
+    border-radius: 12px;
+    width: 100%;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .4);
+    overflow: hidden;
+}
+
+.modal-lg {
+    max-width: 780px
+}
+
+.modal-xl {
+    max-width: 1350px
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid #1a2a44;
+    background: var(--navy);
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.modal-title {
+    font-weight: 700;
+    font-size: 14.5px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px
+}
+
+.mmodal-mkt {
+    font-weight: 800;
+    letter-spacing: .3px
+}
+
+.mmodal-sep {
+    opacity: .4
+}
+
+.mmodal-rec {
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700
+}
+
+.mmodal-sub {
+    font-size: 11px;
+    color: #9cc2ed;
+    font-weight: 500;
+    margin-left: 8px
+}
+
+.close-btn {
+    background: rgba(255, 255, 255, .1);
+    border: none;
+    font-size: 15px;
+    cursor: pointer;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: background .15s;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, .25)
+}
+
+.modal-body {
+    overflow-y: auto;
+    padding: 18px 20px;
+    flex: 1
+}
+
+.modal-footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--brd);
+    font-size: 12px;
+    color: var(--txt2);
+    font-weight: 600;
+    flex-shrink: 0;
+    background: var(--s2);
+}
+
+/* tabelas dentro dos modais */
+.modal-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+
+.modal-tbl thead th {
+    background: var(--navy);
+    color: #e2eaf6;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 9px 10px;
+    text-align: left;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    border-bottom: 2px solid #1a2a44;
+}
+
+.modal-tbl thead th.r {
+    text-align: right
+}
+
+.modal-tbl thead th.c {
+    text-align: center
+}
+
+.modal-tbl tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--brd);
+    vertical-align: middle
+}
+
+.modal-tbl tbody td.r {
+    text-align: right
+}
+
+.modal-tbl tbody td.c {
+    text-align: center
+}
+
+.modal-tbl tbody tr:hover td {
+    background: rgba(30, 64, 175, .05)
+}
+
+.modal-tbl .w-hash {
+    width: 40px;
+    color: var(--txt3);
+    font-weight: 600
+}
+
+.row-supera td {
+    background: inherit !important
+}
+
+.tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .4px;
+}
+
+.tag-supera {
+    background: var(--s3);
+    color: var(--txt2)
+}
+
+.tag-conc {
+    background: #e5e7eb;
+    color: #374151
+}
+
+.ver-h4 {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--txt2);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    margin: 18px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--brd);
+}
+
+.ver-rec-summary {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.ver-rec-item {
+    background: var(--s2);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    border-top: 3px solid transparent;
+}
+
+.ver-rec-item.rb-lider {
+    border-top-color: var(--c-lider)
+}
+
+.ver-rec-item.rb-crescer {
+    border-top-color: var(--c-crescer)
+}
+
+.ver-rec-item.rb-oport {
+    border-top-color: var(--c-oport)
+}
+
+.ver-rec-item.rb-acomp {
+    border-top-color: var(--c-acomp)
+}
+
+.ver-rec-item.rb-entrar {
+    border-top-color: var(--c-entrar)
+}
+
+.ver-rec-n {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--txt);
+    line-height: 1
+}
+
+.ver-rec-l {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--txt2);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-top: 4px
+}
+
+/* ════════════════════════════════════════
+   ABAS AUXILIARES
+════════════════════════════════════════ */
+.panel-block {
+    padding: 18px 20px;
+    background: #fff
+}
+
+.panel-h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--txt);
+    margin-bottom: 4px
+}
+
+.panel-sub {
+    font-size: 12px;
+    color: var(--txt2);
+    margin-bottom: 14px
+}
+
+.pot-pill {
+    background: #ecfdf5;
+    color: var(--c-lider);
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* Gráficos */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 16px;
+    padding: 16px;
+    background: var(--bg);
+}
+
+.chart-card {
+    background: var(--s1);
+    border: 1px solid var(--brd);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
+}
+
+.chart-card-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--txt2);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--brd);
+}
+
+.bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+    font-size: 11px
+}
+
+.bar-label {
+    min-width: 130px;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--txt2)
+}
+
+.bar-track {
+    flex: 1;
+    height: 8px;
+    background: var(--s3);
+    border-radius: 4px;
+    overflow: hidden
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width .3s
+}
+
+.bar-val {
+    min-width: 60px;
+    text-align: right;
+    color: var(--txt);
+    font-weight: 600
+}
+
+.rec-summary {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 10px
+}
+
+.rec-sum-item {
+    background: var(--s1);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    padding: 12px 18px;
+    flex: 1;
+    min-width: 110px;
+    text-align: center;
+}
+
+.rec-sum-count {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px
+}
+
+.rec-sum-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: var(--txt2)
+}
+
+/* ════════════════════════════════════════
+   TOAST
+════════════════════════════════════════ */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--navy);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    z-index: 9999;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .3);
+    animation: fadeInUp .2s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px)
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0)
+    }
+}
+
+/* ════════════════════════════════════════
+   SCROLLBAR
+════════════════════════════════════════ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px
+}
+
+::-webkit-scrollbar-track {
+    background: var(--s2)
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8
+}
+
+/* ════════════════════════════════════════
+   RESPONSIVE
+════════════════════════════════════════ */
+@media (max-width: 900px) {
+    .kpi-strip {
+        font-size: 11px
+    }
+
+    .fb-search {
+        width: 140px
+    }
+}
+
+@media (max-width: 720px) {
+    .main-tbl {
+        min-width: 900px
+    }
+
+    .hdr-title {
+        font-size: 12px
+    }
+
+    .hdr-sub {
+        display: none
+    }
+}
+
+
+/* ════════════════════════════════════════
+   v3.1 — CONCORRENTES VISÍVEIS NO RESUMO
+════════════════════════════════════════ */
+
+/* Linha do mercado: coluna MERCADO mostra top-2 concorrentes logo abaixo */
+.mkt-name {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--txt);
+    letter-spacing: .15px;
+    line-height: 1.1;
+}
+
+.mkt-concs {
+    font-size: 10.5px;
+    color: var(--txt2);
+    margin-top: 3px;
+    line-height: 1.25;
+    letter-spacing: .1px;
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mkt-concs em {
+    font-style: italic
+}
+
+/* Coluna MARCA SUPERA */
+.mkt-supera-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 800;
+    color: var(--txt);
+    white-space: nowrap;
+}
+
+.supera-badge {
+    background: linear-gradient(90deg, #059669, #047857);
+    color: #fff;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    box-shadow: 0 1px 3px rgba(5, 150, 105, .3);
+}
+
+/* ======================================================================
+   v3.5 — Ranking VERTICAL dentro da linha expandida.
+   Substituiu os cards horizontais por uma tabela com POS, MARCA, atual,
+   anterior, evolução %, share %.
+====================================================================== */
+.concs-row td.concs-wrap {
+    background: #f7f9ff !important;
+    padding: 14px 18px !important;
+    border-bottom: 1px solid var(--brd);
+}
+
+.concs-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    margin-bottom: 10px;
+}
+
+.rank-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
+    font-size: 12.5px;
+}
+
+.rank-tbl thead th {
+    background: var(--navy);
+    color: #e2eaf6;
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    padding: 8px 12px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 2px solid #1a2a44;
+}
+
+.rank-tbl thead th.c {
+    text-align: center;
+}
+
+.rank-tbl thead th.r {
+    text-align: right;
+}
+
+.rank-tbl tbody td {
+    padding: 8px 12px;
+    border-top: 1px solid #edf1f7;
+    color: var(--txt);
+}
+
+.rank-tbl tbody td.c {
+    text-align: center;
+}
+
+.rank-tbl tbody td.r {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.rank-tbl tbody tr:hover td {
+    background: #f4f8ff;
+}
+
+.rank-pos {
+    font-weight: 800;
+    color: var(--navy);
+    font-size: 12px;
+}
+
+.rank-name {
+    font-weight: 700;
+    color: var(--txt);
+    letter-spacing: .15px;
+}
+
+.rank-prev {
+    color: var(--txt2);
+}
+
+.rank-share {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eef3fb;
+    color: var(--navy);
+    font-weight: 800;
+    font-size: 11.5px;
+}
+
+.rank-tbl .vpos {
+    color: var(--c-lider);
+    font-weight: 800;
+}
+
+.rank-tbl .vneg {
+    color: var(--c-entrar);
+    font-weight: 800;
+}
+
+.rank-tbl .vnull {
+    color: var(--txt2);
+}
+
+.rank-sup-badge {
+    display: inline-block;
+    background: var(--c-lider);
+    color: #fff;
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 999px;
+    letter-spacing: .5px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.rank-row.rank-supera td {
+    background: linear-gradient(90deg, #ecfdf5 0%, #ffffff 70%);
+}
+
+.rank-row.rank-supera .rank-pos {
+    color: var(--c-lider);
+}
+
+.rank-row.rank-supera .rank-name {
+    color: #0b5735;
+}
+
+/* Banda de status das planilhas carregadas (Un./R$) */
+.dataset-status {
+    font-size: 11px;
+    color: #b0c8ec;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 6px;
+    white-space: nowrap;
+}
+
+.ds-ok {
+    color: #6ee7b7;
+    font-weight: 700
+}
+
+.ds-off {
+    color: #64748b;
+    text-decoration: line-through;
+    opacity: .6
+}
+
+/* Mercado sem concorrentes no mapa oficial → linha sutil */
+.mkt-row.no-map .mkt-supera-name {
+    color: var(--txt2)
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   v3.2 — PILLS DE STATUS, ABAS DE SETOR, DETALHE POR BRICK
+═══════════════════════════════════════════════════════ */
+
+/* Pills de status (substitui o texto simples do v3.1) */
+.dataset-status {
+    gap: 5px;
+    padding: 0 8px
+}
+
+.dataset-status .ds-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    transition: all .16s ease;
+    white-space: nowrap;
+}
+
+.dataset-status .ds-dot.ds-off {
+    background: rgba(255, 255, 255, .06);
+    color: rgba(255, 255, 255, .4);
+    border: 1px solid rgba(255, 255, 255, .15);
+    text-decoration: none;
+}
+
+.dataset-status .ds-dot.ds-ok {
+    background: rgba(34, 197, 94, .2);
+    color: #86efac;
+    border: 1px solid rgba(34, 197, 94, .5);
+    text-decoration: none;
+    opacity: 1;
+}
+
+.dataset-status .ds-dot.ds-ok::before {
+    content: "●";
+    color: #22c55e;
+    font-size: 9px;
+}
+
+/* Botão Limpar bases */
+.hdr-clear-btn {
+    background: rgba(244, 63, 94, .12);
+    color: #fca5a5;
+    border: 1px solid rgba(244, 63, 94, .35);
+    padding: 5px 11px;
+    border-radius: var(--r);
+    font-weight: 600;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+}
+
+.hdr-clear-btn:hover {
+    background: rgba(244, 63, 94, .25);
+    color: #fecaca;
+}
+
+/* Abas dinâmicas por Setor */
+.tab-sector {
+    font-size: 10px !important;
+    padding: 5px 9px !important;
+    letter-spacing: .25px;
+    text-transform: uppercase;
+    color: var(--top-txt2) !important;
+    font-weight: 800;
+    background: transparent;
+    border-radius: 4px;
+    height: auto !important;
+    line-height: 1.1;
+}
+
+.tab-sector:hover {
+    background: var(--navy4);
+    color: var(--top-txt) !important;
+}
+
+.tab-sector.active {
+    background: var(--navy4);
+    color: var(--top-txt) !important;
+    border-bottom-color: var(--top-accent) !important;
+}
+
+.tab-sector-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--top-accent);
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+/* ═══ Tabela Detalhe por Brick ═══ */
+.brick-view-wrap {
+    padding: 14px 16px;
+    background: var(--bg);
+}
+
+.brick-view-wrap .tbl-wrap {
+    background: var(--s1);
+    border: 1px solid var(--brd);
+    border-radius: 10px;
+    /* v3.6 (rev) — SEM overflow próprio. A tabela larga (1600px) faz o body
+       rolar horizontal. As barras superiores são position:fixed. */
+}
+
+.brick-detail-tbl {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 11.5px;
+    min-width: 1600px;
+}
+
+.brick-detail-tbl thead th {
+    position: sticky;
+    top: var(--sticky-tbl);
+    z-index: 50;
+    background: linear-gradient(180deg, var(--navy) 0%, var(--navy2) 100%);
+    color: #c7dbfa;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 10px 8px;
+    border-bottom: 2px solid var(--navy4);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.brick-detail-tbl thead th.r {
+    text-align: right
+}
+
+.brick-detail-tbl thead th.c {
+    text-align: center
+}
+
+.brick-detail-tbl tbody td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--brd);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.brick-detail-tbl tbody td.r {
+    text-align: right
+}
+
+.brick-detail-tbl tbody td.c {
+    text-align: center
+}
+
+.brick-detail-tbl tbody tr:hover td {
+    background: rgba(30, 64, 175, .06)
+}
+
+.brick-detail-row.row-rb-lider td:first-child {
+    border-left: 3px solid var(--c-lider)
+}
+
+.brick-detail-row.row-rb-crescer td:first-child {
+    border-left: 3px solid var(--c-crescer)
+}
+
+.brick-detail-row.row-rb-oport td:first-child {
+    border-left: 3px solid var(--c-oport)
+}
+
+.brick-detail-row.row-rb-acomp td:first-child {
+    border-left: 3px solid var(--c-acomp)
+}
+
+.brick-detail-row.row-rb-entrar td:first-child {
+    border-left: 3px solid var(--c-entrar)
+}
+
+/* Badge de posição */
+.pos-badge {
+    display: inline-block;
+    min-width: 30px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 10.5px;
+    background: rgba(100, 116, 139, .15);
+    color: #475569;
+    border: 1px solid rgba(100, 116, 139, .3);
+}
+
+.pos-badge.pos-1 {
+    background: rgba(5, 150, 105, .18);
+    color: #065f46;
+    border-color: rgba(5, 150, 105, .4)
+}
+
+.pos-badge.pos-2 {
+    background: rgba(29, 78, 216, .18);
+    color: #1e3a8a;
+    border-color: rgba(29, 78, 216, .4)
+}
+
+.pos-badge.pos-3 {
+    background: rgba(234, 88, 12, .18);
+    color: #9a3412;
+    border-color: rgba(234, 88, 12, .4)
+}
+
+/* Rodapé + Paginação */
+.brick-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: var(--s1);
+    border: 1px solid var(--brd);
+    border-radius: 10px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.brick-legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 10.5px;
+    color: var(--txt2);
+}
+
+.brick-legend .lg-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.brick-pager {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--txt2);
+}
+
+.pager-btn {
+    background: #fff;
+    border: 1px solid var(--brd);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    color: var(--txt);
+    font-weight: 600;
+    font-size: 11px;
+    transition: all .12s ease;
+}
+
+.pager-btn:hover:not([disabled]) {
+    background: var(--acc);
+    color: #fff;
+    border-color: var(--acc);
+}
+
+.pager-btn[disabled] {
+    opacity: .4;
+    cursor: not-allowed
+}
+
+.pager-lbl {
+    padding: 0 8px;
+    font-variant-numeric: tabular-nums;
+    min-width: 120px;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Modal de bricks: colunas compactas para caber leader + gap na tela */
+.modal-tbl .col-brick {
+    width: 28%;
+    min-width: 220px
+}
+
+.modal-tbl .col-setor {
+    width: 16%;
+    min-width: 120px
+}
+
+.modal-tbl tbody tr td {
+    padding: 5px 8px;
+    line-height: 1.2
+}
+
+.modal-tbl thead th {
+    font-size: 10px;
+    padding: 8px 8px;
+}
+
+.modal-tbl tbody td.col-brick code {
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: middle;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   v3.6 — Destaque sutil das colunas Supera + estado da aba de setor
+   ════════════════════════════════════════════════════════════════ */
+
+/* Colunas que pertencem ao "universo Supera" (MARCA SUPERA, MAT/YTD/TRI SUPERA, TOTAL SUPERA)
+   recebem um fundo MUITO suave em verde-água e o conteúdo em negrito,
+   para que o olho identifique imediatamente quais números são da própria marca. */
+.main-tbl thead th.c-supera {
+    background: var(--navy);
+    color: #e2eaf6 !important;
+    font-weight: 800;
+    border-bottom: 2px solid #1a2a44;
+}
+
+.main-tbl tbody td.c-supera {
+    background: rgba(16, 185, 129, .085);
+    /* verde-água translúcido sutil */
+    font-weight: 800;
+    color: #0f172a;
+    /* preto/slate-900 para boa leitura */
+    border-left: 1px solid rgba(16, 185, 129, .18);
+    border-right: 1px solid rgba(16, 185, 129, .18);
+}
+
+.main-tbl tbody tr:hover td.c-supera {
+    background: rgba(16, 185, 129, .14);
+}
+
+/* Coluna numérica Supera: negrito + preto (mesma cor do texto) */
+.main-tbl tbody td.c-supera.vacc {
+    color: #0f172a;
+    font-weight: 800;
+}
+
+/* Brick detail também recebe o destaque das colunas Supera */
+.brick-detail-tbl thead th.c-supera {
+    background: linear-gradient(180deg, rgba(16, 185, 129, .22) 0%, rgba(16, 185, 129, .14) 100%);
+    color: #ecfdf5 !important;
+    font-weight: 800;
+    border-bottom: 1px solid rgba(16, 185, 129, .4);
+}
+
+.brick-detail-tbl tbody td.c-supera {
+    background: rgba(16, 185, 129, .085);
+    color: #0f172a;
+    font-weight: 700;
+    border-left: 1px solid rgba(16, 185, 129, .18);
+    border-right: 1px solid rgba(16, 185, 129, .18);
+}
+
+.brick-detail-tbl tbody tr:hover td.c-supera {
+    background: rgba(16, 185, 129, .14);
+}
+
+/* Estado "filtrado por setor" da aba: visualmente diferente do simples 'active'
+   (que é o highlight da aba aberta) — usa cor de destaque verde-água. */
+.tab-sector.active-sector {
+    background: rgba(16, 185, 129, .18) !important;
+    color: #d1fae5 !important;
+    border-bottom: 2px solid var(--c-lider) !important;
+    font-weight: 800;
+}
+
+.tab-sector.active-sector .tab-sector-dot {
+    background: var(--c-lider);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, .25);
+}
