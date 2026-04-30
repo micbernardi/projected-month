@@ -171,7 +171,10 @@ async function parseFiles(files, forceUnit) {
                 diagnostics.push({ file: file.name, sheet: sheetName, mode: unitMode, forced: !!forceUnit });
 
                 let sheetRows = 0;
-                const seenKeys = new Set(); // deduplicação por aba
+                // (v3.6) Removida a "deduplicação" que descartava linhas repetidas
+                // com mesma chave Setor|Mercado|Marca|Brick|Cidade. Na planilha base
+                // essas linhas NÃO são duplicatas: são PDVs distintos dentro do mesmo
+                // brick. Elas precisam ser somadas (o que a agregação downstream já faz).
                 for (const row of raw) {
                     const distrital = colDistrital ? String(row[colDistrital] || '').trim() : '';
                     const sector = colSetor ? String(row[colSetor] || '').trim() : 'Geral';
@@ -195,11 +198,6 @@ async function parseFiles(files, forceUnit) {
                     const crescTri = colCrescTRI ? parseNum(row[colCrescTRI]) : null;
 
                     if (mat === 0 && ytd === 0 && tri === 0) continue;
-
-                    // Deduplicação: ignora linha idêntica já processada nesta planilha
-                    const dedupKey = `${sector}|${market}|${product}|${brickName}|${cidade}`;
-                    if (seenKeys.has(dedupKey)) continue;
-                    seenKeys.add(dedupKey);
 
                     rowsByMode[unitMode].push({
                         distrital, sector, market, product, cidade,
@@ -395,19 +393,38 @@ function renderResumo() {
     $('ks-supera').textContent = fmtValue(superaTotal);
     $('ks-share').textContent = totalMkt ? superaShare.toFixed(1) + '%' : '—';
 
-    const recTotals = { 'LÍDER': 0, 'CRESCER': 0, 'OPORTUNIDADE': 0, 'ACOMPANHAR': 0, 'ENTRAR': 0 };
-    let totalBricks = 0;
+    // (v3.6) KPIs do header agora contam BRICKS FÍSICOS ÚNICOS (Brick + Cidade)
+    // em vez de ocorrências brick × mercado. Um mesmo brick pode aparecer em
+    // mais de uma categoria de recomendação (ex.: líder em um mercado e
+    // oportunidade em outro), mas é contado UMA vez por categoria. O card
+    // "BRICKS" mostra o total de bricks físicos distintos no recorte filtrado.
+    const recBrickSets = {
+        'LÍDER': new Set(),
+        'CRESCER': new Set(),
+        'OPORTUNIDADE': new Set(),
+        'ACOMPANHAR': new Set(),
+        'ENTRAR': new Set()
+    };
+    const allBricksSet = new Set();
     mktAgg.forEach(m => {
-        Object.keys(recTotals).forEach(r => recTotals[r] += m.recs[r].length);
-        totalBricks += m.bricksCount;
+        Object.keys(recBrickSets).forEach(r => {
+            m.recs[r].forEach(b => {
+                const key = (b.brick || '—') + '||' + (b.cidade || '');
+                recBrickSets[r].add(key);
+            });
+        });
+        m.bricks.forEach(b => {
+            const key = (b.brick || '—') + '||' + (b.cidade || '');
+            allBricksSet.add(key);
+        });
     });
-    $('ks-lider').textContent = recTotals['LÍDER'];
-    $('ks-crescer').textContent = recTotals['CRESCER'];
-    $('ks-oport').textContent = recTotals['OPORTUNIDADE'];
-    $('ks-acomp').textContent = recTotals['ACOMPANHAR'];
-    $('ks-entrar').textContent = recTotals['ENTRAR'];
+    $('ks-lider').textContent = recBrickSets['LÍDER'].size.toLocaleString('pt-BR');
+    $('ks-crescer').textContent = recBrickSets['CRESCER'].size.toLocaleString('pt-BR');
+    $('ks-oport').textContent = recBrickSets['OPORTUNIDADE'].size.toLocaleString('pt-BR');
+    $('ks-acomp').textContent = recBrickSets['ACOMPANHAR'].size.toLocaleString('pt-BR');
+    $('ks-entrar').textContent = recBrickSets['ENTRAR'].size.toLocaleString('pt-BR');
     $('ks-mkts').textContent = mktAgg.length.toLocaleString('pt-BR');
-    $('ks-bricks').textContent = totalBricks.toLocaleString('pt-BR');
+    $('ks-bricks').textContent = allBricksSet.size.toLocaleString('pt-BR');
     $('hdrPeriodLabel').textContent = pd + ' — ' + (UI.unitMode === 'RS' ? 'R$' : 'Unidades');
 
     // === SORT ===
