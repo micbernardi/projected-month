@@ -1695,75 +1695,91 @@ body {
        rolar horizontal. As barras superiores são position:fixed. */
 }
 
+/* v3.9 — Detalhe por Brick: tabela compacta com cabeçalho azul-escuro
+   sortável e linhas tingidas pela classificação do brick.
+   Não altera nenhum cálculo — apenas estética e ordenação.            */
 .brick-detail-tbl {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 11.5px;
-    min-width: 1600px;
+    font-size: 11px;          /* mais compacto */
+    min-width: 1380px;        /* reduz scroll horizontal */
 }
 
-.brick-detail-tbl thead th {
+.brick-detail-tbl thead th,
+.brick-detail-tbl thead.brick-head-dark th {
     position: sticky;
     top: var(--sticky-tbl);
     z-index: 50;
-    background: linear-gradient(180deg, var(--navy) 0%, var(--navy2) 100%);
-    color: #c7dbfa;
+    background: #1e3a5f;       /* azul-marinho escuro uniforme */
+    color: #ffffff;
     font-size: 9.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .5px;
-    padding: 10px 8px;
-    border-bottom: 2px solid var(--navy4);
+    padding: 8px 6px;          /* compacto */
+    border-bottom: 2px solid #142a45;
     text-align: left;
     white-space: nowrap;
+    user-select: none;
 }
 
-.brick-detail-tbl thead th.r {
-    text-align: right
+.brick-detail-tbl thead th.r { text-align: right }
+.brick-detail-tbl thead th.c { text-align: center }
+.brick-detail-tbl thead th.sortable {
+    cursor: pointer;
+    transition: background .15s;
 }
-
-.brick-detail-tbl thead th.c {
-    text-align: center
+.brick-detail-tbl thead th.sortable:hover { background: #284b78 }
+.brick-detail-tbl thead th .sort-arr {
+    color: #9bb5d6;
+    font-size: 9px;
+    margin-left: 3px;
 }
+.brick-detail-tbl thead th .sort-arr.on { color: #ffffff }
 
 .brick-detail-tbl tbody td {
-    padding: 7px 8px;
+    padding: 5px 6px;          /* compacto */
     border-bottom: 1px solid var(--brd);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+    color: #000;               /* fonte preta em todas as linhas */
 }
+.brick-detail-tbl tbody td.r { text-align: right }
+.brick-detail-tbl tbody td.c { text-align: center }
 
-.brick-detail-tbl tbody td.r {
-    text-align: right
+/* === v3.9 — cores de fundo das linhas pela recomendação === */
+.brick-detail-row.row-rb-lider   td { background: #d1fae5 }   /* verde claro    */
+.brick-detail-row.row-rb-crescer td { background: #dbeafe }   /* azul claro     */
+.brick-detail-row.row-rb-oport   td { background: #ffedd5 }   /* laranja claro  */
+.brick-detail-row.row-rb-acomp   td { background: #e5e7eb }   /* cinza claro    */
+.brick-detail-row.row-rb-entrar  td { background: #fee2e2 }   /* vermelho claro */
+
+.brick-detail-row.row-rb-lider:hover   td { background: #bbf2d3 }
+.brick-detail-row.row-rb-crescer:hover td { background: #c7defc }
+.brick-detail-row.row-rb-oport:hover   td { background: #fde0bd }
+.brick-detail-row.row-rb-acomp:hover   td { background: #d6dae0 }
+.brick-detail-row.row-rb-entrar:hover  td { background: #fbcfcf }
+
+/* faixa lateral colorida indicando recomendação */
+.brick-detail-row.row-rb-lider   td:first-child { border-left: 3px solid var(--c-lider) }
+.brick-detail-row.row-rb-crescer td:first-child { border-left: 3px solid var(--c-crescer) }
+.brick-detail-row.row-rb-oport   td:first-child { border-left: 3px solid var(--c-oport) }
+.brick-detail-row.row-rb-acomp   td:first-child { border-left: 3px solid var(--c-acomp) }
+.brick-detail-row.row-rb-entrar  td:first-child { border-left: 3px solid var(--c-entrar) }
+
+/* preserva o highlight verde da coluna SUPERA acima do tom da linha */
+.brick-detail-tbl tbody td.c-supera {
+    background: rgba(16, 185, 129, .18) !important;
+    color: #000 !important;
+    font-weight: 700;
 }
+.brick-detail-tbl tbody td.c-supera.vacc { font-weight: 800 }
 
-.brick-detail-tbl tbody td.c {
-    text-align: center
-}
-
-.brick-detail-tbl tbody tr:hover td {
-    background: rgba(30, 64, 175, .06)
-}
-
-.brick-detail-row.row-rb-lider td:first-child {
-    border-left: 3px solid var(--c-lider)
-}
-
-.brick-detail-row.row-rb-crescer td:first-child {
-    border-left: 3px solid var(--c-crescer)
-}
-
-.brick-detail-row.row-rb-oport td:first-child {
-    border-left: 3px solid var(--c-oport)
-}
-
-.brick-detail-row.row-rb-acomp td:first-child {
-    border-left: 3px solid var(--c-acomp)
-}
-
-.brick-detail-row.row-rb-entrar td:first-child {
-    border-left: 3px solid var(--c-entrar)
+/* código do brick mais discreto */
+.brick-detail-tbl tbody .brick-code-mono {
+    color: #475569;
+    font-size: 10.5px;
 }
 
 /* Badge de posição */
@@ -1934,12 +1950,14 @@ body {
     font-weight: 800;
 }
 
-/* Brick detail também recebe o destaque das colunas Supera */
+/* v3.9 — a coluna SUPERA no Brick mantém o cabeçalho azul-escuro
+   uniforme (sem gradiente verde) para que toda a faixa do header fique
+   da mesma cor. O destaque verde fica somente no <td> abaixo.            */
 .brick-detail-tbl thead th.c-supera {
-    background: linear-gradient(180deg, rgba(16, 185, 129, .22) 0%, rgba(16, 185, 129, .14) 100%);
-    color: #ecfdf5 !important;
-    font-weight: 800;
-    border-bottom: 1px solid rgba(16, 185, 129, .4);
+    background: #1e3a5f !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    border-bottom: 2px solid #142a45;
 }
 
 .brick-detail-tbl tbody td.c-supera {

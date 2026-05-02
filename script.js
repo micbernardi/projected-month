@@ -38,7 +38,10 @@ let UI = {
     unitMode: 'UN',
     expandedRows: new Set(),
     sortKey: 'current',
-    sortDir: 'desc'
+    sortDir: 'desc',
+    /* v3.9 — ordenação da tabela Detalhe por Brick (sort por coluna). */
+    brickSortKey: 'totalCur',
+    brickSortDir: 'desc'
 };
 
 /* ===== HELPERS ===== */
@@ -969,8 +972,22 @@ function renderBrick() {
         });
     });
 
-    // Ordena por volume de mercado decrescente
-    lines.sort((a, bb) => bb.totalCur - a.totalCur);
+    /* v3.9 — ordenação por coluna (sort interativo)
+       NADA é alterado nos cálculos: apenas a ordem de exibição.       */
+    const sortKey = UI.brickSortKey || 'totalCur';
+    const sortDir = UI.brickSortDir === 'asc' ? 1 : -1;
+    lines.sort((a, bb) => {
+        const va = a[sortKey];
+        const vb = bb[sortKey];
+        if (typeof va === 'number' || typeof vb === 'number') {
+            const na = (va == null || isNaN(va)) ? -Infinity : va;
+            const nb = (vb == null || isNaN(vb)) ? -Infinity : vb;
+            return (na - nb) * sortDir;
+        }
+        const sa = String(va == null ? '' : va);
+        const sb = String(vb == null ? '' : vb);
+        return sa.localeCompare(sb, 'pt-BR') * sortDir;
+    });
 
     const total = lines.length;
     const maxPage = Math.max(1, Math.ceil(total / BRICK_PAGE_SIZE));
@@ -978,12 +995,28 @@ function renderBrick() {
     const start = (BRICK_PAGE - 1) * BRICK_PAGE_SIZE;
     const page = lines.slice(start, start + BRICK_PAGE_SIZE);
 
-    let html = '<div class="brick-view-wrap"><div class="tbl-wrap"><table class="main-tbl brick-detail-tbl"><thead class="tbl-head-fixed"><tr>';
-    html += '<th>SETOR</th><th>MERCADO</th><th>CIDADE</th><th>BRICK</th>';
-    html += '<th class="r">MKT TOTAL</th><th class="c-supera">MARCA SUPERA</th><th class="r c-supera">MAT SUPERA</th><th class="r">SHARE %</th>';
-    html += '<th class="c">POS.</th><th>LÍDER</th><th class="r">MAT LÍDER</th>';
-    html += '<th class="r">GAP 1ª</th><th class="r">GAP 2ª</th><th class="r">GAP 3ª</th>';
-    html += '<th class="r">CRESC. MKT</th><th class="r">CRESC. SUPERA</th><th class="c">RECOMENDAÇÃO</th>';
+    /* helper: renderiza <th> sortável com seta */
+    const arr = k => k === sortKey ? (UI.brickSortDir === 'asc' ? '▲' : '▼') : '⇅';
+    const sh = (k, label, cls) => `<th class="sortable ${cls || ''}" onclick="sortBrickBy('${k}')">${label} <span class="sort-arr ${k === sortKey ? 'on' : ''}">${arr(k)}</span></th>`;
+
+    let html = '<div class="brick-view-wrap"><div class="tbl-wrap"><table class="main-tbl brick-detail-tbl"><thead class="tbl-head-fixed brick-head-dark"><tr>';
+    html += sh('sector',     'SETOR');
+    html += sh('market',     'MERCADO');
+    html += sh('cidade',     'CIDADE');
+    html += sh('brick',      'BRICK');
+    html += sh('totalCur',   'MKT TOTAL', 'r');
+    html += sh('superaLabel','MARCA SUPERA', 'c-supera');
+    html += sh('superaCur',  'MAT SUPERA', 'r c-supera');
+    html += sh('share',      'SHARE %', 'r');
+    html += sh('pos',        'POS.', 'c');
+    html += sh('leader',     'LÍDER');
+    html += sh('leaderVol',  'MAT LÍDER', 'r');
+    html += sh('gap1',       'GAP 1ª', 'r');
+    html += sh('gap2',       'GAP 2ª', 'r');
+    html += sh('gap3',       'GAP 3ª', 'r');
+    html += sh('growthMkt',  'CRESC. MKT', 'r');
+    html += sh('growthSup',  'CRESC. SUPERA', 'r');
+    html += sh('rec',        'RECOMENDAÇÃO', 'c');
     html += '</tr></thead><tbody>';
 
     if (!page.length) {
@@ -1043,6 +1076,20 @@ function goBrickPage(n) {
     BRICK_PAGE = Math.max(1, n);
     renderBrick();
 }
+
+/* v3.9 — callback do clique no <th> sortável da tabela Detalhe por Brick.
+   Alterna asc/desc na mesma chave; troca para nova chave em desc.       */
+function sortBrickBy(key) {
+    if (UI.brickSortKey === key) {
+        UI.brickSortDir = UI.brickSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        UI.brickSortKey = key;
+        UI.brickSortDir = 'desc';
+    }
+    BRICK_PAGE = 1;
+    renderBrick();
+}
+window.sortBrickBy = sortBrickBy;
 
 /* ===== ABAS DINÂMICAS POR SETOR (GD) =====
    Após carregar dados, cria uma aba por setor dentro do tab-rail.
