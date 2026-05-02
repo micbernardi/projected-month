@@ -999,23 +999,29 @@ function renderBrick() {
     const arr = k => k === sortKey ? (UI.brickSortDir === 'asc' ? '▲' : '▼') : '⇅';
     const sh = (k, label, cls) => `<th class="sortable ${cls || ''}" onclick="sortBrickBy('${k}')">${label} <span class="sort-arr ${k === sortKey ? 'on' : ''}">${arr(k)}</span></th>`;
 
+    /* v3.10 — labels do cabeçalho refletem o período ativo (TRI/YTD/MAT).
+       Os valores das linhas já vêm calculados por período via
+       aggBricksOfMarket(rows, pd) — só os títulos eram fixos.            */
+    const pdLbl = pd; // 'TRI' | 'YTD' | 'MAT'
+    const pdCresc = pd === 'MAT' ? 'CRESC. MAT' : (pd === 'YTD' ? 'CRESC. YTD' : 'CRESC. TRI');
+
     let html = '<div class="brick-view-wrap"><div class="tbl-wrap"><table class="main-tbl brick-detail-tbl"><thead class="tbl-head-fixed brick-head-dark"><tr>';
     html += sh('sector',     'SETOR');
     html += sh('market',     'MERCADO');
     html += sh('cidade',     'CIDADE');
     html += sh('brick',      'BRICK');
-    html += sh('totalCur',   'MKT TOTAL', 'r');
+    html += sh('totalCur',   `MKT ${pdLbl}`, 'r');
     html += sh('superaLabel','MARCA SUPERA', 'c-supera');
-    html += sh('superaCur',  'MAT SUPERA', 'r c-supera');
+    html += sh('superaCur',  `${pdLbl} SUPERA`, 'r c-supera');
     html += sh('share',      'SHARE %', 'r');
     html += sh('pos',        'POS.', 'c');
     html += sh('leader',     'LÍDER');
-    html += sh('leaderVol',  'MAT LÍDER', 'r');
+    html += sh('leaderVol',  `${pdLbl} LÍDER`, 'r');
     html += sh('gap1',       'GAP 1ª', 'r');
     html += sh('gap2',       'GAP 2ª', 'r');
     html += sh('gap3',       'GAP 3ª', 'r');
-    html += sh('growthMkt',  'CRESC. MKT', 'r');
-    html += sh('growthSup',  'CRESC. SUPERA', 'r');
+    html += sh('growthMkt',  pdCresc + ' MKT', 'r');
+    html += sh('growthSup',  pdCresc + ' SUPERA', 'r');
     html += sh('rec',        'RECOMENDAÇÃO', 'c');
     html += '</tr></thead><tbody>';
 
