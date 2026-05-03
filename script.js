@@ -239,15 +239,21 @@ function buildDB(rowsByMode) {
         - CRESCER    → Supera crescendo > 20% vs período anterior
         - ACOMPANHAR → Supera caindo < -10%
         - OPORTUNIDADE → caso contrário                                ===== */
-function calcRecBrick(superaCur, superaPrev, concMax, growth) {
-    if (superaCur === 0) return 'ENTRAR';
-    if (concMax != null && superaCur >= concMax) return 'LÍDER';
-    if (growth != null) {
-        const g = growth * 100;
-        if (g > 20) return 'CRESCER';
-        if (g < -10) return 'ACOMPANHAR';
-    }
-    return 'OPORTUNIDADE';
+/* v3.11 — classificação ESTRITAMENTE pela posição da Supera no ranking do brick.
+   Regras (definidas pelo usuário):
+     • Sem venda da Supera (superaCur = 0) e brick com vendas concorrentes  → ENTRAR
+     • Posição 1ª                                                          → LÍDER
+     • Posição 2ª                                                          → CRESCER
+     • Posição 3ª ou 4ª                                                    → OPORTUNIDADE
+     • Posição 5ª ou pior                                                  → ACOMPANHAR
+   Mantemos a assinatura antiga (superaCur, superaPrev, concMax, growth) por compat,
+   mas adicionamos `pos` como 5º parâmetro e priorizamos ele.                       */
+function calcRecBrick(superaCur, superaPrev, concMax, growth, pos) {
+    if (!superaCur || superaCur <= 0) return 'ENTRAR';
+    if (pos === 1) return 'LÍDER';
+    if (pos === 2) return 'CRESCER';
+    if (pos === 3 || pos === 4) return 'OPORTUNIDADE';
+    return 'ACOMPANHAR';
 }
 
 function recColorVar(rec) {
@@ -300,7 +306,10 @@ function aggBricksOfMarket(rows, pd) {
         b.growth = b.superaPrev !== 0 ? ((b.superaCur / b.superaPrev) - 1) : null;
         b.share = b.totalCur ? (b.superaCur / b.totalCur) * 100 : 0;
         b.concMax = concMax;
-        b.rec = calcRecBrick(b.superaCur, b.superaPrev, concMax, b.growth);
+        /* v3.11 — calcula a posição da Supera dentro do brick e usa-a para a classificação */
+        const rk = brickRanking(b);
+        b.posSupera = rk.posSupera;
+        b.rec = calcRecBrick(b.superaCur, b.superaPrev, concMax, b.growth, rk.posSupera);
         return b;
     });
 }
@@ -518,8 +527,8 @@ function renderResumo() {
                     <thead><tr>
                         <th class="c" style="width:54px">POS.</th>
                         <th>MARCA</th>
-                        <th class="r">${pd} ATUAL</th>
                         <th class="r">${pd} ANTERIOR</th>
+                        <th class="r">${pd} ATUAL</th>
                         <th class="r">EVOLUÇÃO</th>
                         <th class="r">SHARE ATUAL</th>
                     </tr></thead>
@@ -533,8 +542,8 @@ function renderResumo() {
                         <tr class="rank-row${isSup ? ' rank-supera' : ''}">
                             <td class="c rank-pos">${i + 1}º</td>
                             <td class="rank-name">${c.name}${isSup ? ' <span class="rank-sup-badge">SUPERA</span>' : ''}</td>
-                            <td class="r">${fmtValue(c.cur)}</td>
                             <td class="r rank-prev">${fmtValue(c.prev)}</td>
+                            <td class="r">${fmtValue(c.cur)}</td>
                             <td class="r ${gCls}">${gTxt}</td>
                             <td class="r"><span class="rank-share">${c.share.toFixed(1)}%</span></td>
                         </tr>`;
@@ -958,6 +967,7 @@ function renderBrick() {
                 totalCur: b.totalCur,
                 totalPrev: b.totalPrev,
                 superaCur: b.superaCur,
+                superaPrev: b.superaPrev,
                 share: b.share,
                 pos: rk.posSupera,
                 leader: rk.leader ? rk.leader.name : '—',
@@ -967,7 +977,9 @@ function renderBrick() {
                 gap3: rk.gap3,
                 growthMkt: b.totalPrev !== 0 ? (b.totalCur / b.totalPrev - 1) : null,
                 growthSup: b.superaPrev !== 0 ? (b.superaCur / b.superaPrev - 1) : null,
-                rec: b.rec
+                rec: b.rec,
+                /* v3.13 — ranking completo (Supera + concorrentes) p/ painel expansível */
+                ranking: rk.ranking
             });
         });
     });
@@ -1006,6 +1018,8 @@ function renderBrick() {
     const pdCresc = pd === 'MAT' ? 'CRESC. MAT' : (pd === 'YTD' ? 'CRESC. YTD' : 'CRESC. TRI');
 
     let html = '<div class="brick-view-wrap"><div class="tbl-wrap"><table class="main-tbl brick-detail-tbl"><thead class="tbl-head-fixed brick-head-dark"><tr>';
+    /* v3.13 — coluna 'expand' (botão +/−) na primeira posição */
+    html += '<th class="col-expand" aria-label="Expandir"></th>';
     html += sh('sector',     'SETOR');
     html += sh('market',     'MERCADO');
     html += sh('cidade',     'CIDADE');
@@ -1026,14 +1040,16 @@ function renderBrick() {
     html += '</tr></thead><tbody>';
 
     if (!page.length) {
-        html += '<tr><td colspan="17" class="tbl-empty">Nenhum brick encontrado para os filtros selecionados.</td></tr>';
+        html += '<tr><td colspan="18" class="tbl-empty">Nenhum brick encontrado para os filtros selecionados.</td></tr>';
     } else {
-        page.forEach(l => {
+        page.forEach((l, idx) => {
             const recCls = recPillCls(l.rec);
             const cMkt = l.growthMkt != null && l.growthMkt >= 0 ? 'vpos' : 'vneg';
             const cSup = l.growthSup != null && l.growthSup >= 0 ? 'vpos' : 'vneg';
             const posBadge = l.pos ? `<span class="pos-badge pos-${l.pos}">${l.pos}ª</span>` : '—';
-            html += `<tr class="brick-detail-row row-${recCls}">
+            const expandId = `brick-exp-${idx}`;
+            html += `<tr class="brick-detail-row row-${recCls}" data-exp="${expandId}">
+                <td class="col-expand"><button class="btn-expand" type="button" onclick="toggleBrickExpand('${expandId}', this)" aria-label="Detalhar" title="Ver concorrentes do brick">+</button></td>
                 <td>${l.sector || '—'}</td>
                 <td><strong>${l.market}</strong></td>
                 <td>${l.cidade || '—'}</td>
@@ -1052,6 +1068,8 @@ function renderBrick() {
                 <td class="r ${cSup}">${fmtPct(l.growthSup)}</td>
                 <td class="c"><span class="rec-pill ${recCls}">${l.rec}</span></td>
             </tr>`;
+            /* v3.13 — linha expandível (oculta por padrão) com painel de concorrentes */
+            html += renderBrickExpandRow(l, expandId, pdLbl);
         });
     }
     html += '</tbody></table></div>';
@@ -1076,6 +1094,87 @@ function renderBrick() {
     </div></div>`;
 
     el.innerHTML = html;
+}
+
+/* ============================================================
+   v3.13 — Painel expansível de concorrentes do brick
+   Renderiza uma <tr> oculta por padrão com mini-tabela do ranking
+   completo do brick (Supera + concorrentes).
+   ============================================================ */
+function renderBrickExpandRow(l, expandId, pdLbl) {
+    const ranking = l.ranking || [];
+    const totalCur = l.totalCur || 0;
+    const totalPrev = l.totalPrev || 0;
+    const cnt = ranking.length;
+
+    let inner = '';
+    inner += `<div class="brick-exp-header">`;
+    inner += `<span class="brick-exp-title">Concorrentes — <strong>${l.market}</strong> — ${l.cidade || '—'}</span>`;
+    inner += `<span class="brick-exp-meta"><code>${l.brick}</code> &middot; ${cnt} marca${cnt === 1 ? '' : 's'} &middot; Mercado total: ${fmtValue(totalCur)} un.</span>`;
+    inner += `</div>`;
+
+    inner += `<table class="brick-exp-tbl">`;
+    inner += `<colgroup>`;
+    inner += `<col style="width:42px"><col><col style="width:78px"><col style="width:78px"><col style="width:72px"><col style="width:64px">`;
+    inner += `</colgroup>`;
+    inner += `<thead><tr>`;
+    inner += `<th class="r">POS.</th>`;
+    inner += `<th>MARCA</th>`;
+    inner += `<th class="r">${pdLbl} ANT.</th>`;
+    inner += `<th class="r">${pdLbl} ATUAL</th>`;
+    inner += `<th class="r">EVOL. %</th>`;
+    inner += `<th class="r">SHARE %</th>`;
+    inner += `</tr></thead><tbody>`;
+
+    ranking.forEach((m, i) => {
+        const isSupera = m.role === 'SUPERA';
+        const evol = (m.prev && m.prev !== 0) ? ((m.cur / m.prev) - 1) : null;
+        const evolCls = evol == null ? '' : (evol >= 0 ? 'vpos' : 'vneg');
+        const shr = totalCur > 0 ? (m.cur / totalCur) * 100 : 0;
+        const cleanName = String(m.name || '').replace(/\s*\([^)]+\)\s*$/, '').trim();
+        const tag = String(m.name || '').match(/\(([^)]+)\)\s*$/);
+        const tagTxt = tag ? tag[1] : '';
+        inner += `<tr class="${isSupera ? 'is-supera' : ''}">`;
+        inner += `<td class="r pos-cell"><strong>${i + 1}ª</strong></td>`;
+        inner += `<td>${isSupera ? '<span class="dot-supera"></span>' : ''}${isSupera ? `<strong>${cleanName}</strong>` : cleanName}${tagTxt ? ` <span class="brand-tag">(${tagTxt})</span>` : ''}${isSupera ? ' <span class="badge-supera">SUPERA</span>' : ''}</td>`;
+        inner += `<td class="r">${fmtValue(m.prev)}</td>`;
+        inner += `<td class="r ${isSupera ? 'is-supera-val' : ''}">${fmtValue(m.cur)}</td>`;
+        inner += `<td class="r ${evolCls}">${fmtPct(evol)}</td>`;
+        const shrCls = shr >= 30 ? 'shr-hi' : (shr >= 10 ? 'shr-mid' : 'shr-lo');
+        inner += `<td class="r ${shrCls}"><strong>${shr.toFixed(1)}%</strong></td>`;
+        inner += `</tr>`;
+    });
+
+    if (totalPrev > 0) {
+        const evolMkt = (totalCur / totalPrev) - 1;
+        const cls = evolMkt >= 0 ? 'vpos' : 'vneg';
+        inner += `<tr class="brick-exp-total">`;
+        inner += `<td colspan="2" class="r"><strong>TOTAL DO MERCADO</strong></td>`;
+        inner += `<td class="r"><strong>${fmtValue(totalCur)}</strong></td>`;
+        inner += `<td class="r"><strong>${fmtValue(totalPrev)}</strong></td>`;
+        inner += `<td class="r ${cls}"><strong>${fmtPct(evolMkt)}</strong></td>`;
+        inner += `<td class="r"><strong>100.0%</strong></td>`;
+        inner += `</tr>`;
+    }
+
+    inner += `</tbody></table>`;
+
+    return `<tr class="brick-expand-row" id="${expandId}" hidden>
+        <td colspan="18" class="brick-exp-cell">${inner}</td>
+    </tr>`;
+}
+
+function toggleBrickExpand(expandId, btn) {
+    const row = document.getElementById(expandId);
+    if (!row) return;
+    const isHidden = row.hasAttribute('hidden');
+    if (isHidden) {
+        row.removeAttribute('hidden');
+        if (btn) { btn.textContent = '−'; btn.classList.add('is-open'); }
+    } else {
+        row.setAttribute('hidden', '');
+        if (btn) { btn.textContent = '+'; btn.classList.remove('is-open'); }
+    }
 }
 
 function goBrickPage(n) {
@@ -1407,44 +1506,104 @@ function renderEntrar() {
 function renderGraficos() {
     const el = $('tab-graficos'); if (!el) return;
     const pd = UI.periodMode;
-    const mkts = aggMarkets(DB.rows, pd).sort((a, b) => b.current - a.current);
+    const searchStr = norm(UI.search);
+
+    /* ── Aplicar os mesmos filtros das outras abas ── */
+    const fRows = DB.rows.filter(r => {
+        if (UI.sector !== 'all' && r.sector !== UI.sector) return false;
+        if (UI.market !== 'all' && r.market !== UI.market) return false;
+        if (searchStr) {
+            const blob = norm(r.market + ' ' + r.cidade + ' ' + r.brickName + ' ' + r.product);
+            if (!blob.includes(searchStr)) return false;
+        }
+        return true;
+    });
+
+    const mkts = aggMarkets(fRows, pd).sort((a, b) => b.current - a.current);
+
+    /* ── Banner de contexto (setor ativo) ── */
+    const sectorLabel = UI.sector !== 'all' ? cleanSectorName(UI.sector) : null;
+    const unitLabel   = UI.unitMode === 'RS' ? 'R$' : 'Unidades';
+    let html = '';
+    if (sectorLabel) {
+        html += `<div class="graficos-context-bar">
+            <span class="graficos-ctx-icon">🏢</span>
+            <span class="graficos-ctx-txt">Setor: <strong>${sectorLabel}</strong></span>
+            <span class="graficos-ctx-sep">·</span>
+            <span class="graficos-ctx-txt">${pd} · ${unitLabel}</span>
+            <span class="graficos-ctx-sep">·</span>
+            <span class="graficos-ctx-txt">${mkts.length} mercados</span>
+        </div>`;
+    }
+
+    html += '<div class="charts-grid">';
+
+    /* ── Card 1: Top mercados por volume ── */
     const top = mkts.slice(0, 15);
-    const max = Math.max(...top.map(m => m.current), 1);
-
-    let html = '<div class="charts-grid">';
-    // Top mercados
-    html += '<div class="chart-card"><div class="chart-card-title">Top 15 mercados (' + pd + ')</div>';
-    top.forEach(m => {
-        html += `<div class="bar-row">
-            <div class="bar-label" title="${m.market}">${m.market}</div>
-            <div class="bar-track"><div class="bar-fill" style="width:${(m.current / max * 100).toFixed(1)}%;background:var(--c-crescer)"></div></div>
-            <div class="bar-val">${fmtValue(m.current)}</div>
-        </div>`;
-    });
+    const maxVol = Math.max(...top.map(m => m.current), 1);
+    html += `<div class="chart-card"><div class="chart-card-title">Top 15 Mercados (${pd} · ${unitLabel})</div>`;
+    if (!top.length) {
+        html += '<p class="chart-empty">Nenhum mercado nos filtros atuais.</p>';
+    } else {
+        top.forEach(m => {
+            html += `<div class="bar-row">
+                <div class="bar-label" title="${m.market}">${m.market}</div>
+                <div class="bar-track"><div class="bar-fill" style="width:${(m.current / maxVol * 100).toFixed(1)}%;background:var(--c-crescer)"></div></div>
+                <div class="bar-val">${fmtValue(m.current)}</div>
+            </div>`;
+        });
+    }
     html += '</div>';
 
-    // Share Supera por mercado (top 15 onde Supera tem presença)
+    /* ── Card 2: Maiores shares Supera ── */
     const withSupera = mkts.filter(m => m.supera > 0).sort((a, b) => b.share - a.share).slice(0, 15);
-    html += '<div class="chart-card"><div class="chart-card-title">Maiores shares Supera (' + pd + ')</div>';
-    withSupera.forEach(m => {
-        html += `<div class="bar-row">
-            <div class="bar-label" title="${m.market}">${m.market}</div>
-            <div class="bar-track"><div class="bar-fill" style="width:${Math.min(m.share, 100).toFixed(1)}%;background:var(--c-lider)"></div></div>
-            <div class="bar-val">${m.share.toFixed(1)}%</div>
-        </div>`;
-    });
+    html += `<div class="chart-card"><div class="chart-card-title">Maiores Shares Supera (${pd})</div>`;
+    if (!withSupera.length) {
+        html += '<p class="chart-empty">Nenhum mercado com presença Supera.</p>';
+    } else {
+        withSupera.forEach(m => {
+            html += `<div class="bar-row">
+                <div class="bar-label" title="${m.market}">${m.market}</div>
+                <div class="bar-track"><div class="bar-fill" style="width:${Math.min(m.share, 100).toFixed(1)}%;background:var(--c-lider)"></div></div>
+                <div class="bar-val">${m.share.toFixed(1)}%</div>
+            </div>`;
+        });
+    }
     html += '</div>';
 
-    // Resumo recomendações
+    /* ── Card 3: Bricks por recomendação ── */
     const recTotals = { 'LÍDER': 0, 'CRESCER': 0, 'OPORTUNIDADE': 0, 'ACOMPANHAR': 0, 'ENTRAR': 0 };
     mkts.forEach(m => Object.keys(recTotals).forEach(r => recTotals[r] += m.recs[r].length));
-    html += '<div class="chart-card"><div class="chart-card-title">Bricks por recomendação</div><div class="rec-summary">';
+    html += `<div class="chart-card"><div class="chart-card-title">Bricks por Recomendação</div><div class="rec-summary">`;
     Object.entries(recTotals).forEach(([k, v]) => {
         html += `<div class="rec-sum-item"><div class="rec-sum-count" style="color:${recColorVar(k)}">${v}</div><div class="rec-sum-label">${k}</div></div>`;
     });
     html += '</div></div>';
 
+    /* ── Card 4: Top 15 crescimento de mercado ── */
+    const growing = [...mkts]
+        .filter(m => m.previous > 0 && m.growth != null)
+        .sort((a, b) => b.growth - a.growth)
+        .slice(0, 15);
+    html += `<div class="chart-card"><div class="chart-card-title">Top 15 Crescimento de Mercado (${pd})</div>`;
+    if (!growing.length) {
+        html += '<p class="chart-empty">Sem dados de período anterior para calcular crescimento.</p>';
+    } else {
+        const maxGrowth = Math.max(...growing.map(m => Math.abs(m.growth)), 0.01);
+        growing.forEach(m => {
+            const pct = (m.growth * 100).toFixed(1);
+            const cls = m.growth >= 0 ? 'var(--c-lider)' : 'var(--c-entrar)';
+            const prefix = m.growth >= 0 ? '+' : '';
+            html += `<div class="bar-row">
+                <div class="bar-label" title="${m.market}">${m.market}</div>
+                <div class="bar-track"><div class="bar-fill" style="width:${(Math.abs(m.growth) / maxGrowth * 100).toFixed(1)}%;background:${cls}"></div></div>
+                <div class="bar-val" style="color:${cls};font-weight:700">${prefix}${pct}%</div>
+            </div>`;
+        });
+    }
     html += '</div>';
+
+    html += '</div>'; /* /charts-grid */
     el.innerHTML = html;
 }
 

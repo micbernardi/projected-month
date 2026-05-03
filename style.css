@@ -1288,6 +1288,43 @@ body {
     color: var(--txt2)
 }
 
+/* Banner de contexto de setor na aba Gráficos */
+.graficos-context-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--navy);
+    color: #e2eaf6;
+    font-size: 12px;
+    font-weight: 500;
+    border-bottom: 1px solid #1a2a44;
+    flex-wrap: wrap;
+}
+
+.graficos-ctx-icon {
+    font-size: 14px;
+}
+
+.graficos-ctx-txt strong {
+    color: #93c5fd;
+    font-weight: 700;
+}
+
+.graficos-ctx-sep {
+    opacity: .4;
+    font-size: 14px;
+}
+
+/* Estado vazio dos cards de gráfico */
+.chart-empty {
+    text-align: center;
+    padding: 24px 12px;
+    color: var(--txt3);
+    font-size: 12px;
+    font-style: italic;
+}
+
 /* ════════════════════════════════════════
    TOAST
 ════════════════════════════════════════ */
@@ -1543,15 +1580,15 @@ body {
 }
 
 .rank-row.rank-supera td {
-    background: linear-gradient(90deg, #ecfdf5 0%, #ffffff 70%);
+    background: #e8f0fe;
 }
 
 .rank-row.rank-supera .rank-pos {
-    color: var(--c-lider);
+    color: var(--acc);
 }
 
 .rank-row.rank-supera .rank-name {
-    color: #0b5735;
+    color: var(--navy);
 }
 
 /* Banda de status das planilhas carregadas (Un./R$) */
@@ -1702,8 +1739,10 @@ body {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 11px;          /* mais compacto */
-    min-width: 1380px;        /* reduz scroll horizontal */
+    font-size: 11px;
+    /* mais compacto */
+    min-width: 1380px;
+    /* reduz scroll horizontal */
 }
 
 .brick-detail-tbl thead th,
@@ -1711,62 +1750,134 @@ body {
     position: sticky;
     top: var(--sticky-tbl);
     z-index: 50;
-    background: #1e3a5f;       /* azul-marinho escuro uniforme */
+    background: #1e3a5f;
+    /* azul-marinho escuro uniforme */
     color: #ffffff;
     font-size: 9.5px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .5px;
-    padding: 8px 6px;          /* compacto */
+    padding: 8px 6px;
+    /* compacto */
     border-bottom: 2px solid #142a45;
     text-align: left;
     white-space: nowrap;
     user-select: none;
 }
 
-.brick-detail-tbl thead th.r { text-align: right }
-.brick-detail-tbl thead th.c { text-align: center }
+.brick-detail-tbl thead th.r {
+    text-align: right
+}
+
+.brick-detail-tbl thead th.c {
+    text-align: center
+}
+
 .brick-detail-tbl thead th.sortable {
     cursor: pointer;
     transition: background .15s;
 }
-.brick-detail-tbl thead th.sortable:hover { background: #284b78 }
+
+.brick-detail-tbl thead th.sortable:hover {
+    background: #284b78
+}
+
 .brick-detail-tbl thead th .sort-arr {
     color: #9bb5d6;
     font-size: 9px;
     margin-left: 3px;
 }
-.brick-detail-tbl thead th .sort-arr.on { color: #ffffff }
+
+.brick-detail-tbl thead th .sort-arr.on {
+    color: #ffffff
+}
 
 .brick-detail-tbl tbody td {
-    padding: 5px 6px;          /* compacto */
+    padding: 5px 6px;
+    /* compacto */
     border-bottom: 1px solid var(--brd);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-    color: #000;               /* fonte preta em todas as linhas */
+    color: #000;
+    /* fonte preta em todas as linhas */
 }
-.brick-detail-tbl tbody td.r { text-align: right }
-.brick-detail-tbl tbody td.c { text-align: center }
+
+.brick-detail-tbl tbody td.r {
+    text-align: right
+}
+
+.brick-detail-tbl tbody td.c {
+    text-align: center
+}
 
 /* === v3.9 — cores de fundo das linhas pela recomendação === */
-.brick-detail-row.row-rb-lider   td { background: #d1fae5 }   /* verde claro    */
-.brick-detail-row.row-rb-crescer td { background: #dbeafe }   /* azul claro     */
-.brick-detail-row.row-rb-oport   td { background: #ffedd5 }   /* laranja claro  */
-.brick-detail-row.row-rb-acomp   td { background: #e5e7eb }   /* cinza claro    */
-.brick-detail-row.row-rb-entrar  td { background: #fee2e2 }   /* vermelho claro */
+/* v3.12 — cores das linhas mais saturadas para não confundir com cinza/branco. */
+.brick-detail-row.row-rb-lider td {
+    background: #edfdf4 !important
+}
 
-.brick-detail-row.row-rb-lider:hover   td { background: #bbf2d3 }
-.brick-detail-row.row-rb-crescer:hover td { background: #c7defc }
-.brick-detail-row.row-rb-oport:hover   td { background: #fde0bd }
-.brick-detail-row.row-rb-acomp:hover   td { background: #d6dae0 }
-.brick-detail-row.row-rb-entrar:hover  td { background: #fbcfcf }
+/* verde pastel muito claro     */
+.brick-detail-row.row-rb-crescer td {
+    background: #eff6ff !important
+}
+
+/* azul pastel muito claro      */
+.brick-detail-row.row-rb-oport td {
+    background: #fff7ed !important
+}
+
+/* laranja pastel muito claro   */
+.brick-detail-row.row-rb-acomp td {
+    background: #f4f4f5 !important
+}
+
+/* cinza pastel muito claro     */
+.brick-detail-row.row-rb-entrar td {
+    background: #fff1f1 !important
+}
+
+/* vermelho pastel muito claro  */
+
+.brick-detail-row.row-rb-lider:hover td {
+    background: #d1fae5 !important
+}
+
+.brick-detail-row.row-rb-crescer:hover td {
+    background: #dbeafe !important
+}
+
+.brick-detail-row.row-rb-oport:hover td {
+    background: #fed7aa !important
+}
+
+.brick-detail-row.row-rb-acomp:hover td {
+    background: #e4e4e7 !important
+}
+
+.brick-detail-row.row-rb-entrar:hover td {
+    background: #fecaca !important
+}
 
 /* faixa lateral colorida indicando recomendação */
-.brick-detail-row.row-rb-lider   td:first-child { border-left: 3px solid var(--c-lider) }
-.brick-detail-row.row-rb-crescer td:first-child { border-left: 3px solid var(--c-crescer) }
-.brick-detail-row.row-rb-oport   td:first-child { border-left: 3px solid var(--c-oport) }
-.brick-detail-row.row-rb-acomp   td:first-child { border-left: 3px solid var(--c-acomp) }
-.brick-detail-row.row-rb-entrar  td:first-child { border-left: 3px solid var(--c-entrar) }
+.brick-detail-row.row-rb-lider td:first-child {
+    border-left: 3px solid var(--c-lider)
+}
+
+.brick-detail-row.row-rb-crescer td:first-child {
+    border-left: 3px solid var(--c-crescer)
+}
+
+.brick-detail-row.row-rb-oport td:first-child {
+    border-left: 3px solid var(--c-oport)
+}
+
+.brick-detail-row.row-rb-acomp td:first-child {
+    border-left: 3px solid var(--c-acomp)
+}
+
+.brick-detail-row.row-rb-entrar td:first-child {
+    border-left: 3px solid var(--c-entrar)
+}
 
 /* preserva o highlight verde da coluna SUPERA acima do tom da linha */
 .brick-detail-tbl tbody td.c-supera {
@@ -1774,7 +1885,10 @@ body {
     color: #000 !important;
     font-weight: 700;
 }
-.brick-detail-tbl tbody td.c-supera.vacc { font-weight: 800 }
+
+.brick-detail-tbl tbody td.c-supera.vacc {
+    font-weight: 800
+}
 
 /* código do brick mais discreto */
 .brick-detail-tbl tbody .brick-code-mono {
@@ -1984,4 +2098,222 @@ body {
 .tab-sector.active-sector .tab-sector-dot {
     background: var(--c-lider);
     box-shadow: 0 0 0 3px rgba(16, 185, 129, .25);
+}
+
+/* ============================================================
+   v3.13 — Coluna +/− e painel expansível de concorrentes
+   ============================================================ */
+
+/* coluna estreita do botão expand */
+.brick-detail-tbl th.col-expand,
+.brick-detail-tbl td.col-expand {
+    width: 28px;
+    min-width: 28px;
+    padding: 2px 4px !important;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.btn-expand {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid #475569;
+    background: #fff;
+    color: #1e3a5f;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .12s ease;
+}
+
+.btn-expand:hover {
+    background: #1e3a5f;
+    color: #fff;
+    border-color: #1e3a5f;
+}
+
+.btn-expand.is-open {
+    background: #1e3a5f;
+    color: #fff;
+    border-color: #1e3a5f;
+}
+
+/* linha expandida — sem padding, sem hover de linha */
+.brick-expand-row td.brick-exp-cell {
+    padding: 0 !important;
+    background: #f8fafc !important;
+    border-left: 3px solid #1e3a5f !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+}
+
+.brick-expand-row:hover td {
+    background: #f8fafc !important;
+}
+
+/* cabeçalho do painel */
+.brick-exp-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 6px 12px;
+    background: #1e3a5f;
+    color: #fff;
+}
+
+.brick-exp-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .2px;
+}
+
+.brick-exp-title strong {
+    color: #fff;
+    font-weight: 800;
+}
+
+.brick-exp-meta {
+    font-size: 11px;
+    color: #cbd5e1;
+}
+
+.brick-exp-meta code {
+    background: rgba(255, 255, 255, .10);
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10.5px;
+}
+
+/* mini-tabela de concorrentes — v3.14: ainda mais compacta, larguras justas */
+.brick-exp-tbl {
+    width: auto;
+    min-width: 900px;
+    max-width: 1100px;
+    margin: 0 12px 6px 12px;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 11px;
+    color: #000;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+}
+
+.brick-exp-tbl thead th {
+    background: var(--navy);
+    color: #e2eaf6;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 3px 6px;
+    border-bottom: 2px solid #1a2a44;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.brick-exp-tbl thead th.r {
+    text-align: right;
+}
+
+.brick-exp-tbl tbody td {
+    padding: 2px 6px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #000;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.brick-exp-tbl tbody td.r {
+    text-align: right;
+}
+
+/* v3.14 — cores de EVOL. % */
+.brick-exp-tbl td.vpos {
+    color: #15803d;
+    font-weight: 700;
+}
+
+.brick-exp-tbl td.vneg {
+    color: #b91c1c;
+    font-weight: 700;
+}
+
+/* v3.14 — cores graduais de SHARE % */
+.brick-exp-tbl td.shr-hi {
+    color: #14532d;
+    font-weight: 800;
+}
+
+.brick-exp-tbl td.shr-mid {
+    color: #166534;
+    font-weight: 700;
+}
+
+.brick-exp-tbl td.shr-lo {
+    color: #475569;
+}
+
+.brick-exp-tbl tbody tr:hover td {
+    background: #f1f5f9;
+}
+
+.brick-exp-tbl tbody tr.is-supera td {
+    background: #e8f0fe !important;
+}
+
+.brick-exp-tbl tbody tr.is-supera:hover td {
+    background: #c7d9fc !important;
+}
+
+.brick-exp-tbl tbody td.is-supera-val {
+    font-weight: 800;
+}
+
+.brick-exp-tbl .pos-cell {
+    color: #475569;
+}
+
+.brick-exp-tbl .brand-tag {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.brick-exp-tbl .dot-supera {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ca8a04;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+.brick-exp-tbl .badge-supera {
+    display: inline-block;
+    background: #1e3a5f;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 4px;
+    letter-spacing: .4px;
+    vertical-align: middle;
+}
+
+/* linha total mercado */
+.brick-exp-tbl tr.brick-exp-total td {
+    background: #f1f5f9 !important;
+    border-top: 2px solid #1e3a5f;
+    font-weight: 700;
 }
