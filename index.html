@@ -9,7 +9,7 @@
         content="Dashboard de análise estratégica de mercado para Distrital 101100 – Michel Bernardi">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=100">
+    <link rel="stylesheet" href="style.css?v=102">
 </head>
 
 <body>
@@ -121,6 +121,7 @@
                     Colunas esperadas: Distrital, Setor, Mercado, Produto, Cidade, Brick, MAT, MAT ANT, YTD, YTD ANT,
                     TRI, TRI ANT.</p>
                 <button class="btn-primary" style="margin-top:20px" id="btnSelectFile">Selecionar Arquivo</button>
+                <div id="uploadProgress" class="upload-progress" aria-live="polite"></div>
                 <p style="margin-top:18px;font-size:11px;color:#8a96b8">
                     Você pode subir as duas planilhas (Un. e R$) em qualquer ordem. O dashboard detecta automaticamente
                     pelo nome do arquivo, mas se quiser forçar, basta clicar em <strong># Un.</strong> ou <strong>$
@@ -225,7 +226,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=100"></script>
+    <script src="script.js?v=102"></script>
 </body>
 
 </html>
