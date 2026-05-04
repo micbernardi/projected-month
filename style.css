@@ -824,12 +824,12 @@ body {
 /* helpers */
 .vpos {
     color: var(--grn);
-    font-weight: 600
+    font-weight: 700
 }
 
 .vneg {
     color: var(--red);
-    font-weight: 600
+    font-weight: 700
 }
 
 .vacc {
@@ -1322,7 +1322,7 @@ body {
 ════════════════════════════════════════ */
 ::-webkit-scrollbar {
     width: 8px;
-    height: 8px
+    height: 12px
 }
 
 ::-webkit-scrollbar-track {
@@ -1729,7 +1729,7 @@ body {
 }
 
 .brick-detail-tbl thead th.r {
-    text-align: right
+    text-align: center
 }
 
 .brick-detail-tbl thead th.c {
@@ -1766,7 +1766,7 @@ body {
 }
 
 .brick-detail-tbl tbody td.r {
-    text-align: right
+    text-align: center
 }
 
 .brick-detail-tbl tbody td.c {
@@ -1774,27 +1774,27 @@ body {
 }
 
 /* === v3.9 — cores de fundo das linhas pela recomendação === */
-/* v3.12 — cores das linhas mais saturadas para não confundir com cinza/branco. */
+/* LÍDER: verde clarinho */
 .brick-detail-row.row-rb-lider td {
-    background: #b8f5cc !important
+    background: #dcfce7 !important
 }
 
-/* verde claro mais vivo    */
+/* CRESCER: azul claro */
 .brick-detail-row.row-rb-crescer td {
     background: #bfdbfe !important
 }
 
-/* azul claro mais vivo     */
+/* OPORTUNIDADE: laranja claro */
 .brick-detail-row.row-rb-oport td {
     background: #ffd9a8 !important
 }
 
-/* laranja claro mais vivo  */
+/* ACOMPANHAR: cinza claro */
 .brick-detail-row.row-rb-acomp td {
     background: #d1d5db !important
 }
 
-/* cinza claro mais firme   */
+/* ENTRAR: vermelho claro */
 .brick-detail-row.row-rb-entrar td {
     background: #fecaca !important
 }
@@ -1802,7 +1802,7 @@ body {
 /* vermelho claro mais vivo */
 
 .brick-detail-row.row-rb-lider:hover td {
-    background: #9eecbb !important
+    background: #bbf7d0 !important
 }
 
 .brick-detail-row.row-rb-crescer:hover td {
@@ -2008,17 +2008,16 @@ body {
 }
 
 .main-tbl tbody td.c-supera {
-    background: rgba(16, 185, 129, .085);
-    /* verde-água translúcido sutil */
+    background: #fffde7 !important;
+    /* amarelo extremamente claro */
     font-weight: 800;
     color: #0f172a;
-    /* preto/slate-900 para boa leitura */
-    border-left: 1px solid rgba(16, 185, 129, .18);
-    border-right: 1px solid rgba(16, 185, 129, .18);
+    border-left: 1px solid rgba(202, 138, 4, .18);
+    border-right: 1px solid rgba(202, 138, 4, .18);
 }
 
 .main-tbl tbody tr:hover td.c-supera {
-    background: rgba(16, 185, 129, .14);
+    background: #fef9c3 !important;
 }
 
 /* Coluna numérica Supera: negrito + preto (mesma cor do texto) */
@@ -2038,15 +2037,16 @@ body {
 }
 
 .brick-detail-tbl tbody td.c-supera {
-    background: rgba(16, 185, 129, .085);
+    background: #fffde7 !important;
+    /* amarelo extremamente claro */
     color: #0f172a;
     font-weight: 700;
-    border-left: 1px solid rgba(16, 185, 129, .18);
-    border-right: 1px solid rgba(16, 185, 129, .18);
+    border-left: 1px solid rgba(202, 138, 4, .18);
+    border-right: 1px solid rgba(202, 138, 4, .18);
 }
 
 .brick-detail-tbl tbody tr:hover td.c-supera {
-    background: rgba(16, 185, 129, .14);
+    background: #fef9c3 !important;
 }
 
 /* Estado "filtrado por setor" da aba: visualmente diferente do simples 'active'
@@ -2279,4 +2279,35 @@ body {
     background: #f1f5f9 !important;
     border-top: 2px solid #1e3a5f;
     font-weight: 700;
+}
+/* v3.19 — feedback de progresso durante carga de planilhas grandes */
+.upload-progress{
+    margin-top:14px;
+    min-height:18px;
+    font-size:12px;
+    color:#5a6b8c;
+    font-variant-numeric: tabular-nums;
+    letter-spacing:0.02em;
+}
+.upload-progress:not(:empty){
+    padding:8px 14px;
+    background:linear-gradient(90deg,#eef3ff,#fafcff);
+    border:1px solid #d6e0f5;
+    border-radius:8px;
+    display:inline-block;
+    color:#1f3a72;
+    font-weight:600;
+}
+
+/* ════ REGRA GLOBAL — crescimento positivo/negativo ════ */
+td.vpos,
+td.vpos strong {
+    color: #15803d !important;
+    font-weight: 700 !important;
+}
+
+td.vneg,
+td.vneg strong {
+    color: #b91c1c !important;
+    font-weight: 700 !important;
 }

@@ -7,7 +7,7 @@
    Gerado a partir da planilha MARCASCONCORRENTES-SUPERA-MERCADOS.
    A chave é o nome do mercado (UPPER). Cada entrada traz a lista de
    marcas Supera e concorrentes daquele mercado.                      */
-const MARKETS_BRANDS_MAP = {"ALEVO":{"supera":["ALEVO (SP0)"],"concorrentes":["LEVOXIN (AS2)","LIVEPAX (A4H)","TAMIRAM (EUF)","TAVOK (EUF)"]},"ALONG-C":{"supera":["ALONG-C (SP0)"],"concorrentes":["COLFLEX CURCUMA (MF+)","CONDRES LONGBIO (EMS)","CURC (MF+)","MOTORE (A4H)"]},"ALPES XL":{"supera":["ALPES XL (SP0)"],"concorrentes":["BUP XL (EUF)","BUPIUM (EMS)","BUPIUM XL (EMS)","WELLBUTRIN XL (GSK)","ZETRON XL (LIB)"]},"AMYTRIL":{"supera":["AMYTRIL (SP0)"],"concorrentes":["ANAFRANIL (SDZ)","ANAFRANIL SR (SDZ)","CLO (B3H)","IMIPRA (CT6)","MITRIP (MYL)","PAMELOR (CLR)"]},"ANDES":{"supera":["ANDES (SP0)"],"concorrentes":["DELLER (A4H)","DESDUO (TNT)","DESVE (EUF)","ELIFORE (PFZ)","IMENSE (EMS)","PRISTIQ (PFZ)"]},"APICE":{"supera":["APICE (SP0)"],"concorrentes":["DORENE (A4H)","INSIT (AS2)","LIMIAR (EUF)","LYRICA (VI/)"]},"ASEA":{"supera":["ASEA (SP0)"],"concorrentes":["BENICAR (DCS)","OLMECOR (TNT)","OLMETEC (PFZ)"]},"ASEA HCT":{"supera":["ASEA HCT (SP0)"],"concorrentes":["BENICAR HCT (DCS)","HOLMES H (EUF)"]},"ATEROMA":{"supera":["ATEROMA (SP0)"],"concorrentes":["CITALOR (VI/)","LIPITOR (VI/)","VAST (EUF)"]},"ATESTO":{"supera":["ATESTO (SP0)"],"concorrentes":["DAEM (EUF)","DURATESTON (A3N)","HORMUS (EUF)","NEBIDO (GRT)","UND TESTOSTERON MG (EUF)"]},"ATIP":{"supera":["ATIP (SP0)"],"concorrentes":["QUET (EUF)","QUETIPIN (CT6)","QUETROS (A4H)","SEROQUEL IR (MA8)"]},"ATIP XR":{"supera":["ATIP XR (SP0)"],"concorrentes":["QUEPSIA LP (EUF)","QUET XR (EUF)","SEROQUEL XRO (MA8)"]},"AVAL":{"supera":["AVAL (SP0)"],"concorrentes":["BRASART (EMS)","BRAVAN (A4H)","DIOVAN (FQM)"]},"AZOD":{"supera":["AZOD (SP0)"],"concorrentes":["DONAREN (AS2)","LOREDON (TNT)","MOTRAZ (EUF)","SONIC (EUF)"]},"BARIAT XR":{"supera":["BARIAT XR (SP0)"],"concorrentes":["BARIATRON (A4I)","BARISTAR (CLR)","QUELATUS BARI (EUF)"]},"BARIAT XR CALCIO":{"supera":["BARIAT XR CALCIO (SP0)"],"concorrentes":["CALDE MDK (MJA)","MOBILITY OSCAL (O/P)","MOBILITY OSCAL D (O/P)","OSTEONUTRI (A3N)"]},"BENZETACIL":{"supera":["BENZETACIL (SP0)","BIOFLAC (SP0)"],"concorrentes":[]},"BIQUIZ":{"supera":["BIQUIZ (SP0)","CARLIT (SP0)"],"concorrentes":["AIPRI (MF+)","ARISTAB (A4H)","TOARIP (TNT)","CARBOLITIUM (EUF)","CARBOLITIUM CR (EUF)"]},"CIBEX":{"supera":["CIBEX (SP0)"],"concorrentes":["CELEBRA (VI/)","COQUES (EUF)","DUCOX (EUF)","FOXIS (A4H)"]},"COD":{"supera":["COD (SP0)"],"concorrentes":["CODEIN (CT6)","NOVOTRAM (MF+)","TRAMADON (CT6)","TRAMAL (GRT)","TRAMAL RETARD (GRT)"]},"COD PAR":{"supera":["COD PAR (SP0)"],"concorrentes":["ALGICOD (EUF)","PACO (EUF)","TYLEX (CLR)"]},"DBRIZ":{"supera":["DBRIZ (SP0)"],"concorrentes":["IRUXOL (ABD)","KOLLAGENASE C/CLOR (CT6)"]},"DBRIZ GINO":{"supera":["DBRIZ GINO (SP0)"],"concorrentes":["GINO KOLLAGENASE (CT6)","GYNO-IRUXOL (ABD)","KOLPOCERVIX (ZY-)"]},"DBRIZ UNO":{"supera":["DBRIZ UNO (SP0)"],"concorrentes":["IRUXOL MONO (ABD)","KOLLAGENASE (CT6)"]},"DEKSA":{"supera":["DEKSA (SP0)"],"concorrentes":["JUNEVE (TAK)","LIND (EUF)","LISDEV (EUF)","LISVENX (TNT)","LYBERDIA (EMS)","LYSDEXA (LIB)","VENVANSE (TAK)"]},"DELA COLIN":{"supera":["DELA COLIN (SP0)","DENYL (SP0)"],"concorrentes":["FEMIBION (PGH)","MEGA MATER (U.Q)","NEUTROFER FOLATO D (EMS)","OFOLATO D FER (MF+)","OFOLATO FER (MF+)","CITTA (EUF)","MAXAPRAN (A4H)","PROCIMAX (LIB)"]},"DHIVAS":{"supera":["DHIVAS (SP0)"],"concorrentes":["DAFLON 1000 (SVR)","DAFLON 1000 FLEX (SVR)","DIOSMIN (A4H)","PERIVASC (EUF)","VENAFLON (TTB)"]},"DIOLESS":{"supera":["DIOLESS (SP0)"],"concorrentes":["FEMINA (A4H)","MERCILON (ORG)","MINIAN (LIB)","PRIMERA (EUF)"]},"DIUPRESS":{"supera":["DIUPRESS (SP0)"],"concorrentes":["CLOR.AMILO+HCT MG (EMS)","CLORANA (S.A)","DIURIX (TTB)","INDAPAMIDA MG (EMS)","INDAPAMIDA MG (EUF)","INDAPAMIDA MG (GM2)","INDAPAMIDA MG (GOB)","INDAPAMIDA MG (PZ8)","INDAPAMIDA MG (TNT)","INDAPEN SR (TNT)","NATRILIX SR (SVR)"]},"DUOFLAM":{"supera":["DUOFLAM (SP0)"],"concorrentes":["BETATRINTA (EUF)","DIPROSPAN (MF+)","PERMESE (EUF)"]},"FIBRINASE 15G":{"supera":["FIBRINASE (SP0)"],"concorrentes":["IRUXOL MONO (ABD)","KOLLAGENASE C/CLOR (CT6)","IRUXOL (ABD)","KOLLAGENASE (CT6)"]},"FILINAR":{"supera":["FILINAR (SP0)"],"concorrentes":["BRONDILAT (A4H)","MELYSSE (A4H)"]},"FLUXENE":{"supera":["FLUXENE (SP0)"],"concorrentes":["DAFORIN (EMS)","PROZAC 20 (LLY)","VEROTINA (LIB)"]},"GAZIA":{"supera":["GAZIA (SP0)"],"concorrentes":["ADIPEPT (A4H)","DIVENA (A4H)","INILOK (AS2)","PRAZY (LR8)","RESTITUE (EMS)"]},"HELLEVA":{"supera":["HELLEVA (SP0)"],"concorrentes":["VIAGRA (VI/)"]},"HEZO":{"supera":["HEZO (SP0)"],"concorrentes":["EZONIA (EUF)","PRYSMA (EUF)","STILNOX CR (S.A)"]},"HIXIZINE":{"supera":["HIXIZINE (SP0)","IBANUNO (SP0)"],"concorrentes":["FENERGAN (O/P)","PERGO (EUF)","POLARAMINE (HCH)","AFRAT (CT6)","OSTEOBAN (A4H)","RISEDROSS (EMS)"]},"KETALGI":{"supera":["KETALGI (SP0)"],"concorrentes":["ETOD (CT6)","ETODOLACO MG (AH/)","ETODOLACO MG (GM2)","FLANCOX (AS2)"]},"LANICO COMP":{"supera":["LANICO (SP0)"],"concorrentes":["ATAK CLAV (EUF)","CLAVULIN BD (GSK)","NOVAMOX (A4H)","SINOT CLAV (EUF)"]},"LANICO SUSP":{"supera":["LANICO (SP0)"],"concorrentes":["ATAK CLAV (EUF)","CLAVULIN BD (GSK)","NOVAMOX (A4H)","SINOT CLAV (EUF)"]},"LONGFLEX":{"supera":["LONGFLEX (SP0)"],"concorrentes":["COLFLEX HIALU (MF+)","FORTICE (EUF)","MOTILEX HA (AS2)"]},"MINERGI":{"supera":["MINERGI (SP0)"],"concorrentes":["PISA (EUF)","QUERA LP (CT6)"]},"MULTI BI":{"supera":["MULTI-BI (SP0)"],"concorrentes":["20 BI (EUF)","BIOTTA 25BI (MJA)","PROBIATOP (FQM)","PROBID (AS2)","PROLIVE (A4H)"]},"MULTI BI FIBRAS":{"supera":["MULTI-BI FIBRAS (SP0)"],"concorrentes":["20 BI FIBRAS (EUF)","PROHN (A4H)","PROHN FIBRAS (A4H)","SIMBIOFLORA (FQM)","SIMBIOFLORA MULTI (FQM)"]},"MULTI-BI GOTAS":{"supera":["MULTI-BI (SP0)"],"concorrentes":["COLIDIS (A4H)","CULTURELLE (CLR)","FLORIPA (EUF)","KOLLIS (EMS)"]},"NAZZO":{"supera":["NAZZO (SP0)"],"concorrentes":["MARESIS FLEX (FQM)","NARIDRIN ALTO VOLU (EMS)","NASOAR (MYL)","RINOSORO (MF+)"]},"NAZZO H":{"supera":["NAZZO H (SP0)"],"concorrentes":["MAXIDRATE (LIB)","PENETRO (MLB)","SINUSEC (BS2)","SINUSTRAT (BS2)"]},"NAZZO HIALUJET":{"supera":["NAZZO HIALUJET (SP0)"],"concorrentes":["MARESIS (FQM)","RINOSORO (MF+)","SALSEP JET (LIB)","SORINE (A4H)"]},"NAZZO INF":{"supera":["NAZZO INFANTIL (SP0)"],"concorrentes":["MARESIS FLEX (FQM)","NASOAR (MYL)","RESPIR KIDS (U.Q)","RINOSORO (MF+)"]},"NAZZO NEBULIZE":{"supera":["NAZZO NEBULIZE (SP0)"],"concorrentes":["ATROVENT (B.I)","PULMICORT (FQM)"]},"NAZZO OTO":{"supera":["NAZZO OTO (SP0)"],"concorrentes":["ACERATUM (CLR)","CERUMIN (NVR)","OTODRAT (AEE)"]},"NAZZO XT":{"supera":["NAZZO XT (SP0)","NEUMOSIN (SP0)"],"concorrentes":["NASOAR (MYL)","RINOSORO (MF+)","AVALOX (BYP)","PRAIVA (EUF)"]},"NIMEGON":{"supera":["NIMEGON (SP0)"],"concorrentes":["GALVUS (FQM)","JANUVIA (MSD)","NESINA (HYQ)","SITGLU (B3H)","SUGANON (EUF)"]},"NIMEGON MET":{"supera":["NIMEGON MET (SP0)"],"concorrentes":["GALVUS MET (FQM)","JANUMET (MSD)","JANUMET XR (MSD)","NESINA MET (HYQ)","SITGLU MET (B3H)"]},"OKOTICO":{"supera":["OKOTICO (SP0)"],"concorrentes":["LEPONEX (VI/)","PINAZAN (CT6)"]},"PEN VE ORAL":{"supera":["PEN-VE-ORAL (SP0)"],"concorrentes":[]},"PERCOF":{"supera":["PERCOF (SP0)"],"concorrentes":["ANTUX (A4H)","NOTUSS TSS (A4H)","VIBRAL (ABD)"]},"PHOSFOENEMA":{"supera":["PHOSFOENEMA (SP0)"],"concorrentes":["L-ENEMA (NAU)"]},"PROMIM":{"supera":["PROMIM (SP0)"],"concorrentes":["ANTROFI (EUF)","COLPOTROFINE (TRM)","COLTRIENO (MYL)"]},"PROS":{"supera":["PROS (SP0)"],"concorrentes":["DOXAPROST (U.Q)","DUOMO (EUF)"]},"PROS HP":{"supera":["PROS HP (SP0)"],"concorrentes":["DUOMO HP (EUF)","HOMINUS (EUF)"]},"RENOVI B":{"supera":["RENOVI B (SP0)"],"concorrentes":["BETRAT (MYL)","CITOBE (EUF)","CITONEURIN 5000 (PGH)","CRONOBE COMPLEX (BS2)","NEO B (EUF)","NEVRIX (AEE)"]},"RENOVI B PLUS":{"supera":["RENOVI B PLUS (SP0)"],"concorrentes":["CRONOBE COMPLEX (BS2)","DEXA-CITONEURI NFF (PGH)","DEXADOR (AEE)"]},"RISPERIDON":{"supera":["RISPERIDON (SP0)"],"concorrentes":["RISS (EUF)","VIVERDAL (U.Q)","ZARGUS (A4H)"]},"RISPERIDON SOL":{"supera":["RISPERIDON (SP0)"],"concorrentes":["PERLID (PZ8)","RISPERDAL (CLR)","RISPERIDONA MG (EMS)","RISPERIDONA MG (GM2)","RISPERIDONA MG (NQA)","RISPERIDONA MG (PZ8)"]},"ROXETIN":{"supera":["ROXETIN (SP0)"],"concorrentes":["AROPAX (GSK)","MORATUS (A4H)","PONDERA (EUF)"]},"ROXETIN XR":{"supera":["ROXETIN XR (SP0)"],"concorrentes":["PAXIL CR (GSK)","PONDERA XR (EUF)","SINCRO XR (EUF)"]},"SENES":{"supera":["SENES (SP0)"],"concorrentes":["DON (EUF)","DONILA (A4H)","EPEZ (TNT)"]},"SIMECO PLUS":{"supera":["SIMECO PLUS (SP0)"],"concorrentes":["GASTROBION (HTZ)","GASTROGEL (MDQ)","MAGNAZIA (CM5)","MYLANTA PLUS (KVU)","PEPSOGEL (LR8)","STOMALIV STC (GOB)"]},"SOPI":{"supera":["SOPI (SP0)"],"concorrentes":["FERTISOP (MYL)","FOLIA SOP (GRO)","OFOLATO SOP (MF+)"]},"SOPI H":{"supera":["SOPI H (SP0)"],"concorrentes":["ANDRACTIV (B4I)","VITERGAN ZINCO PL (MJA)","VITERGAN ZINCO PLD (MJA)","ANSITEC (LIB)","APRAZ (MF+)","DIAZEPAM NQ (MB9)","FRISIUM (MA8)","FRONTAL (VI/)","LEXOTAN (MA8)","SOMALIUM (A4H)"]},"TAM":{"supera":["TAM (SP0)"],"concorrentes":["ANTARA (EUF)","ETIRA (A4H)","KEPPRA (UCB)"]},"TAM SOL":{"supera":["TAM (SP0)"],"concorrentes":["ANTARA (EUF)","ETIRA (A4H)","KEPPRA (UCB)","SPARK (EUF)"]},"TAM XR":{"supera":["TAM XR (SP0)"],"concorrentes":["ANTARA XR (EUF)","KEPPRA XR (UCB)","SPARK XR (EUF)"]},"TRIPLOA":{"supera":["TRIPLOA (SP0)"],"concorrentes":["ALGIE (EUF)","ARTROSIL (A4H)","BICERTO (EUF)","BI-PROFENID (S.A)"]},"TROL":{"supera":["TROL (SP0)"],"concorrentes":["GESICO RETARD (EUF)","TRAMADON (CT6)","TRAMAL RETARD (GRT)","TRAUM RETARD (A4H)"]},"TROL PAR":{"supera":["TROL PAR (SP0)"],"concorrentes":["ATRACE (EUF)","GESICO DUO (EUF)","PARATRAM (A5U)","REVANGE (A4H)"]},"TYNNA":{"supera":["TYNNA (SP0)"],"concorrentes":["ALEKTOS (HYQ)","HISBILA (EUF)","NAIRE (EUF)"]},"ULTROX":{"supera":["ULTROX (SP0)"],"concorrentes":["CETROLAC SL (U.Q)","SYMDULOR SL (A5U)","TORAGESIC (EMS)","TORMIV SL (A4H)","TOTTI SL (A4H)"]},"VAGICAND":{"supera":["VAGICAND (SP0)"],"concorrentes":[]},"VALASKI":{"supera":["VALASKI (SP0)"],"concorrentes":["DENPRYX (FQM)","HERPSTAL (UKT)","VALTREX (GSK)","VILAXY (EUF)"]},"VITA COLIN":{"supera":["VITA COLIN (SP0)"],"concorrentes":["DAYVIT KIDS (A4H)","FERROVITAN COLINA (EUF)","NEUTROFER POLI (EMS)","NEUTROFER PREV (EMS)","PURAVIT IMUNE (MYL)","ZIRVIT KIDS (AEE)","ZIRVIT KIDS MAX (AEE)"]},"VIVAMENT":{"supera":["VIVAMENT (SP0)"],"concorrentes":["COGMAX (EUF)","COGMAX FOS (EUF)","COGNI MAIS (FQM)","COGNICX (U.Q)","LOGNIS (AS2)","QUELATUS MIND (EUF)"]},"VIVOSSO":{"supera":["VIVOSSO (SP0)"],"concorrentes":["CALDE (MJA)","CALDE MAX (MJA)","CALTRATE D NF (HE4)","MOBILITY OSCAL (O/P)","MOBILITY OSCAL D (O/P)","OS-CAL D (O/P)","OSSOTRAT-D (CLR)","OSTEONUTRI (A3N)","PROSSO (EUF)"]},"VIVOSSO PRO":{"supera":["VIVOSSO PRO (SP0)"],"concorrentes":["ADDERA CAL (MF+)","CALDE K2 (MJA)","CALDE MDK (MJA)","FIXARE (EMS)","OS-CAL D (O/P)","PROSSO (EUF)","PROSSO D+KM (EUF)"]},"VORXE":{"supera":["VORXE (SP0)"],"concorrentes":["BRINTELLIX (LUN)","EVORTIA (MF+)","VOEXTOR (LIB)","VOGNUS (EMS)","VURTUOSO (LUN)"]},"ZOUP SL":{"supera":["ZOUP SL (SP0)"],"concorrentes":["LUNE SL (MF+)","PATZ SL (EMS)","RIPOSO SL (EUF)","TURNO SL (EUF)"]}};
+const MARKETS_BRANDS_MAP = { "ALEVO": { "supera": ["ALEVO (SP0)"], "concorrentes": ["LEVOXIN (AS2)", "LIVEPAX (A4H)", "TAMIRAM (EUF)", "TAVOK (EUF)"] }, "ALONG-C": { "supera": ["ALONG-C (SP0)"], "concorrentes": ["COLFLEX CURCUMA (MF+)", "CONDRES LONGBIO (EMS)", "CURC (MF+)", "MOTORE (A4H)"] }, "ALPES XL": { "supera": ["ALPES XL (SP0)"], "concorrentes": ["BUP XL (EUF)", "BUPIUM (EMS)", "BUPIUM XL (EMS)", "WELLBUTRIN XL (GSK)", "ZETRON XL (LIB)"] }, "AMYTRIL": { "supera": ["AMYTRIL (SP0)"], "concorrentes": ["ANAFRANIL (SDZ)", "ANAFRANIL SR (SDZ)", "CLO (B3H)", "IMIPRA (CT6)", "MITRIP (MYL)", "PAMELOR (CLR)"] }, "ANDES": { "supera": ["ANDES (SP0)"], "concorrentes": ["DELLER (A4H)", "DESDUO (TNT)", "DESVE (EUF)", "ELIFORE (PFZ)", "IMENSE (EMS)", "PRISTIQ (PFZ)"] }, "APICE": { "supera": ["APICE (SP0)"], "concorrentes": ["DORENE (A4H)", "INSIT (AS2)", "LIMIAR (EUF)", "LYRICA (VI/)"] }, "ASEA": { "supera": ["ASEA (SP0)"], "concorrentes": ["BENICAR (DCS)", "OLMECOR (TNT)", "OLMETEC (PFZ)"] }, "ASEA HCT": { "supera": ["ASEA HCT (SP0)"], "concorrentes": ["BENICAR HCT (DCS)", "HOLMES H (EUF)"] }, "ATEROMA": { "supera": ["ATEROMA (SP0)"], "concorrentes": ["CITALOR (VI/)", "LIPITOR (VI/)", "VAST (EUF)"] }, "ATESTO": { "supera": ["ATESTO (SP0)"], "concorrentes": ["DAEM (EUF)", "DURATESTON (A3N)", "HORMUS (EUF)", "NEBIDO (GRT)", "UND TESTOSTERON MG (EUF)"] }, "ATIP": { "supera": ["ATIP (SP0)"], "concorrentes": ["QUET (EUF)", "QUETIPIN (CT6)", "QUETROS (A4H)", "SEROQUEL IR (MA8)"] }, "ATIP XR": { "supera": ["ATIP XR (SP0)"], "concorrentes": ["QUEPSIA LP (EUF)", "QUET XR (EUF)", "SEROQUEL XRO (MA8)"] }, "AVAL": { "supera": ["AVAL (SP0)"], "concorrentes": ["BRASART (EMS)", "BRAVAN (A4H)", "DIOVAN (FQM)"] }, "AZOD": { "supera": ["AZOD (SP0)"], "concorrentes": ["DONAREN (AS2)", "LOREDON (TNT)", "MOTRAZ (EUF)", "SONIC (EUF)"] }, "BARIAT XR": { "supera": ["BARIAT XR (SP0)"], "concorrentes": ["BARIATRON (A4I)", "BARISTAR (CLR)", "QUELATUS BARI (EUF)"] }, "BARIAT XR CALCIO": { "supera": ["BARIAT XR CALCIO (SP0)"], "concorrentes": ["CALDE MDK (MJA)", "MOBILITY OSCAL (O/P)", "MOBILITY OSCAL D (O/P)", "OSTEONUTRI (A3N)"] }, "BENZETACIL": { "supera": ["BENZETACIL (SP0)", "BIOFLAC (SP0)"], "concorrentes": [] }, "BIQUIZ": { "supera": ["BIQUIZ (SP0)", "CARLIT (SP0)"], "concorrentes": ["AIPRI (MF+)", "ARISTAB (A4H)", "TOARIP (TNT)", "CARBOLITIUM (EUF)", "CARBOLITIUM CR (EUF)"] }, "CIBEX": { "supera": ["CIBEX (SP0)"], "concorrentes": ["CELEBRA (VI/)", "COQUES (EUF)", "DUCOX (EUF)", "FOXIS (A4H)"] }, "COD": { "supera": ["COD (SP0)"], "concorrentes": ["CODEIN (CT6)", "NOVOTRAM (MF+)", "TRAMADON (CT6)", "TRAMAL (GRT)", "TRAMAL RETARD (GRT)"] }, "COD PAR": { "supera": ["COD PAR (SP0)"], "concorrentes": ["ALGICOD (EUF)", "PACO (EUF)", "TYLEX (CLR)"] }, "DBRIZ": { "supera": ["DBRIZ (SP0)"], "concorrentes": ["IRUXOL (ABD)", "KOLLAGENASE C/CLOR (CT6)"] }, "DBRIZ GINO": { "supera": ["DBRIZ GINO (SP0)"], "concorrentes": ["GINO KOLLAGENASE (CT6)", "GYNO-IRUXOL (ABD)", "KOLPOCERVIX (ZY-)"] }, "DBRIZ UNO": { "supera": ["DBRIZ UNO (SP0)"], "concorrentes": ["IRUXOL MONO (ABD)", "KOLLAGENASE (CT6)"] }, "DEKSA": { "supera": ["DEKSA (SP0)"], "concorrentes": ["JUNEVE (TAK)", "LIND (EUF)", "LISDEV (EUF)", "LISVENX (TNT)", "LYBERDIA (EMS)", "LYSDEXA (LIB)", "VENVANSE (TAK)"] }, "DELA COLIN": { "supera": ["DELA COLIN (SP0)", "DENYL (SP0)"], "concorrentes": ["FEMIBION (PGH)", "MEGA MATER (U.Q)", "NEUTROFER FOLATO D (EMS)", "OFOLATO D FER (MF+)", "OFOLATO FER (MF+)", "CITTA (EUF)", "MAXAPRAN (A4H)", "PROCIMAX (LIB)"] }, "DHIVAS": { "supera": ["DHIVAS (SP0)"], "concorrentes": ["DAFLON 1000 (SVR)", "DAFLON 1000 FLEX (SVR)", "DIOSMIN (A4H)", "PERIVASC (EUF)", "VENAFLON (TTB)"] }, "DIOLESS": { "supera": ["DIOLESS (SP0)"], "concorrentes": ["FEMINA (A4H)", "MERCILON (ORG)", "MINIAN (LIB)", "PRIMERA (EUF)"] }, "DIUPRESS": { "supera": ["DIUPRESS (SP0)"], "concorrentes": ["CLOR.AMILO+HCT MG (EMS)", "CLORANA (S.A)", "DIURIX (TTB)", "INDAPAMIDA MG (EMS)", "INDAPAMIDA MG (EUF)", "INDAPAMIDA MG (GM2)", "INDAPAMIDA MG (GOB)", "INDAPAMIDA MG (PZ8)", "INDAPAMIDA MG (TNT)", "INDAPEN SR (TNT)", "NATRILIX SR (SVR)"] }, "DUOFLAM": { "supera": ["DUOFLAM (SP0)"], "concorrentes": ["BETATRINTA (EUF)", "DIPROSPAN (MF+)", "PERMESE (EUF)"] }, "FIBRINASE 15G": { "supera": ["FIBRINASE (SP0)"], "concorrentes": ["IRUXOL MONO (ABD)", "KOLLAGENASE C/CLOR (CT6)", "IRUXOL (ABD)", "KOLLAGENASE (CT6)"] }, "FILINAR": { "supera": ["FILINAR (SP0)"], "concorrentes": ["BRONDILAT (A4H)", "MELYSSE (A4H)"] }, "FLUXENE": { "supera": ["FLUXENE (SP0)"], "concorrentes": ["DAFORIN (EMS)", "PROZAC 20 (LLY)", "VEROTINA (LIB)"] }, "GAZIA": { "supera": ["GAZIA (SP0)"], "concorrentes": ["ADIPEPT (A4H)", "DIVENA (A4H)", "INILOK (AS2)", "PRAZY (LR8)", "RESTITUE (EMS)"] }, "HELLEVA": { "supera": ["HELLEVA (SP0)"], "concorrentes": ["VIAGRA (VI/)"] }, "HEZO": { "supera": ["HEZO (SP0)"], "concorrentes": ["EZONIA (EUF)", "PRYSMA (EUF)", "STILNOX CR (S.A)"] }, "HIXIZINE": { "supera": ["HIXIZINE (SP0)", "IBANUNO (SP0)"], "concorrentes": ["FENERGAN (O/P)", "PERGO (EUF)", "POLARAMINE (HCH)", "AFRAT (CT6)", "OSTEOBAN (A4H)", "RISEDROSS (EMS)"] }, "KETALGI": { "supera": ["KETALGI (SP0)"], "concorrentes": ["ETOD (CT6)", "ETODOLACO MG (AH/)", "ETODOLACO MG (GM2)", "FLANCOX (AS2)"] }, "LANICO COMP": { "supera": ["LANICO (SP0)"], "concorrentes": ["ATAK CLAV (EUF)", "CLAVULIN BD (GSK)", "NOVAMOX (A4H)", "SINOT CLAV (EUF)"] }, "LANICO SUSP": { "supera": ["LANICO (SP0)"], "concorrentes": ["ATAK CLAV (EUF)", "CLAVULIN BD (GSK)", "NOVAMOX (A4H)", "SINOT CLAV (EUF)"] }, "LONGFLEX": { "supera": ["LONGFLEX (SP0)"], "concorrentes": ["COLFLEX HIALU (MF+)", "FORTICE (EUF)", "MOTILEX HA (AS2)"] }, "MINERGI": { "supera": ["MINERGI (SP0)"], "concorrentes": ["PISA (EUF)", "QUERA LP (CT6)"] }, "MULTI BI": { "supera": ["MULTI-BI (SP0)"], "concorrentes": ["20 BI (EUF)", "BIOTTA 25BI (MJA)", "PROBIATOP (FQM)", "PROBID (AS2)", "PROLIVE (A4H)"] }, "MULTI BI FIBRAS": { "supera": ["MULTI-BI FIBRAS (SP0)"], "concorrentes": ["20 BI FIBRAS (EUF)", "PROHN (A4H)", "PROHN FIBRAS (A4H)", "SIMBIOFLORA (FQM)", "SIMBIOFLORA MULTI (FQM)"] }, "MULTI-BI GOTAS": { "supera": ["MULTI-BI (SP0)"], "concorrentes": ["COLIDIS (A4H)", "CULTURELLE (CLR)", "FLORIPA (EUF)", "KOLLIS (EMS)"] }, "NAZZO": { "supera": ["NAZZO (SP0)"], "concorrentes": ["MARESIS FLEX (FQM)", "NARIDRIN ALTO VOLU (EMS)", "NASOAR (MYL)", "RINOSORO (MF+)"] }, "NAZZO H": { "supera": ["NAZZO H (SP0)"], "concorrentes": ["MAXIDRATE (LIB)", "PENETRO (MLB)", "SINUSEC (BS2)", "SINUSTRAT (BS2)"] }, "NAZZO HIALUJET": { "supera": ["NAZZO HIALUJET (SP0)"], "concorrentes": ["MARESIS (FQM)", "RINOSORO (MF+)", "SALSEP JET (LIB)", "SORINE (A4H)"] }, "NAZZO INF": { "supera": ["NAZZO INFANTIL (SP0)"], "concorrentes": ["MARESIS FLEX (FQM)", "NASOAR (MYL)", "RESPIR KIDS (U.Q)", "RINOSORO (MF+)"] }, "NAZZO NEBULIZE": { "supera": ["NAZZO NEBULIZE (SP0)"], "concorrentes": ["ATROVENT (B.I)", "PULMICORT (FQM)"] }, "NAZZO OTO": { "supera": ["NAZZO OTO (SP0)"], "concorrentes": ["ACERATUM (CLR)", "CERUMIN (NVR)", "OTODRAT (AEE)"] }, "NAZZO XT": { "supera": ["NAZZO XT (SP0)", "NEUMOSIN (SP0)"], "concorrentes": ["NASOAR (MYL)", "RINOSORO (MF+)", "AVALOX (BYP)", "PRAIVA (EUF)"] }, "NIMEGON": { "supera": ["NIMEGON (SP0)"], "concorrentes": ["GALVUS (FQM)", "JANUVIA (MSD)", "NESINA (HYQ)", "SITGLU (B3H)", "SUGANON (EUF)"] }, "NIMEGON MET": { "supera": ["NIMEGON MET (SP0)"], "concorrentes": ["GALVUS MET (FQM)", "JANUMET (MSD)", "JANUMET XR (MSD)", "NESINA MET (HYQ)", "SITGLU MET (B3H)"] }, "OKOTICO": { "supera": ["OKOTICO (SP0)"], "concorrentes": ["LEPONEX (VI/)", "PINAZAN (CT6)"] }, "PEN VE ORAL": { "supera": ["PEN-VE-ORAL (SP0)"], "concorrentes": [] }, "PERCOF": { "supera": ["PERCOF (SP0)"], "concorrentes": ["ANTUX (A4H)", "NOTUSS TSS (A4H)", "VIBRAL (ABD)"] }, "PHOSFOENEMA": { "supera": ["PHOSFOENEMA (SP0)"], "concorrentes": ["L-ENEMA (NAU)"] }, "PROMIM": { "supera": ["PROMIM (SP0)"], "concorrentes": ["ANTROFI (EUF)", "COLPOTROFINE (TRM)", "COLTRIENO (MYL)"] }, "PROS": { "supera": ["PROS (SP0)"], "concorrentes": ["DOXAPROST (U.Q)", "DUOMO (EUF)"] }, "PROS HP": { "supera": ["PROS HP (SP0)"], "concorrentes": ["DUOMO HP (EUF)", "HOMINUS (EUF)"] }, "RENOVI B": { "supera": ["RENOVI B (SP0)"], "concorrentes": ["BETRAT (MYL)", "CITOBE (EUF)", "CITONEURIN 5000 (PGH)", "CRONOBE COMPLEX (BS2)", "NEO B (EUF)", "NEVRIX (AEE)"] }, "RENOVI B PLUS": { "supera": ["RENOVI B PLUS (SP0)"], "concorrentes": ["CRONOBE COMPLEX (BS2)", "DEXA-CITONEURI NFF (PGH)", "DEXADOR (AEE)"] }, "RISPERIDON": { "supera": ["RISPERIDON (SP0)"], "concorrentes": ["RISS (EUF)", "VIVERDAL (U.Q)", "ZARGUS (A4H)"] }, "RISPERIDON SOL": { "supera": ["RISPERIDON (SP0)"], "concorrentes": ["PERLID (PZ8)", "RISPERDAL (CLR)", "RISPERIDONA MG (EMS)", "RISPERIDONA MG (GM2)", "RISPERIDONA MG (NQA)", "RISPERIDONA MG (PZ8)"] }, "ROXETIN": { "supera": ["ROXETIN (SP0)"], "concorrentes": ["AROPAX (GSK)", "MORATUS (A4H)", "PONDERA (EUF)"] }, "ROXETIN XR": { "supera": ["ROXETIN XR (SP0)"], "concorrentes": ["PAXIL CR (GSK)", "PONDERA XR (EUF)", "SINCRO XR (EUF)"] }, "SENES": { "supera": ["SENES (SP0)"], "concorrentes": ["DON (EUF)", "DONILA (A4H)", "EPEZ (TNT)"] }, "SIMECO PLUS": { "supera": ["SIMECO PLUS (SP0)"], "concorrentes": ["GASTROBION (HTZ)", "GASTROGEL (MDQ)", "MAGNAZIA (CM5)", "MYLANTA PLUS (KVU)", "PEPSOGEL (LR8)", "STOMALIV STC (GOB)"] }, "SOPI": { "supera": ["SOPI (SP0)"], "concorrentes": ["FERTISOP (MYL)", "FOLIA SOP (GRO)", "OFOLATO SOP (MF+)"] }, "SOPI H": { "supera": ["SOPI H (SP0)"], "concorrentes": ["ANDRACTIV (B4I)", "VITERGAN ZINCO PL (MJA)", "VITERGAN ZINCO PLD (MJA)", "ANSITEC (LIB)", "APRAZ (MF+)", "DIAZEPAM NQ (MB9)", "FRISIUM (MA8)", "FRONTAL (VI/)", "LEXOTAN (MA8)", "SOMALIUM (A4H)"] }, "TAM": { "supera": ["TAM (SP0)"], "concorrentes": ["ANTARA (EUF)", "ETIRA (A4H)", "KEPPRA (UCB)"] }, "TAM SOL": { "supera": ["TAM (SP0)"], "concorrentes": ["ANTARA (EUF)", "ETIRA (A4H)", "KEPPRA (UCB)", "SPARK (EUF)"] }, "TAM XR": { "supera": ["TAM XR (SP0)"], "concorrentes": ["ANTARA XR (EUF)", "KEPPRA XR (UCB)", "SPARK XR (EUF)"] }, "TRIPLOA": { "supera": ["TRIPLOA (SP0)"], "concorrentes": ["ALGIE (EUF)", "ARTROSIL (A4H)", "BICERTO (EUF)", "BI-PROFENID (S.A)"] }, "TROL": { "supera": ["TROL (SP0)"], "concorrentes": ["GESICO RETARD (EUF)", "TRAMADON (CT6)", "TRAMAL RETARD (GRT)", "TRAUM RETARD (A4H)"] }, "TROL PAR": { "supera": ["TROL PAR (SP0)"], "concorrentes": ["ATRACE (EUF)", "GESICO DUO (EUF)", "PARATRAM (A5U)", "REVANGE (A4H)"] }, "TYNNA": { "supera": ["TYNNA (SP0)"], "concorrentes": ["ALEKTOS (HYQ)", "HISBILA (EUF)", "NAIRE (EUF)"] }, "ULTROX": { "supera": ["ULTROX (SP0)"], "concorrentes": ["CETROLAC SL (U.Q)", "SYMDULOR SL (A5U)", "TORAGESIC (EMS)", "TORMIV SL (A4H)", "TOTTI SL (A4H)"] }, "VAGICAND": { "supera": ["VAGICAND (SP0)"], "concorrentes": [] }, "VALASKI": { "supera": ["VALASKI (SP0)"], "concorrentes": ["DENPRYX (FQM)", "HERPSTAL (UKT)", "VALTREX (GSK)", "VILAXY (EUF)"] }, "VITA COLIN": { "supera": ["VITA COLIN (SP0)"], "concorrentes": ["DAYVIT KIDS (A4H)", "FERROVITAN COLINA (EUF)", "NEUTROFER POLI (EMS)", "NEUTROFER PREV (EMS)", "PURAVIT IMUNE (MYL)", "ZIRVIT KIDS (AEE)", "ZIRVIT KIDS MAX (AEE)"] }, "VIVAMENT": { "supera": ["VIVAMENT (SP0)"], "concorrentes": ["COGMAX (EUF)", "COGMAX FOS (EUF)", "COGNI MAIS (FQM)", "COGNICX (U.Q)", "LOGNIS (AS2)", "QUELATUS MIND (EUF)"] }, "VIVOSSO": { "supera": ["VIVOSSO (SP0)"], "concorrentes": ["CALDE (MJA)", "CALDE MAX (MJA)", "CALTRATE D NF (HE4)", "MOBILITY OSCAL (O/P)", "MOBILITY OSCAL D (O/P)", "OS-CAL D (O/P)", "OSSOTRAT-D (CLR)", "OSTEONUTRI (A3N)", "PROSSO (EUF)"] }, "VIVOSSO PRO": { "supera": ["VIVOSSO PRO (SP0)"], "concorrentes": ["ADDERA CAL (MF+)", "CALDE K2 (MJA)", "CALDE MDK (MJA)", "FIXARE (EMS)", "OS-CAL D (O/P)", "PROSSO (EUF)", "PROSSO D+KM (EUF)"] }, "VORXE": { "supera": ["VORXE (SP0)"], "concorrentes": ["BRINTELLIX (LUN)", "EVORTIA (MF+)", "VOEXTOR (LIB)", "VOGNUS (EMS)", "VURTUOSO (LUN)"] }, "ZOUP SL": { "supera": ["ZOUP SL (SP0)"], "concorrentes": ["LUNE SL (MF+)", "PATZ SL (EMS)", "RIPOSO SL (EUF)", "TURNO SL (EUF)"] } };
 
 /* Lookup rápido normalizado: nome do produto (upper, sem acento) → 'SUPERA' | 'CONCORRENTE' */
 const PRODUCT_ROLE = (() => {
@@ -89,7 +89,7 @@ function parseNum(v) {
     let s = String(v).trim().replace(/[^\d.,-]/g, '');
     if (!s) return 0;
     const hasComma = s.indexOf(',') >= 0;
-    const hasDot   = s.indexOf('.') >= 0;
+    const hasDot = s.indexOf('.') >= 0;
     if (hasComma && hasDot) {
         // formato BR "1.234,56" → vírgula = decimal
         s = s.replace(/\./g, '').replace(',', '.');
@@ -130,6 +130,26 @@ function detectUnitMode({ fileName, sheetName, matHeader, forceUnit }) {
     if (/unidades?|\bun\b|# ?un|dddunid/.test(b)) return 'UN';
     return 'UN';
 }
+/* v3.19 — Parser streaming + pré-agregação.
+   Motivação: planilhas regionais podem ter centenas de milhares de linhas
+   (ex.: REGIONALSULDDDR$.xlsx → 893k linhas). O parser anterior usava
+   sheet_to_json() materializando TODOS os objetos antes de filtrar, o que
+   estourava memória do navegador e travava a UI. Agora:
+     - Usamos sheet_to_json com header:1 (matriz, sem objetos por linha).
+     - Localizamos cada coluna pelo header.
+     - Pré-agregamos por (regional|distrital|setor|mercado|marca|brick|cidade)
+       somando MAT/YTD/TRI atual+anterior. O dashboard sempre soma isso adiante,
+       então o resultado é IDÊNTICO — só evita criar objetos duplicados.
+     - Liberamos o controle ao navegador a cada 50k linhas processadas
+       (await yield) para não congelar a aba e atualizar progresso.
+   Sem limite de linhas: processa tudo o que vier.                       */
+function _yield() { return new Promise(r => setTimeout(r, 0)); }
+function _setProgress(text) {
+    const el = document.getElementById('uploadProgress');
+    if (el) el.textContent = text;
+    else console.log('[SUPERA]', text);
+}
+
 async function parseFiles(files, forceUnit) {
     if (typeof XLSX === 'undefined') throw new Error('Biblioteca XLSX não carregada.');
 
@@ -138,97 +158,138 @@ async function parseFiles(files, forceUnit) {
 
     for (const file of files) {
         try {
+            _setProgress('Lendo ' + file.name + '...');
+            await _yield();
             const buf = await file.arrayBuffer();
-            const wb = XLSX.read(buf, { type: 'array', raw: false });
+            /* dense:true é obrigatório para planilhas grandes (>~600k linhas);
+               sem ele, SheetJS retorna Sheets[name]=undefined silenciosamente. */
+            const wb = XLSX.read(buf, { type: 'array', raw: false, dense: true, cellDates: false, cellNF: false, cellText: false });
 
             for (const sheetName of wb.SheetNames) {
                 const ws = wb.Sheets[sheetName];
-                const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
-                if (!raw.length) continue;
+                if (!ws) continue;
+                _setProgress('Processando aba ' + sheetName + '...');
+                await _yield();
 
-                const sampleKeys = Object.keys(raw[0]);
-                const findCol = patterns => sampleKeys.find(k => patterns.some(p => p.test(norm(k)))) || null;
+                /* AOA evita criar objeto por linha; muito mais leve em memória. */
+                const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: false });
+                if (!aoa.length) continue;
+                const headers = aoa[0].map(h => String(h || '').trim());
+                if (!headers.length) continue;
 
-                const colRegional = findCol([/^regional$/]);
-                const colDistrital = findCol([/^distrital$/]);
-                const colSetor = findCol([/^setor(\s*\(gd\))?$/, /^gd$/]);
-                const colMercado = findCol([/^mercado$/]);
-                const colProduto = findCol([/^produto$/, /^marca$/]);
-                const colCidade = findCol([/^cidade$/, /^municipio$/]);
-                const colBrick = findCol([/^brick$/]);
+                const findIdx = patterns => {
+                    for (let i = 0; i < headers.length; i++) {
+                        const n = norm(headers[i]);
+                        if (patterns.some(p => p.test(n))) return i;
+                    }
+                    return -1;
+                };
+                const iRegional = findIdx([/^regional$/]);
+                const iDistrital = findIdx([/^distrital$/]);
+                const iSetor = findIdx([/^setor(\s*\(gd\))?$/, /^gd$/]);
+                const iMercado = findIdx([/^mercado$/]);
+                const iProduto = findIdx([/^produto$/, /^marca$/]);
+                const iCidade = findIdx([/^cidade$/, /^municipio$/]);
+                const iBrick = findIdx([/^brick$/]);
 
-                const colMAT = findCol([/^mat$/, /^mat\s*un$/, /^mat\s*r\$?$/]);
-                const colMATAnt = findCol([/^mat\s+ant/]);
-                const colCrescMAT = findCol([/^cresc\.?\s*mat$/, /^crescimento\s*mat$/]);
+                const iMAT = findIdx([/^mat$/, /^mat\s*un$/, /^mat\s*r\$?$/]);
+                const iMATAnt = findIdx([/^mat\s+ant/]);
+                const iCrescMAT = findIdx([/^cresc\.?\s*mat$/, /^crescimento\s*mat$/]);
+                const iYTD = findIdx([/^ytd$/]);
+                const iYTDAnt = findIdx([/^ytd\s+ant/]);
+                const iCrescYTD = findIdx([/^cresc\.?\s*ytd$/, /^crescimento\s*ytd$/]);
+                const iTRI = findIdx([/^tri$/]);
+                const iTRIAnt = findIdx([/^tri\s+ant/]);
+                const iCrescTRI = findIdx([/^cresc\.?\s*tri$/, /^crescimento\s*tri$/]);
 
-                const colYTD = findCol([/^ytd$/]);
-                const colYTDAnt = findCol([/^ytd\s+ant/]);
-                const colCrescYTD = findCol([/^cresc\.?\s*ytd$/, /^crescimento\s*ytd$/]);
+                if (iMAT < 0 && iYTD < 0 && iTRI < 0) continue;
 
-                const colTRI = findCol([/^tri$/]);
-                const colTRIAnt = findCol([/^tri\s+ant/]);
-                const colCrescTRI = findCol([/^cresc\.?\s*tri$/, /^crescimento\s*tri$/]);
-
-                if (!colMAT && !colYTD && !colTRI) continue;
-
-                // Descobre a unidade (nome do arquivo + aba + header da coluna MAT)
                 const unitMode = detectUnitMode({
                     fileName: file.name,
                     sheetName,
-                    matHeader: colMAT || colYTD || colTRI || '',
+                    matHeader: (iMAT >= 0 ? headers[iMAT] : (iYTD >= 0 ? headers[iYTD] : (iTRI >= 0 ? headers[iTRI] : ''))),
                     forceUnit
                 });
                 diagnostics.push({ file: file.name, sheet: sheetName, mode: unitMode, forced: !!forceUnit });
 
-                let sheetRows = 0;
-                // (v3.6) Removida a "deduplicação" que descartava linhas repetidas
-                // com mesma chave Setor|Mercado|Marca|Brick|Cidade. Na planilha base
-                // essas linhas NÃO são duplicatas: são PDVs distintos dentro do mesmo
-                // brick. Elas precisam ser somadas (o que a agregação downstream já faz).
-                for (const row of raw) {
-                    const regional  = colRegional  ? String(row[colRegional]  || '').trim() : '';
-                    const distrital = colDistrital ? String(row[colDistrital] || '').trim() : '';
-                    const sector = colSetor ? String(row[colSetor] || '').trim() : 'Geral';
-                    const market = colMercado ? String(row[colMercado] || '').trim() : '';
-                    const product = colProduto ? String(row[colProduto] || '').trim() : '';
-                    const cidade = colCidade ? String(row[colCidade] || '').trim() : '';
-                    const brickName = colBrick ? String(row[colBrick] || '').trim() : '';
+                /* Pré-agregação: chave = regional|distrital|setor|mercado|marca|brick|cidade */
+                const agg = new Map();
+                const total = aoa.length - 1;
+                let processed = 0;
+                let kept = 0;
+                const CHUNK = 50000;
 
+                for (let r = 1; r < aoa.length; r++) {
+                    const row = aoa[r];
+                    if (!row || row.length === 0) continue;
+                    const regional = iRegional >= 0 ? String(row[iRegional] || '').trim() : '';
+                    const distrital = iDistrital >= 0 ? String(row[iDistrital] || '').trim() : '';
+                    const sector = iSetor >= 0 ? String(row[iSetor] || '').trim() : 'Geral';
+                    const market = iMercado >= 0 ? String(row[iMercado] || '').trim() : '';
+                    const product = iProduto >= 0 ? String(row[iProduto] || '').trim() : '';
+                    const cidade = iCidade >= 0 ? String(row[iCidade] || '').trim() : '';
+                    const brickName = iBrick >= 0 ? String(row[iBrick] || '').trim() : '';
+
+                    processed++;
                     if (!market || (!brickName && !product)) continue;
 
-                    const mat = colMAT ? parseNum(row[colMAT]) : 0;
-                    const matAnt = colMATAnt ? parseNum(row[colMATAnt]) : 0;
-                    const crescMat = colCrescMAT ? parseNum(row[colCrescMAT]) : null;
+                    const mat = iMAT >= 0 ? parseNum(row[iMAT]) : 0;
+                    const ytd = iYTD >= 0 ? parseNum(row[iYTD]) : 0;
+                    const tri = iTRI >= 0 ? parseNum(row[iTRI]) : 0;
+                    const matAnt = iMATAnt >= 0 ? parseNum(row[iMATAnt]) : 0;
+                    const ytdAnt = iYTDAnt >= 0 ? parseNum(row[iYTDAnt]) : 0;
+                    const triAnt = iTRIAnt >= 0 ? parseNum(row[iTRIAnt]) : 0;
+                    if (mat === 0 && ytd === 0 && tri === 0 && matAnt === 0 && ytdAnt === 0 && triAnt === 0) continue;
 
-                    const ytd = colYTD ? parseNum(row[colYTD]) : 0;
-                    const ytdAnt = colYTDAnt ? parseNum(row[colYTDAnt]) : 0;
-                    const crescYtd = colCrescYTD ? parseNum(row[colCrescYTD]) : null;
+                    const key = regional + '|' + distrital + '|' + sector + '|' + market + '|' + product + '|' + brickName + '|' + cidade;
+                    let bucket = agg.get(key);
+                    if (!bucket) {
+                        bucket = {
+                            regional, distrital, sector, market, product, cidade,
+                            brickName, brickCode: brickName, unitMode,
+                            role: productRole(product),
+                            data: {
+                                MAT: { current: 0, previous: 0, growth: null },
+                                YTD: { current: 0, previous: 0, growth: null },
+                                TRI: { current: 0, previous: 0, growth: null }
+                            }
+                        };
+                        agg.set(key, bucket);
+                        kept++;
+                    }
+                    bucket.data.MAT.current += mat;
+                    bucket.data.MAT.previous += matAnt;
+                    bucket.data.YTD.current += ytd;
+                    bucket.data.YTD.previous += ytdAnt;
+                    bucket.data.TRI.current += tri;
+                    bucket.data.TRI.previous += triAnt;
 
-                    const tri = colTRI ? parseNum(row[colTRI]) : 0;
-                    const triAnt = colTRIAnt ? parseNum(row[colTRIAnt]) : 0;
-                    const crescTri = colCrescTRI ? parseNum(row[colCrescTRI]) : null;
-
-                    if (mat === 0 && ytd === 0 && tri === 0) continue;
-
-                    rowsByMode[unitMode].push({
-                        regional, distrital, sector, market, product, cidade,
-                        brickName, brickCode: brickName, unitMode,
-                        role: productRole(product),
-                        data: {
-                            MAT: { current: mat, previous: matAnt, growth: crescMat },
-                            YTD: { current: ytd, previous: ytdAnt, growth: crescYtd },
-                            TRI: { current: tri, previous: triAnt, growth: crescTri }
-                        }
-                    });
-                    sheetRows++;
+                    /* libera o event-loop a cada CHUNK linhas */
+                    if ((processed % CHUNK) === 0) {
+                        const pct = Math.round((processed / Math.max(1, total)) * 100);
+                        _setProgress('Lendo ' + sheetName + '... ' + processed.toLocaleString('pt-BR') + ' / ' + total.toLocaleString('pt-BR') + ' linhas (' + pct + '%) — ' + kept.toLocaleString('pt-BR') + ' bricks únicos');
+                        await _yield();
+                    }
                 }
-                console.log('[SUPERA] Aba', sheetName, '(', unitMode, ')', sheetRows, 'registros.');
+
+                /* Calcula crescimento por bucket */
+                for (const b of agg.values()) {
+                    ['MAT', 'YTD', 'TRI'].forEach(p => {
+                        const d = b.data[p];
+                        d.growth = d.previous !== 0 ? (d.current / d.previous - 1) : null;
+                    });
+                    rowsByMode[unitMode].push(b);
+                }
+                console.log('[SUPERA] Aba', sheetName, '(', unitMode, ')', kept, 'buckets agregados de', total, 'linhas brutas.');
+                _setProgress('Aba ' + sheetName + ': ' + kept.toLocaleString('pt-BR') + ' bricks únicos a partir de ' + total.toLocaleString('pt-BR') + ' linhas.');
+                await _yield();
             }
         } catch (e) {
             console.error('[SUPERA] Erro:', e.message);
-            toast('Erro ao processar ' + file.name);
+            toast('Erro ao processar ' + file.name + ': ' + e.message);
         }
     }
+    _setProgress('');
     return { rowsByMode, diagnostics };
 }
 
@@ -246,7 +307,7 @@ function buildDB(rowsByMode) {
 function applyHierarchy() {
     const all = (DB.allRowsByValueMode && DB.allRowsByValueMode[UI.unitMode]) || [];
     let rows = all;
-    if (UI.regional && UI.regional !== 'all')   rows = rows.filter(r => r.regional  === UI.regional);
+    if (UI.regional && UI.regional !== 'all') rows = rows.filter(r => r.regional === UI.regional);
     if (UI.distrital && UI.distrital !== 'all') rows = rows.filter(r => r.distrital === UI.distrital);
     DB.rows = rows;
     /* listas auxiliares: regional sempre baseada no universo; distritais filtradas pela regional ativa. */
@@ -469,20 +530,20 @@ function renderResumo() {
     const cmp = (a, b) => {
         let va, vb;
         switch (k) {
-            case 'market':   va = a.market; vb = b.market; break;
+            case 'market': va = a.market; vb = b.market; break;
             case 'superaname': va = a.superaLabel || ''; vb = b.superaLabel || ''; break;
-            case 'bricks':   va = a.bricksCount; vb = b.bricksCount; break;
-            case 'current':  va = a.current; vb = b.current; break;
+            case 'bricks': va = a.bricksCount; vb = b.bricksCount; break;
+            case 'current': va = a.current; vb = b.current; break;
             case 'previous': va = a.previous; vb = b.previous; break;
-            case 'delta':    va = a.current - a.previous; vb = b.current - b.previous; break;
-            case 'growth':   va = a.growth ?? -Infinity; vb = b.growth ?? -Infinity; break;
-            case 'supera':   va = a.supera; vb = b.supera; break;
-            case 'share':    va = a.share; vb = b.share; break;
-            case 'lider':    va = a.recs['LÍDER'].length; vb = b.recs['LÍDER'].length; break;
-            case 'crescer':  va = a.recs['CRESCER'].length; vb = b.recs['CRESCER'].length; break;
-            case 'oport':    va = a.recs['OPORTUNIDADE'].length; vb = b.recs['OPORTUNIDADE'].length; break;
-            case 'acomp':    va = a.recs['ACOMPANHAR'].length; vb = b.recs['ACOMPANHAR'].length; break;
-            case 'entrar':   va = a.recs['ENTRAR'].length; vb = b.recs['ENTRAR'].length; break;
+            case 'delta': va = a.current - a.previous; vb = b.current - b.previous; break;
+            case 'growth': va = a.growth ?? -Infinity; vb = b.growth ?? -Infinity; break;
+            case 'supera': va = a.supera; vb = b.supera; break;
+            case 'share': va = a.share; vb = b.share; break;
+            case 'lider': va = a.recs['LÍDER'].length; vb = b.recs['LÍDER'].length; break;
+            case 'crescer': va = a.recs['CRESCER'].length; vb = b.recs['CRESCER'].length; break;
+            case 'oport': va = a.recs['OPORTUNIDADE'].length; vb = b.recs['OPORTUNIDADE'].length; break;
+            case 'acomp': va = a.recs['ACOMPANHAR'].length; vb = b.recs['ACOMPANHAR'].length; break;
+            case 'entrar': va = a.recs['ENTRAR'].length; vb = b.recs['ENTRAR'].length; break;
             default: va = a.current; vb = b.current;
         }
         if (typeof va === 'string') return va.localeCompare(vb) * dir;
@@ -559,21 +620,21 @@ function renderResumo() {
                     </tr></thead>
                     <tbody>
                     ${ranking.map((c, i) => {
-                        const isSup = c.role === 'SUPERA';
-                        const g = c.growth;
-                        const gCls = g == null ? 'vnull' : (g >= 0 ? 'vpos' : 'vneg');
-                        const gTxt = g == null ? '—' : ((g >= 0 ? '+' : '') + (g * 100).toFixed(1) + '%');
-                        const displayName = isSup ? c.name.replace(/\s*\(SP0\)\s*/i, '').trim() : c.name;
-                        return `
+                const isSup = c.role === 'SUPERA';
+                const g = c.growth;
+                const gCls = g == null ? 'vnull' : (g >= 0 ? 'vpos' : 'vneg');
+                const gTxt = g == null ? '—' : ((g >= 0 ? '+' : '') + (g * 100).toFixed(1) + '%');
+                const displayName = isSup ? c.name.replace(/\s*\(SP0\)\s*/i, '').trim() : c.name;
+                return `
                         <tr class="rank-row${isSup ? ' rank-supera' : ''}">
                             <td class="c rank-pos">${i + 1}º</td>
                             <td class="rank-name">${displayName}${isSup ? ' <span class="rank-sup-badge">SUPERA</span>' : ''}</td>
                             <td class="r rank-prev">${fmtValue(c.prev)}</td>
                             <td class="r">${fmtValue(c.cur)}</td>
-                            <td class="r ${gCls}">${gTxt}</td>
+                            <td class="r ${gCls}"><strong>${gTxt}</strong></td>
                             <td class="r"><span class="rank-share">${c.share.toFixed(1)}%</span></td>
                         </tr>`;
-                    }).join('')}
+            }).join('')}
                     </tbody>
                 </table>
             </td></tr>`;
@@ -594,7 +655,8 @@ function renderResumo() {
                     <td class="c"><small>1 brick</small></td>
                     <td class="r">${fmtValue(b.totalCur)}</td>
                     <td class="r vacc">${fmtValue(b.superaCur)}</td>
-                    <td class="r"><strong>${b.share.toFixed(1)}%</strong> <small class="${gCls}">${fmtPct(b.growth)}</small></td>
+                    <td class="r"><strong>${b.share.toFixed(1)}%</strong></td>
+                    <td class="r ${gCls}"><strong>${fmtPct(b.growth)}</strong></td>
                     <td colspan="5" class="c"><span class="rec-pill ${recPillCls(b.rec)}">${b.rec}</span></td>
                     <td></td>
                 </tr>`;
@@ -722,7 +784,7 @@ function showBrickModal(market, rec) {
             const rk = brickRanking(b);
             // Nome do líder do brick
             const leader = rk.ranking[0];
-            const leaderName = leader ? leader.name.replace(/\s*\([^)]+\)/,'') : '—';
+            const leaderName = leader ? leader.name.replace(/\s*\([^)]+\)/, '') : '—';
             const leaderIsSupera = leader && leader.role === 'SUPERA';
             // Gap para ultrapassar a próxima posição acima da Supera
             let gapLabel = '—';
@@ -734,7 +796,7 @@ function showBrickModal(market, rec) {
                 const nextAbove = rk.ranking[rk.posSupera - 2];
                 if (nextAbove) {
                     const gap = nextAbove.cur - b.superaCur + 1;
-                    const nextName = nextAbove.name.replace(/\s*\([^)]+\)/,'');
+                    const nextName = nextAbove.name.replace(/\s*\([^)]+\)/, '');
                     gapLabel = `+${fmtValue(gap)} p/ ${nextName}`;
                     gapCls = 'vneg';
                 }
@@ -979,8 +1041,8 @@ function rebuildSelectors() {
         const o2 = o.cloneNode(true); fbGoto.appendChild(o2);
     });
     /* mantém seleções atuais quando ainda existirem na nova lista */
-    if ($('fbSec'))  $('fbSec').value  = DB.sectors.includes(UI.sector) ? UI.sector : 'all';
-    if ($('fbMkt'))  $('fbMkt').value  = DB.markets.includes(UI.market) ? UI.market : 'all';
+    if ($('fbSec')) $('fbSec').value = DB.sectors.includes(UI.sector) ? UI.sector : 'all';
+    if ($('fbMkt')) $('fbMkt').value = DB.markets.includes(UI.market) ? UI.market : 'all';
     if (!DB.sectors.includes(UI.sector)) UI.sector = 'all';
     if (!DB.markets.includes(UI.market)) UI.market = 'all';
 }
@@ -1104,26 +1166,26 @@ function renderBrick() {
     let html = '<div class="brick-view-wrap"><div class="tbl-wrap"><table class="main-tbl brick-detail-tbl"><thead class="tbl-head-fixed brick-head-dark"><tr>';
     /* v3.13 — coluna 'expand' (botão +/−) na primeira posição */
     html += '<th class="col-expand" aria-label="Expandir"></th>';
-    html += sh('sector',     'SETOR');
-    html += sh('market',     'MERCADO');
-    html += sh('cidade',     'CIDADE');
-    html += sh('brick',      'BRICK');
-    html += sh('totalPrev',  `MKT ${pdLbl} ANT.`, 'r');
-    html += sh('totalCur',   `MKT ${pdLbl} ATUAL`, 'r');
-    html += sh('superaLabel','MARCA SUPERA', 'c-supera');
-    html += sh('superaPrev', `${pdLbl} SUPERA ANT.`, 'r c-supera');
-    html += sh('superaCur',  `${pdLbl} SUPERA ATUAL`, 'r c-supera');
-    html += sh('share',      'SHARE %', 'r');
-    html += sh('pos',        'POS.', 'c');
-    html += sh('leader',     'LÍDER');
+    html += sh('sector', 'SETOR');
+    html += sh('market', 'MERCADO');
+    html += sh('cidade', 'CIDADE');
+    html += sh('brick', 'BRICK');
+    html += sh('totalPrev', `MKT ${pdLbl} ANT.`, 'r');
+    html += sh('totalCur', `MKT ${pdLbl} ATUAL`, 'r');
+    html += sh('superaLabel', 'SUPERA', 'c-supera');
+    html += sh('superaPrev', `${pdLbl} SUP Ant.`, 'r c-supera');
+    html += sh('superaCur', `${pdLbl} SUP Atual`, 'r c-supera');
+    html += sh('share', 'SHARE %', 'r');
+    html += sh('pos', 'POS.', 'c');
+    html += sh('leader', 'LÍDER');
     html += sh('leaderVolPrev', `${pdLbl} LÍDER ANT.`, 'r');
-    html += sh('leaderVol',  `${pdLbl} LÍDER ATUAL`, 'r');
-    html += sh('gap1',       'GAP 1ª', 'r');
-    html += sh('gap2',       'GAP 2ª', 'r');
-    html += sh('gap3',       'GAP 3ª', 'r');
-    html += sh('growthMkt',  pdCresc + ' MKT', 'r');
-    html += sh('growthSup',  pdCresc + ' SUPERA', 'r');
-    html += sh('rec',        'RECOMENDAÇÃO', 'c');
+    html += sh('leaderVol', `${pdLbl} LÍDER ATUAL`, 'r');
+    html += sh('gap1', 'GAP 1ª', 'r');
+    html += sh('gap2', 'GAP 2ª', 'r');
+    html += sh('gap3', 'GAP 3ª', 'r');
+    html += sh('growthMkt', pdCresc + ' MKT', 'r');
+    html += sh('growthSup', pdCresc + ' SUPERA', 'r');
+    html += sh('rec', 'RECOMENDAÇÃO', 'c');
     html += '</tr></thead><tbody>';
 
     if (!page.length) {
@@ -1133,11 +1195,10 @@ function renderBrick() {
             const recCls = recPillCls(l.rec);
             const cMkt = l.growthMkt != null && l.growthMkt >= 0 ? 'vpos' : 'vneg';
             const cSup = l.growthSup != null && l.growthSup >= 0 ? 'vpos' : 'vneg';
-            const posBadge = l.pos ? `<span class="pos-badge pos-${l.pos}">${l.pos}ª</span>` : '—';
             const expandId = `brick-exp-${idx}`;
             html += `<tr class="brick-detail-row row-${recCls}" data-exp="${expandId}">
                 <td class="col-expand"><button class="btn-expand" type="button" onclick="toggleBrickExpand('${expandId}', this)" aria-label="Detalhar" title="Ver concorrentes do brick">+</button></td>
-                <td>${l.sector || '—'}</td>
+                <td><strong>${l.sector || '—'}</strong></td>
                 <td><strong>${l.market}</strong></td>
                 <td>${l.cidade || '—'}</td>
                 <td><code class="brick-code-mono">${l.brick}</code></td>
@@ -1147,18 +1208,18 @@ function renderBrick() {
                 <td class="r vacc c-supera">${fmtValue(l.superaPrev)}</td>
                 <td class="r vacc c-supera">${fmtValue(l.superaCur)}</td>
                 <td class="r"><strong>${l.share.toFixed(1)}%</strong></td>
-                <td class="c">${posBadge}</td>
-                <td><small>${l.leader.replace(/\s*\([^)]+\)/, '')}</small></td>
+                <td class="c"><strong>${l.pos ? `${l.pos}ª` : '—'}</strong></td>
+                <td><strong>${l.leader.replace(/\s*\([^)]+\)/, '')}</strong></td>
                 <td class="r">${fmtValue(l.leaderVolPrev)}</td>
                 <td class="r">${fmtValue(l.leaderVol)}</td>
                 <td class="r">${l.gap1 ? fmtValue(l.gap1) : '—'}</td>
                 <td class="r">${l.gap2 ? fmtValue(l.gap2) : '—'}</td>
                 <td class="r">${l.gap3 ? fmtValue(l.gap3) : '—'}</td>
-                <td class="r ${cMkt}">${fmtPct(l.growthMkt)}</td>
-                <td class="r ${cSup}">${fmtPct(l.growthSup)}</td>
+                <td class="r ${cMkt}"><strong>${fmtPct(l.growthMkt)}</strong></td>
+                <td class="r ${cSup}"><strong>${fmtPct(l.growthSup)}</strong></td>
                 <td class="c"><span class="rec-pill ${recCls}">${l.rec}</span></td>
             </tr>`;
-            /* v3.13 — linha expandível (oculta por padrão) com painel de concorrentes */
+            /* v3.13 — linha expansível (oculta por padrão) com painel de concorrentes */
             html += renderBrickExpandRow(l, expandId, pdLbl);
         });
     }
@@ -1233,7 +1294,7 @@ function renderBrickExpandRow(l, expandId, pdLbl) {
         inner += `<td>${isSupera ? '<span class="dot-supera"></span>' : ''}<strong>${cleanName}</strong>${tagTxt ? ` <span class="brand-tag">(${tagTxt})</span>` : ''}${isSupera ? ' <span class="badge-supera">SUPERA</span>' : ''}</td>`;
         inner += `<td class="r">${fmtValue(m.prev)}</td>`;
         inner += `<td class="r ${isSupera ? 'is-supera-val' : ''}">${fmtValue(m.cur)}</td>`;
-        inner += `<td class="r ${evolCls}">${fmtPct(evol)}</td>`;
+        inner += `<td class="r ${evolCls}"><strong>${fmtPct(evol)}</strong></td>`;
         const shrCls = shr >= 30 ? 'shr-hi' : (shr >= 10 ? 'shr-mid' : 'shr-lo');
         inner += `<td class="r ${shrCls}"><strong>${shr.toFixed(1)}%</strong></td>`;
         inner += `</tr>`;
@@ -1401,7 +1462,7 @@ function recomputeStickyOffsets() {
     root.style.setProperty('--hdr-h', hH + 'px');
     root.style.setProperty('--kpi-h', kH + 'px');
     root.style.setProperty('--tab-h', tH + 'px');
-    root.style.setProperty('--fb-h',  fH + 'px');
+    root.style.setProperty('--fb-h', fH + 'px');
 }
 
 /* Dispara recomputação após cada render/resize. */
@@ -1580,7 +1641,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* v3.16 — listeners para os novos seletores Regional / Distrital */
-    ['fbReg','fbDist'].forEach(id => {
+    ['fbReg', 'fbDist'].forEach(id => {
         const el = $(id);
         if (el) el.addEventListener('change', onHierarchyChange);
     });
