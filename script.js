@@ -27,10 +27,16 @@ let DB = {
     rowsByValueMode: { UN: [], RS: [] },
     sectors: [],
     markets: [],
+    /* v3.16 — hierarquia: regionais e distritais carregadas da planilha. */
+    regionals: [],
+    distritais: [],
 };
 
 let UI = {
     periodMode: 'MAT',
+    /* v3.16 — níveis hierárquicos acima de Setor. */
+    regional: 'all',
+    distrital: 'all',
     sector: 'all',
     market: 'all',
     rec: 'all',
@@ -143,6 +149,7 @@ async function parseFiles(files, forceUnit) {
                 const sampleKeys = Object.keys(raw[0]);
                 const findCol = patterns => sampleKeys.find(k => patterns.some(p => p.test(norm(k)))) || null;
 
+                const colRegional = findCol([/^regional$/]);
                 const colDistrital = findCol([/^distrital$/]);
                 const colSetor = findCol([/^setor(\s*\(gd\))?$/, /^gd$/]);
                 const colMercado = findCol([/^mercado$/]);
@@ -179,6 +186,7 @@ async function parseFiles(files, forceUnit) {
                 // essas linhas NÃO são duplicatas: são PDVs distintos dentro do mesmo
                 // brick. Elas precisam ser somadas (o que a agregação downstream já faz).
                 for (const row of raw) {
+                    const regional  = colRegional  ? String(row[colRegional]  || '').trim() : '';
                     const distrital = colDistrital ? String(row[colDistrital] || '').trim() : '';
                     const sector = colSetor ? String(row[colSetor] || '').trim() : 'Geral';
                     const market = colMercado ? String(row[colMercado] || '').trim() : '';
@@ -203,7 +211,7 @@ async function parseFiles(files, forceUnit) {
                     if (mat === 0 && ytd === 0 && tri === 0) continue;
 
                     rowsByMode[unitMode].push({
-                        distrital, sector, market, product, cidade,
+                        regional, distrital, sector, market, product, cidade,
                         brickName, brickCode: brickName, unitMode,
                         role: productRole(product),
                         data: {
@@ -224,12 +232,29 @@ async function parseFiles(files, forceUnit) {
     return { rowsByMode, diagnostics };
 }
 
-/* ===== BUILD DATABASE ===== */
+/* ===== BUILD DATABASE =====
+   v3.16 — mantém UNIVERSE em DB.allRowsByValueMode e aplica recorte
+           Regional/Distrital sobre DB.rowsByValueMode. Toda lógica downstream
+           continua usando DB.rows como antes. */
 function buildDB(rowsByMode) {
-    DB.rowsByValueMode = rowsByMode;
-    DB.rows = rowsByMode[UI.unitMode] || [];
-    DB.sectors = [...new Set(DB.rows.map(r => r.sector).filter(Boolean))].sort();
-    DB.markets = [...new Set(DB.rows.map(r => r.market))].sort();
+    DB.allRowsByValueMode = rowsByMode;
+    applyHierarchy();
+}
+
+/* v3.16 — reconstrói DB.rows aplicando filtro Regional + Distrital sobre
+   o universo carregado. Usado tanto ao trocar Un/R$ quanto ao trocar o nível. */
+function applyHierarchy() {
+    const all = (DB.allRowsByValueMode && DB.allRowsByValueMode[UI.unitMode]) || [];
+    let rows = all;
+    if (UI.regional && UI.regional !== 'all')   rows = rows.filter(r => r.regional  === UI.regional);
+    if (UI.distrital && UI.distrital !== 'all') rows = rows.filter(r => r.distrital === UI.distrital);
+    DB.rows = rows;
+    /* listas auxiliares: regional sempre baseada no universo; distritais filtradas pela regional ativa. */
+    DB.regionals = [...new Set(all.map(r => r.regional).filter(Boolean))].sort();
+    const distSrc = (UI.regional === 'all') ? all : all.filter(r => r.regional === UI.regional);
+    DB.distritais = [...new Set(distSrc.map(r => r.distrital).filter(Boolean))].sort();
+    DB.sectors = [...new Set(rows.map(r => r.sector).filter(Boolean))].sort();
+    DB.markets = [...new Set(rows.map(r => r.market))].sort();
 }
 
 /* ===== RECOMENDAÇÃO POR BRICK (Supera × Mercado)
@@ -538,10 +563,11 @@ function renderResumo() {
                         const g = c.growth;
                         const gCls = g == null ? 'vnull' : (g >= 0 ? 'vpos' : 'vneg');
                         const gTxt = g == null ? '—' : ((g >= 0 ? '+' : '') + (g * 100).toFixed(1) + '%');
+                        const displayName = isSup ? c.name.replace(/\s*\(SP0\)\s*/i, '').trim() : c.name;
                         return `
                         <tr class="rank-row${isSup ? ' rank-supera' : ''}">
                             <td class="c rank-pos">${i + 1}º</td>
-                            <td class="rank-name">${c.name}${isSup ? ' <span class="rank-sup-badge">SUPERA</span>' : ''}</td>
+                            <td class="rank-name">${displayName}${isSup ? ' <span class="rank-sup-badge">SUPERA</span>' : ''}</td>
                             <td class="r rank-prev">${fmtValue(c.prev)}</td>
                             <td class="r">${fmtValue(c.cur)}</td>
                             <td class="r ${gCls}">${gTxt}</td>
@@ -678,8 +704,10 @@ function showBrickModal(market, rec) {
         <th class="w-hash">#</th>
         <th class="col-brick">Brick (Número + Nome)</th>
         <th class="col-setor">Setor</th>
-        <th class="r">Supera ${pd}</th>
-        <th class="r">Mercado ${pd}</th>
+        <th class="r">Supera ${pd} Ant.</th>
+        <th class="r">Supera ${pd} Atual</th>
+        <th class="r">Mercado ${pd} Ant.</th>
+        <th class="r">Mercado ${pd} Atual</th>
         <th class="r">Share %</th>
         <th class="r">Evolução</th>
         <th>Líder do Brick</th>
@@ -687,7 +715,7 @@ function showBrickModal(market, rec) {
     </tr></thead><tbody>`;
 
     if (!bricks.length) {
-        html += '<tr><td colspan="9" class="tbl-empty">Nenhum brick nessa categoria.</td></tr>';
+        html += '<tr><td colspan="11" class="tbl-empty">Nenhum brick nessa categoria.</td></tr>';
     } else {
         bricks.forEach((b, i) => {
             const gCls = b.growth != null && b.growth >= 0 ? 'vpos' : 'vneg';
@@ -715,7 +743,9 @@ function showBrickModal(market, rec) {
                 <td class="w-hash">${i + 1}</td>
                 <td class="col-brick"><code class="brick-code-mono">${b.brick}</code></td>
                 <td class="col-setor">${cleanSectorName(b.sector) || '—'}</td>
+                <td class="r vacc">${fmtValue(b.superaPrev)}</td>
                 <td class="r vacc">${fmtValue(b.superaCur)}</td>
+                <td class="r">${fmtValue(b.totalPrev)}</td>
                 <td class="r">${fmtValue(b.totalCur)}</td>
                 <td class="r"><strong>${b.share.toFixed(1)}%</strong></td>
                 <td class="r ${gCls}">${fmtPct(b.growth)}</td>
@@ -779,11 +809,13 @@ function showVerModal(market) {
     html += `</div>`;
 
     html += `<h4 class="ver-h4">Ranking de Produtos</h4>`;
+    const unitTxt = UI.unitMode === 'RS' ? 'R$' : 'UN';
     html += `<table class="modal-tbl"><thead><tr>
         <th class="w-hash">#</th>
         <th>Produto</th>
         <th>Tipo</th>
-        <th class="r">${UI.unitMode === 'RS' ? 'R$' : 'UN'} ${pd}</th>
+        <th class="r">${unitTxt} ${pd} Ant.</th>
+        <th class="r">${unitTxt} ${pd} Atual</th>
         <th class="r">Share</th>
         <th class="r">Crescimento</th>
         <th class="r">Bricks</th>
@@ -792,10 +824,12 @@ function showVerModal(market) {
         const isSup = p.role === 'SUPERA';
         const share = totalCur ? (p.cur / totalCur) * 100 : 0;
         const gCls = p.growth != null && p.growth >= 0 ? 'vpos' : 'vneg';
+        const prodDisplayName = isSup ? p.product.replace(/\s*\(SP0\)\s*/i, '').trim() : p.product;
         html += `<tr class="${isSup ? 'row-supera' : ''}">
             <td class="w-hash">${i + 1}</td>
-            <td>${isSup ? '⭐ ' : ''}<strong>${p.product}</strong></td>
+            <td>${isSup ? '⭐ ' : ''}<strong>${prodDisplayName}</strong></td>
             <td><span class="tag ${isSup ? 'tag-supera' : 'tag-conc'}">${isSup ? 'SUPERA' : 'CONCORRENTE'}</span></td>
+            <td class="r">${fmtValue(p.prev)}</td>
             <td class="r">${fmtValue(p.cur)}</td>
             <td class="r">${share.toFixed(1)}%</td>
             <td class="r ${gCls}">${fmtPct(p.growth)}</td>
@@ -810,8 +844,10 @@ function showVerModal(market) {
         <th class="w-hash">#</th>
         <th>Brick</th>
         <th>Setor</th>
-        <th class="r">Supera</th>
-        <th class="r">Mercado</th>
+        <th class="r">Supera ${pd} Ant.</th>
+        <th class="r">Supera ${pd} Atual</th>
+        <th class="r">Mercado ${pd} Ant.</th>
+        <th class="r">Mercado ${pd} Atual</th>
         <th class="r">Share</th>
         <th class="r">POS.</th>
         <th class="c">Recomendação</th>
@@ -823,7 +859,9 @@ function showVerModal(market) {
             <td class="w-hash">${i + 1}</td>
             <td><code class="brick-code-mono">${b.brick}</code><br><small style="color:#8a96b8">${b.cidade || ''}</small></td>
             <td>${cleanSectorName(b.sector) || '—'}</td>
+            <td class="r vacc">${fmtValue(b.superaPrev)}</td>
             <td class="r vacc">${fmtValue(b.superaCur)}</td>
+            <td class="r">${fmtValue(b.totalPrev)}</td>
             <td class="r">${fmtValue(b.totalCur)}</td>
             <td class="r"><strong>${b.share.toFixed(1)}%</strong></td>
             <td class="r"><strong>${pos || '—'}ª</strong></td>
@@ -878,16 +916,14 @@ function setPeriodMode(mode) {
     renderActiveTab();
 }
 function setUnitMode(mode) {
-    // Se não há base ainda disponível nesse modo, peseita o clique e avisa
-    const hasData = DB.rowsByValueMode[mode] && DB.rowsByValueMode[mode].length;
-    if (!hasData && Object.values(DB.rowsByValueMode).some(a => a.length)) {
+    /* v3.16 — base de checagem agora é o universo (allRowsByValueMode). */
+    const all = DB.allRowsByValueMode || { UN: [], RS: [] };
+    const hasData = all[mode] && all[mode].length;
+    if (!hasData && Object.values(all).some(a => a.length)) {
         toast('Nenhuma planilha de ' + (mode === 'RS' ? 'R$' : 'Unidades') + ' carregada ainda. Clique em "Carregar Dados" para adicionar.');
-        // Mantém o botão ativo naquele modo para que o próximo upload seja forçado nessa direção
     }
     UI.unitMode = mode;
-    DB.rows = DB.rowsByValueMode[mode] || [];
-    DB.sectors = [...new Set(DB.rows.map(r => r.sector).filter(Boolean))].sort();
-    DB.markets = [...new Set(DB.rows.map(r => r.market))].sort();
+    applyHierarchy();
     document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
     $('btn' + mode).classList.add('active');
     rebuildSelectors();
@@ -910,6 +946,31 @@ function gotoMarket(m) {
 }
 
 function rebuildSelectors() {
+    /* v3.16 — popula também fbReg e fbDist se existirem. */
+    const fbReg = $('fbReg'); const fbDist = $('fbDist');
+    if (fbReg) {
+        const cur = UI.regional;
+        while (fbReg.children.length > 1) fbReg.removeChild(fbReg.lastChild);
+        DB.regionals.forEach(r => {
+            const o = document.createElement('option'); o.value = r; o.textContent = r; fbReg.appendChild(o);
+        });
+        fbReg.value = DB.regionals.includes(cur) ? cur : 'all';
+        if (fbReg.value !== cur) UI.regional = fbReg.value;
+        /* esconde se só há 0 ou 1 opção */
+        const wrap = fbReg.closest('.fbar-group');
+        if (wrap) wrap.style.display = (DB.regionals.length > 1) ? '' : 'none';
+    }
+    if (fbDist) {
+        const cur = UI.distrital;
+        while (fbDist.children.length > 1) fbDist.removeChild(fbDist.lastChild);
+        DB.distritais.forEach(d => {
+            const o = document.createElement('option'); o.value = d; o.textContent = d; fbDist.appendChild(o);
+        });
+        fbDist.value = DB.distritais.includes(cur) ? cur : 'all';
+        if (fbDist.value !== cur) UI.distrital = fbDist.value;
+        const wrap = fbDist.closest('.fbar-group');
+        if (wrap) wrap.style.display = (DB.distritais.length > 1) ? '' : 'none';
+    }
     const fbSec = $('fbSec'); const fbMkt = $('fbMkt'); const fbGoto = $('fbGoto');
     [fbSec, fbMkt, fbGoto].forEach(sel => { while (sel.children.length > 1) sel.removeChild(sel.lastChild); });
     DB.sectors.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; fbSec.appendChild(o); });
@@ -917,6 +978,28 @@ function rebuildSelectors() {
         const o = document.createElement('option'); o.value = m; o.textContent = m; fbMkt.appendChild(o);
         const o2 = o.cloneNode(true); fbGoto.appendChild(o2);
     });
+    /* mantém seleções atuais quando ainda existirem na nova lista */
+    if ($('fbSec'))  $('fbSec').value  = DB.sectors.includes(UI.sector) ? UI.sector : 'all';
+    if ($('fbMkt'))  $('fbMkt').value  = DB.markets.includes(UI.market) ? UI.market : 'all';
+    if (!DB.sectors.includes(UI.sector)) UI.sector = 'all';
+    if (!DB.markets.includes(UI.market)) UI.market = 'all';
+}
+
+/* v3.16 — disparado quando o usuário troca Regional ou Distrital. */
+function onHierarchyChange() {
+    const fbReg = $('fbReg'); const fbDist = $('fbDist');
+    if (fbReg) UI.regional = fbReg.value;
+    if (fbDist) UI.distrital = fbDist.value;
+    /* Reset filtros dependentes (setor/mercado podem não existir mais no recorte). */
+    UI.sector = 'all';
+    UI.market = 'all';
+    applyHierarchy();
+    rebuildSelectors();
+    buildSectorTabs();
+    updateDistritalHeader();
+    UI.expandedRows.clear();
+    BRICK_PAGE = 1;
+    renderActiveTab();
 }
 
 /* ===== RENDER DETALHE POR BRICK (aba "Detalhe por Brick") =====
@@ -972,6 +1055,7 @@ function renderBrick() {
                 pos: rk.posSupera,
                 leader: rk.leader ? rk.leader.name : '—',
                 leaderVol: rk.leader ? rk.leader.cur : 0,
+                leaderVolPrev: rk.leader ? rk.leader.prev : 0,
                 gap1: rk.gap1,
                 gap2: rk.gap2,
                 gap3: rk.gap3,
@@ -1024,13 +1108,16 @@ function renderBrick() {
     html += sh('market',     'MERCADO');
     html += sh('cidade',     'CIDADE');
     html += sh('brick',      'BRICK');
-    html += sh('totalCur',   `MKT ${pdLbl}`, 'r');
+    html += sh('totalPrev',  `MKT ${pdLbl} ANT.`, 'r');
+    html += sh('totalCur',   `MKT ${pdLbl} ATUAL`, 'r');
     html += sh('superaLabel','MARCA SUPERA', 'c-supera');
-    html += sh('superaCur',  `${pdLbl} SUPERA`, 'r c-supera');
+    html += sh('superaPrev', `${pdLbl} SUPERA ANT.`, 'r c-supera');
+    html += sh('superaCur',  `${pdLbl} SUPERA ATUAL`, 'r c-supera');
     html += sh('share',      'SHARE %', 'r');
     html += sh('pos',        'POS.', 'c');
     html += sh('leader',     'LÍDER');
-    html += sh('leaderVol',  `${pdLbl} LÍDER`, 'r');
+    html += sh('leaderVolPrev', `${pdLbl} LÍDER ANT.`, 'r');
+    html += sh('leaderVol',  `${pdLbl} LÍDER ATUAL`, 'r');
     html += sh('gap1',       'GAP 1ª', 'r');
     html += sh('gap2',       'GAP 2ª', 'r');
     html += sh('gap3',       'GAP 3ª', 'r');
@@ -1040,7 +1127,7 @@ function renderBrick() {
     html += '</tr></thead><tbody>';
 
     if (!page.length) {
-        html += '<tr><td colspan="18" class="tbl-empty">Nenhum brick encontrado para os filtros selecionados.</td></tr>';
+        html += '<tr><td colspan="21" class="tbl-empty">Nenhum brick encontrado para os filtros selecionados.</td></tr>';
     } else {
         page.forEach((l, idx) => {
             const recCls = recPillCls(l.rec);
@@ -1054,12 +1141,15 @@ function renderBrick() {
                 <td><strong>${l.market}</strong></td>
                 <td>${l.cidade || '—'}</td>
                 <td><code class="brick-code-mono">${l.brick}</code></td>
+                <td class="r">${fmtValue(l.totalPrev)}</td>
                 <td class="r">${fmtValue(l.totalCur)}</td>
                 <td class="c-supera">${l.superaLabel}</td>
+                <td class="r vacc c-supera">${fmtValue(l.superaPrev)}</td>
                 <td class="r vacc c-supera">${fmtValue(l.superaCur)}</td>
                 <td class="r"><strong>${l.share.toFixed(1)}%</strong></td>
                 <td class="c">${posBadge}</td>
                 <td><small>${l.leader.replace(/\s*\([^)]+\)/, '')}</small></td>
+                <td class="r">${fmtValue(l.leaderVolPrev)}</td>
                 <td class="r">${fmtValue(l.leaderVol)}</td>
                 <td class="r">${l.gap1 ? fmtValue(l.gap1) : '—'}</td>
                 <td class="r">${l.gap2 ? fmtValue(l.gap2) : '—'}</td>
@@ -1131,12 +1221,16 @@ function renderBrickExpandRow(l, expandId, pdLbl) {
         const evol = (m.prev && m.prev !== 0) ? ((m.cur / m.prev) - 1) : null;
         const evolCls = evol == null ? '' : (evol >= 0 ? 'vpos' : 'vneg');
         const shr = totalCur > 0 ? (m.cur / totalCur) * 100 : 0;
-        const cleanName = String(m.name || '').replace(/\s*\([^)]+\)\s*$/, '').trim();
-        const tag = String(m.name || '').match(/\(([^)]+)\)\s*$/);
+        /* Se for Supera, usa o superaLabel do brick (nome real da marca, sem sufixo SP0).
+           Se for concorrente, remove o sufixo de laboratório entre parênteses do nome. */
+        const cleanName = isSupera
+            ? (l.superaLabel || String(m.name || '').replace(/\s*\(SP0\)\s*/i, '').trim())
+            : String(m.name || '').replace(/\s*\([^)]+\)\s*$/, '').trim();
+        const tag = isSupera ? null : String(m.name || '').match(/\(([^)]+)\)\s*$/);
         const tagTxt = tag ? tag[1] : '';
         inner += `<tr class="${isSupera ? 'is-supera' : ''}">`;
         inner += `<td class="r pos-cell"><strong>${i + 1}ª</strong></td>`;
-        inner += `<td>${isSupera ? '<span class="dot-supera"></span>' : ''}${isSupera ? `<strong>${cleanName}</strong>` : cleanName}${tagTxt ? ` <span class="brand-tag">(${tagTxt})</span>` : ''}${isSupera ? ' <span class="badge-supera">SUPERA</span>' : ''}</td>`;
+        inner += `<td>${isSupera ? '<span class="dot-supera"></span>' : ''}<strong>${cleanName}</strong>${tagTxt ? ` <span class="brand-tag">(${tagTxt})</span>` : ''}${isSupera ? ' <span class="badge-supera">SUPERA</span>' : ''}</td>`;
         inner += `<td class="r">${fmtValue(m.prev)}</td>`;
         inner += `<td class="r ${isSupera ? 'is-supera-val' : ''}">${fmtValue(m.cur)}</td>`;
         inner += `<td class="r ${evolCls}">${fmtPct(evol)}</td>`;
@@ -1150,8 +1244,8 @@ function renderBrickExpandRow(l, expandId, pdLbl) {
         const cls = evolMkt >= 0 ? 'vpos' : 'vneg';
         inner += `<tr class="brick-exp-total">`;
         inner += `<td colspan="2" class="r"><strong>TOTAL DO MERCADO</strong></td>`;
-        inner += `<td class="r"><strong>${fmtValue(totalCur)}</strong></td>`;
         inner += `<td class="r"><strong>${fmtValue(totalPrev)}</strong></td>`;
+        inner += `<td class="r"><strong>${fmtValue(totalCur)}</strong></td>`;
         inner += `<td class="r ${cls}"><strong>${fmtPct(evolMkt)}</strong></td>`;
         inner += `<td class="r"><strong>100.0%</strong></td>`;
         inner += `</tr>`;
@@ -1215,35 +1309,77 @@ function shortSectorLabel(sec) {
 }
 
 function buildSectorTabs() {
+    /* v3.17 — quando a base tem mais de uma Distrital, o tab rail mostra
+       Distritais (clicar filtra `UI.distrital`); quando há apenas uma
+       Distrital, mostra os Setores como antes (clicar filtra `UI.sector`). */
     const host = $('sectorTabs');
     if (!host) return;
     host.innerHTML = '';
-    DB.sectors.forEach(sec => {
-        const label = shortSectorLabel(sec);
-        const btn = document.createElement('button');
-        btn.className = 'tab tab-sector';
-        btn.setAttribute('data-tab', 'brick');
-        btn.setAttribute('data-sector', sec);
-        btn.setAttribute('title', cleanSectorName(sec) || sec);
-        btn.innerHTML = '<span class="tab-sector-dot"></span>' + label;
-        btn.addEventListener('click', () => {
-            // Toggle: se já está ativo, remove o filtro de setor
-            const wasActive = btn.classList.contains('active-sector');
-            document.querySelectorAll('.tab-sector').forEach(t => t.classList.remove('active-sector'));
-            if (wasActive) {
-                UI.sector = 'all';
-                $('fbSec').value = 'all';
-            } else {
-                btn.classList.add('active-sector');
-                UI.sector = sec;
-                $('fbSec').value = sec;
-            }
-            UI.expandedRows.clear();
-            BRICK_PAGE = 1;
-            renderActiveTab();
-        });
-        host.appendChild(btn);
+
+    /* universo de Distritais conforme o recorte de Regional ativo */
+    const universe = (DB.allRowsByValueMode && DB.allRowsByValueMode[UI.unitMode]) || [];
+    const distList = (DB.distritais || []).filter(d => {
+        if (UI.regional && UI.regional !== 'all') {
+            return universe.some(r => r.regional === UI.regional && r.distrital === d);
+        }
+        return true;
     });
+
+    if (distList.length > 1) {
+        /* === modo "Distritais" === */
+        distList.forEach(d => {
+            const label = shortSectorLabel(d);
+            const btn = document.createElement('button');
+            btn.className = 'tab tab-sector tab-distrital';
+            btn.setAttribute('data-tab', 'brick');
+            btn.setAttribute('data-distrital', d);
+            btn.setAttribute('title', cleanSectorName(d) || d);
+            btn.innerHTML = '<span class="tab-sector-dot"></span>' + label;
+            if (UI.distrital === d) btn.classList.add('active-sector');
+            btn.addEventListener('click', () => {
+                const wasActive = btn.classList.contains('active-sector');
+                document.querySelectorAll('.tab-sector').forEach(t => t.classList.remove('active-sector'));
+                if (wasActive) {
+                    UI.distrital = 'all';
+                    const sel = $('fbDist'); if (sel) sel.value = 'all';
+                } else {
+                    btn.classList.add('active-sector');
+                    UI.distrital = d;
+                    const sel = $('fbDist'); if (sel) sel.value = d;
+                }
+                onHierarchyChange();
+            });
+            host.appendChild(btn);
+        });
+    } else {
+        /* === modo "Setores" (clássico) === */
+        DB.sectors.forEach(sec => {
+            const label = shortSectorLabel(sec);
+            const btn = document.createElement('button');
+            btn.className = 'tab tab-sector';
+            btn.setAttribute('data-tab', 'brick');
+            btn.setAttribute('data-sector', sec);
+            btn.setAttribute('title', cleanSectorName(sec) || sec);
+            btn.innerHTML = '<span class="tab-sector-dot"></span>' + label;
+            if (UI.sector === sec) btn.classList.add('active-sector');
+            btn.addEventListener('click', () => {
+                const wasActive = btn.classList.contains('active-sector');
+                document.querySelectorAll('.tab-sector').forEach(t => t.classList.remove('active-sector'));
+                if (wasActive) {
+                    UI.sector = 'all';
+                    $('fbSec').value = 'all';
+                } else {
+                    btn.classList.add('active-sector');
+                    UI.sector = sec;
+                    $('fbSec').value = sec;
+                }
+                UI.expandedRows.clear();
+                BRICK_PAGE = 1;
+                renderActiveTab();
+            });
+            host.appendChild(btn);
+        });
+    }
 }
 
 /* v3.5 — calcula a distrital automaticamente a partir do primeiro setor
@@ -1275,13 +1411,27 @@ function updateDistritalHeader() {
     const el = $('hdrDistrital');
     if (!el) return;
     if (!DB.sectors.length) { el.textContent = 'Análise Estratégica'; return; }
-    // Pega o primeiro setor com dígitos identificáveis
-    let distCode = null;
-    for (const sec of DB.sectors) {
-        const mm = String(sec).match(/(\d{4,6})/);
-        if (mm) { distCode = mm[1].slice(0, 4) + '00'; break; }
+    /* v3.16 — mostra o nível agregado ativo (Regional / Distrital). */
+    const parts = [];
+    if (UI.regional && UI.regional !== 'all') {
+        parts.push('Regional ' + cleanSectorName(UI.regional));
+    } else if (DB.regionals.length > 1) {
+        parts.push('Todas as Regionais (' + DB.regionals.length + ')');
     }
-    el.textContent = distCode ? ('Distrital ' + distCode) : 'Análise Estratégica';
+    if (UI.distrital && UI.distrital !== 'all') {
+        parts.push('Distrital ' + cleanSectorName(UI.distrital));
+    } else if (DB.distritais.length > 1) {
+        parts.push('Todas as Distritais (' + DB.distritais.length + ')');
+    } else if (DB.distritais.length === 1) {
+        parts.push('Distrital ' + cleanSectorName(DB.distritais[0]));
+    } else {
+        /* fallback: deriva do código do setor */
+        for (const sec of DB.sectors) {
+            const mm = String(sec).match(/(\d{4,6})/);
+            if (mm) { parts.push('Distrital ' + mm[1].slice(0, 4) + '00'); break; }
+        }
+    }
+    el.textContent = parts.length ? parts.join(' · ') : 'Análise Estratégica';
 }
 
 function switchTab(tn) {
@@ -1309,8 +1459,8 @@ function exportXLSX() {
             'Tipo': r.role,
             'Brick': r.brickName,
             'Cidade': r.cidade,
-            ['Unid. ' + pd]: d.current,
             ['Unid. ' + pd + ' Anterior']: d.previous,
+            ['Unid. ' + pd + ' Atual']: d.current,
             'Crescimento %': d.growth != null ? (d.growth * 100).toFixed(2) + '%' : ''
         };
     });
@@ -1337,19 +1487,23 @@ async function init(files, opts) {
 
         // Substitui dados do mesmo modo (não acumula uploads do mesmo tipo)
         // Isso evita duplicação quando o usuário carrega a mesma planilha mais de uma vez
+        const prev = DB.allRowsByValueMode || { UN: [], RS: [] };
         const merged = {
-            UN: rowsByMode.UN.length ? rowsByMode.UN : (DB.rowsByValueMode.UN || []),
-            RS: rowsByMode.RS.length ? rowsByMode.RS : (DB.rowsByValueMode.RS || [])
+            UN: rowsByMode.UN.length ? rowsByMode.UN : (prev.UN || []),
+            RS: rowsByMode.RS.length ? rowsByMode.RS : (prev.RS || [])
         };
+        /* v3.16 — ao subir uma nova planilha, reseta hierarquia para 'all'
+           para o usuário ver o universo carregado. */
+        UI.regional = 'all';
+        UI.distrital = 'all';
         buildDB(merged);
 
-        // Se a planilha que acabou de entrar trouxe R$ e o usuário estava em UN sem dados, troca para RS
         if (rowsByMode.RS.length && !rowsByMode.UN.length) {
             UI.unitMode = 'RS';
-            DB.rows = DB.rowsByValueMode.RS;
-        } else if (rowsByMode.UN.length && !rowsByMode.RS.length && DB.rowsByValueMode.UN.length === rowsByMode.UN.length) {
+            applyHierarchy();
+        } else if (rowsByMode.UN.length && !rowsByMode.RS.length && (prev.UN || []).length === rowsByMode.UN.length) {
             UI.unitMode = 'UN';
-            DB.rows = DB.rowsByValueMode.UN;
+            applyHierarchy();
         }
         document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
         const btn = $('btn' + UI.unitMode);
@@ -1368,8 +1522,9 @@ async function init(files, opts) {
         const msg = diagnostics.map(d => `${d.file}${d.forced ? ' (forçada)' : ''}: ${d.mode === 'RS' ? 'R$' : 'Unidades'}`).join(' · ');
         const statusEl = $('datasetStatus');
         if (statusEl) {
-            const unOk = DB.rowsByValueMode.UN.length ? '<span class="ds-ok">Unidades</span>' : '<span class="ds-off">Unidades</span>';
-            const rsOk = DB.rowsByValueMode.RS.length ? '<span class="ds-ok">R$</span>' : '<span class="ds-off">R$</span>';
+            const allMM = DB.allRowsByValueMode || { UN: [], RS: [] };
+            const unOk = (allMM.UN && allMM.UN.length) ? '<span class="ds-ok">Unidades</span>' : '<span class="ds-off">Unidades</span>';
+            const rsOk = (allMM.RS && allMM.RS.length) ? '<span class="ds-ok">R$</span>' : '<span class="ds-off">R$</span>';
             statusEl.innerHTML = `Planilhas: ${unOk} · ${rsOk}`;
         }
         toast(DB.markets.length + ' mercados · ' + msg);
@@ -1410,14 +1565,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const clrBtn = $('btnClearData');
     if (clrBtn) {
         clrBtn.addEventListener('click', () => {
+            DB.allRowsByValueMode = { UN: [], RS: [] };
             DB.rowsByValueMode = { UN: [], RS: [] };
             DB.rows = [];
+            DB.regionals = [];
+            DB.distritais = [];
+            UI.regional = 'all';
+            UI.distrital = 'all';
             $('dashView').style.display = 'none';
             $('kpiStrip').style.display = 'none';
             $('uploadView').style.display = 'flex';
             toast('Base limpa');
         });
     }
+
+    /* v3.16 — listeners para os novos seletores Regional / Distrital */
+    ['fbReg','fbDist'].forEach(id => {
+        const el = $(id);
+        if (el) el.addEventListener('change', onHierarchyChange);
+    });
 
     $('brickModalClose').addEventListener('click', () => $('brickModal').classList.remove('open'));
     $('verModalClose').addEventListener('click', () => $('verModal').classList.remove('open'));
@@ -1461,12 +1627,13 @@ function renderOport() {
     const oport = mkts.filter(m => m.current >= medianCur && m.share < 50 && m.share > 5).sort((a, b) => (b.current - a.current));
     let html = '<div class="panel-block"><h3 class="panel-h3">Oportunidades Principais</h3>';
     html += '<p class="panel-sub">Mercados grandes onde a Supera ainda não é líder, com volume relevante e espaço para crescer.</p>';
-    html += '<table class="modal-tbl"><thead><tr><th>Mercado</th><th class="r">Mercado ' + pd + '</th><th class="r">Supera</th><th class="r">Share</th><th class="r">Crescimento</th><th class="c">Potencial</th></tr></thead><tbody>';
-    if (!oport.length) html += '<tr><td colspan="6" class="tbl-empty">Sem oportunidades claras nos filtros atuais.</td></tr>';
+    html += '<table class="modal-tbl"><thead><tr><th>Mercado</th><th class="r">Mercado ' + pd + ' Ant.</th><th class="r">Mercado ' + pd + ' Atual</th><th class="r">Supera</th><th class="r">Share</th><th class="r">Crescimento</th><th class="c">Potencial</th></tr></thead><tbody>';
+    if (!oport.length) html += '<tr><td colspan="7" class="tbl-empty">Sem oportunidades claras nos filtros atuais.</td></tr>';
     oport.forEach(m => {
         const gap = m.current - m.supera;
         html += `<tr>
             <td><strong>${m.market}</strong></td>
+            <td class="r">${fmtValue(m.previous)}</td>
             <td class="r">${fmtValue(m.current)}</td>
             <td class="r vacc">${fmtValue(m.supera)}</td>
             <td class="r">${m.share.toFixed(1)}%</td>
@@ -1488,13 +1655,14 @@ function renderEntrar() {
 
     let html = '<div class="panel-block"><h3 class="panel-h3">Entrar no Mercado</h3>';
     html += '<p class="panel-sub">Bricks em que a Supera hoje tem vendas zeradas mas o mercado existe.</p>';
-    html += '<table class="modal-tbl"><thead><tr><th>Mercado</th><th>Brick</th><th>Setor</th><th class="r">Mercado</th><th class="r">Maior concorrente</th></tr></thead><tbody>';
-    if (!entrar.length) html += '<tr><td colspan="5" class="tbl-empty">Nenhum brick em "Entrar".</td></tr>';
+    html += '<table class="modal-tbl"><thead><tr><th>Mercado</th><th>Brick</th><th>Setor</th><th class="r">Mercado ' + pd + ' Ant.</th><th class="r">Mercado ' + pd + ' Atual</th><th class="r">Maior concorrente</th></tr></thead><tbody>';
+    if (!entrar.length) html += '<tr><td colspan="6" class="tbl-empty">Nenhum brick em "Entrar".</td></tr>';
     entrar.slice(0, 300).forEach(e => {
         html += `<tr>
             <td><strong>${e.market}</strong></td>
             <td><code class="brick-code-mono">${e.brick.brick}</code> <small>${e.brick.cidade || ''}</small></td>
             <td>${e.brick.sector || '—'}</td>
+            <td class="r">${fmtValue(e.brick.totalPrev)}</td>
             <td class="r">${fmtValue(e.brick.totalCur)}</td>
             <td class="r">${fmtValue(e.brick.concMax)}</td>
         </tr>`;
@@ -1506,104 +1674,44 @@ function renderEntrar() {
 function renderGraficos() {
     const el = $('tab-graficos'); if (!el) return;
     const pd = UI.periodMode;
-    const searchStr = norm(UI.search);
-
-    /* ── Aplicar os mesmos filtros das outras abas ── */
-    const fRows = DB.rows.filter(r => {
-        if (UI.sector !== 'all' && r.sector !== UI.sector) return false;
-        if (UI.market !== 'all' && r.market !== UI.market) return false;
-        if (searchStr) {
-            const blob = norm(r.market + ' ' + r.cidade + ' ' + r.brickName + ' ' + r.product);
-            if (!blob.includes(searchStr)) return false;
-        }
-        return true;
-    });
-
-    const mkts = aggMarkets(fRows, pd).sort((a, b) => b.current - a.current);
-
-    /* ── Banner de contexto (setor ativo) ── */
-    const sectorLabel = UI.sector !== 'all' ? cleanSectorName(UI.sector) : null;
-    const unitLabel   = UI.unitMode === 'RS' ? 'R$' : 'Unidades';
-    let html = '';
-    if (sectorLabel) {
-        html += `<div class="graficos-context-bar">
-            <span class="graficos-ctx-icon">🏢</span>
-            <span class="graficos-ctx-txt">Setor: <strong>${sectorLabel}</strong></span>
-            <span class="graficos-ctx-sep">·</span>
-            <span class="graficos-ctx-txt">${pd} · ${unitLabel}</span>
-            <span class="graficos-ctx-sep">·</span>
-            <span class="graficos-ctx-txt">${mkts.length} mercados</span>
-        </div>`;
-    }
-
-    html += '<div class="charts-grid">';
-
-    /* ── Card 1: Top mercados por volume ── */
+    const mkts = aggMarkets(DB.rows, pd).sort((a, b) => b.current - a.current);
     const top = mkts.slice(0, 15);
-    const maxVol = Math.max(...top.map(m => m.current), 1);
-    html += `<div class="chart-card"><div class="chart-card-title">Top 15 Mercados (${pd} · ${unitLabel})</div>`;
-    if (!top.length) {
-        html += '<p class="chart-empty">Nenhum mercado nos filtros atuais.</p>';
-    } else {
-        top.forEach(m => {
-            html += `<div class="bar-row">
-                <div class="bar-label" title="${m.market}">${m.market}</div>
-                <div class="bar-track"><div class="bar-fill" style="width:${(m.current / maxVol * 100).toFixed(1)}%;background:var(--c-crescer)"></div></div>
-                <div class="bar-val">${fmtValue(m.current)}</div>
-            </div>`;
-        });
-    }
+    const max = Math.max(...top.map(m => m.current), 1);
+
+    let html = '<div class="charts-grid">';
+    // Top mercados
+    html += '<div class="chart-card"><div class="chart-card-title">Top 15 mercados (' + pd + ')</div>';
+    top.forEach(m => {
+        html += `<div class="bar-row">
+            <div class="bar-label" title="${m.market}">${m.market}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${(m.current / max * 100).toFixed(1)}%;background:var(--c-crescer)"></div></div>
+            <div class="bar-val">${fmtValue(m.current)}</div>
+        </div>`;
+    });
     html += '</div>';
 
-    /* ── Card 2: Maiores shares Supera ── */
+    // Share Supera por mercado (top 15 onde Supera tem presença)
     const withSupera = mkts.filter(m => m.supera > 0).sort((a, b) => b.share - a.share).slice(0, 15);
-    html += `<div class="chart-card"><div class="chart-card-title">Maiores Shares Supera (${pd})</div>`;
-    if (!withSupera.length) {
-        html += '<p class="chart-empty">Nenhum mercado com presença Supera.</p>';
-    } else {
-        withSupera.forEach(m => {
-            html += `<div class="bar-row">
-                <div class="bar-label" title="${m.market}">${m.market}</div>
-                <div class="bar-track"><div class="bar-fill" style="width:${Math.min(m.share, 100).toFixed(1)}%;background:var(--c-lider)"></div></div>
-                <div class="bar-val">${m.share.toFixed(1)}%</div>
-            </div>`;
-        });
-    }
+    html += '<div class="chart-card"><div class="chart-card-title">Maiores shares Supera (' + pd + ')</div>';
+    withSupera.forEach(m => {
+        html += `<div class="bar-row">
+            <div class="bar-label" title="${m.market}">${m.market}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${Math.min(m.share, 100).toFixed(1)}%;background:var(--c-lider)"></div></div>
+            <div class="bar-val">${m.share.toFixed(1)}%</div>
+        </div>`;
+    });
     html += '</div>';
 
-    /* ── Card 3: Bricks por recomendação ── */
+    // Resumo recomendações
     const recTotals = { 'LÍDER': 0, 'CRESCER': 0, 'OPORTUNIDADE': 0, 'ACOMPANHAR': 0, 'ENTRAR': 0 };
     mkts.forEach(m => Object.keys(recTotals).forEach(r => recTotals[r] += m.recs[r].length));
-    html += `<div class="chart-card"><div class="chart-card-title">Bricks por Recomendação</div><div class="rec-summary">`;
+    html += '<div class="chart-card"><div class="chart-card-title">Bricks por recomendação</div><div class="rec-summary">';
     Object.entries(recTotals).forEach(([k, v]) => {
         html += `<div class="rec-sum-item"><div class="rec-sum-count" style="color:${recColorVar(k)}">${v}</div><div class="rec-sum-label">${k}</div></div>`;
     });
     html += '</div></div>';
 
-    /* ── Card 4: Top 15 crescimento de mercado ── */
-    const growing = [...mkts]
-        .filter(m => m.previous > 0 && m.growth != null)
-        .sort((a, b) => b.growth - a.growth)
-        .slice(0, 15);
-    html += `<div class="chart-card"><div class="chart-card-title">Top 15 Crescimento de Mercado (${pd})</div>`;
-    if (!growing.length) {
-        html += '<p class="chart-empty">Sem dados de período anterior para calcular crescimento.</p>';
-    } else {
-        const maxGrowth = Math.max(...growing.map(m => Math.abs(m.growth)), 0.01);
-        growing.forEach(m => {
-            const pct = (m.growth * 100).toFixed(1);
-            const cls = m.growth >= 0 ? 'var(--c-lider)' : 'var(--c-entrar)';
-            const prefix = m.growth >= 0 ? '+' : '';
-            html += `<div class="bar-row">
-                <div class="bar-label" title="${m.market}">${m.market}</div>
-                <div class="bar-track"><div class="bar-fill" style="width:${(Math.abs(m.growth) / maxGrowth * 100).toFixed(1)}%;background:${cls}"></div></div>
-                <div class="bar-val" style="color:${cls};font-weight:700">${prefix}${pct}%</div>
-            </div>`;
-        });
-    }
     html += '</div>';
-
-    html += '</div>'; /* /charts-grid */
     el.innerHTML = html;
 }
 

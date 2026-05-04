@@ -1288,43 +1288,6 @@ body {
     color: var(--txt2)
 }
 
-/* Banner de contexto de setor na aba Gráficos */
-.graficos-context-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-    background: var(--navy);
-    color: #e2eaf6;
-    font-size: 12px;
-    font-weight: 500;
-    border-bottom: 1px solid #1a2a44;
-    flex-wrap: wrap;
-}
-
-.graficos-ctx-icon {
-    font-size: 14px;
-}
-
-.graficos-ctx-txt strong {
-    color: #93c5fd;
-    font-weight: 700;
-}
-
-.graficos-ctx-sep {
-    opacity: .4;
-    font-size: 14px;
-}
-
-/* Estado vazio dos cards de gráfico */
-.chart-empty {
-    text-align: center;
-    padding: 24px 12px;
-    color: var(--txt3);
-    font-size: 12px;
-    font-style: italic;
-}
-
 /* ════════════════════════════════════════
    TOAST
 ════════════════════════════════════════ */
@@ -1580,15 +1543,15 @@ body {
 }
 
 .rank-row.rank-supera td {
-    background: #e8f0fe;
+    background: linear-gradient(90deg, #ecfdf5 0%, #ffffff 70%);
 }
 
 .rank-row.rank-supera .rank-pos {
-    color: var(--acc);
+    color: var(--c-lider);
 }
 
 .rank-row.rank-supera .rank-name {
-    color: var(--navy);
+    color: #0b5735;
 }
 
 /* Banda de status das planilhas carregadas (Un./R$) */
@@ -1813,49 +1776,49 @@ body {
 /* === v3.9 — cores de fundo das linhas pela recomendação === */
 /* v3.12 — cores das linhas mais saturadas para não confundir com cinza/branco. */
 .brick-detail-row.row-rb-lider td {
-    background: #edfdf4 !important
+    background: #b8f5cc !important
 }
 
-/* verde pastel muito claro     */
+/* verde claro mais vivo    */
 .brick-detail-row.row-rb-crescer td {
-    background: #eff6ff !important
+    background: #bfdbfe !important
 }
 
-/* azul pastel muito claro      */
+/* azul claro mais vivo     */
 .brick-detail-row.row-rb-oport td {
-    background: #fff7ed !important
+    background: #ffd9a8 !important
 }
 
-/* laranja pastel muito claro   */
+/* laranja claro mais vivo  */
 .brick-detail-row.row-rb-acomp td {
-    background: #f4f4f5 !important
+    background: #d1d5db !important
 }
 
-/* cinza pastel muito claro     */
+/* cinza claro mais firme   */
 .brick-detail-row.row-rb-entrar td {
-    background: #fff1f1 !important
+    background: #fecaca !important
 }
 
-/* vermelho pastel muito claro  */
+/* vermelho claro mais vivo */
 
 .brick-detail-row.row-rb-lider:hover td {
-    background: #d1fae5 !important
+    background: #9eecbb !important
 }
 
 .brick-detail-row.row-rb-crescer:hover td {
-    background: #dbeafe !important
+    background: #a6c8fa !important
 }
 
 .brick-detail-row.row-rb-oport:hover td {
-    background: #fed7aa !important
+    background: #ffc789 !important
 }
 
 .brick-detail-row.row-rb-acomp:hover td {
-    background: #e4e4e7 !important
+    background: #b8bdc6 !important
 }
 
 .brick-detail-row.row-rb-entrar:hover td {
-    background: #fecaca !important
+    background: #fcacac !important
 }
 
 /* faixa lateral colorida indicando recomendação */
@@ -2206,14 +2169,14 @@ body {
 }
 
 .brick-exp-tbl thead th {
-    background: var(--navy);
-    color: #e2eaf6;
+    background: #e2e8f0;
+    color: #1e3a5f;
     font-size: 10px;
-    font-weight: 800;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .4px;
+    letter-spacing: .3px;
     padding: 3px 6px;
-    border-bottom: 2px solid #1a2a44;
+    border-bottom: 1px solid #cbd5e1;
     text-align: left;
     white-space: nowrap;
 }
@@ -2267,11 +2230,11 @@ body {
 }
 
 .brick-exp-tbl tbody tr.is-supera td {
-    background: #e8f0fe !important;
+    background: #fef9c3 !important;
 }
 
 .brick-exp-tbl tbody tr.is-supera:hover td {
-    background: #c7d9fc !important;
+    background: #fef08a !important;
 }
 
 .brick-exp-tbl tbody td.is-supera-val {
