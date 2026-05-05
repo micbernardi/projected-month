@@ -184,25 +184,31 @@ async function parseFiles(files, forceUnit) {
                     }
                     return -1;
                 };
-                const iRegional = findIdx([/^regional$/]);
-                const iDistrital = findIdx([/^distrital$/]);
-                const iSetor = findIdx([/^setor(\s*\(gd\))?$/, /^gd$/]);
-                const iMercado = findIdx([/^mercado$/]);
-                const iProduto = findIdx([/^produto$/, /^marca$/]);
-                const iCidade = findIdx([/^cidade$/, /^municipio$/]);
-                const iBrick = findIdx([/^brick$/]);
+                const iRegional = findIdx([/^regional$/, /regional/]);
+                const iDistrital = findIdx([/^distrital$/, /distrital/]);
+                const iSetor = findIdx([/^setor(\s*\(gd\))?$/, /^gd$/, /^setor\s*gd$/]);
+                const iMercado = findIdx([/^mercado$/, /^mercado\s*montado$/, /^mercado\s*terapeutico$/, /mercado/]);
+                const iProduto = findIdx([/^produto$/, /^marca$/, /^produto\/marca$/, /^nome\s*(do\s*)?produto$/]);
+                const iCidade = findIdx([/^cidade$/, /^municipio$/, /^munic[íi]pio$/, /cidade/]);
+                const iBrick = findIdx([/^brick$/, /^cod\.?\s*brick$/, /^codigo\s*brick$/, /brick/]);
 
-                const iMAT = findIdx([/^mat$/, /^mat\s*un$/, /^mat\s*r\$?$/]);
-                const iMATAnt = findIdx([/^mat\s+ant/]);
+                const iMAT = findIdx([/^mat$/, /^mat\s*un\.?$/, /^mat\s*r\$?$/, /^mat\s*valor$/, /^mat\s*reais$/, /^mat\s*unidades?$/]);
+                const iMATAnt = findIdx([/^mat\s+ant/, /^mat\s*anterior/]);
                 const iCrescMAT = findIdx([/^cresc\.?\s*mat$/, /^crescimento\s*mat$/]);
-                const iYTD = findIdx([/^ytd$/]);
-                const iYTDAnt = findIdx([/^ytd\s+ant/]);
+                const iYTD = findIdx([/^ytd$/, /^ytd\s*un\.?$/, /^ytd\s*r\$?$/, /^ytd\s*valor$/, /^ytd\s*unidades?$/]);
+                const iYTDAnt = findIdx([/^ytd\s+ant/, /^ytd\s*anterior/]);
                 const iCrescYTD = findIdx([/^cresc\.?\s*ytd$/, /^crescimento\s*ytd$/]);
-                const iTRI = findIdx([/^tri$/]);
-                const iTRIAnt = findIdx([/^tri\s+ant/]);
+                const iTRI = findIdx([/^tri$/, /^tri\s*un\.?$/, /^tri\s*r\$?$/, /^tri\s*valor$/, /^tri\s*unidades?$/]);
+                const iTRIAnt = findIdx([/^tri\s+ant/, /^tri\s*anterior/]);
                 const iCrescTRI = findIdx([/^cresc\.?\s*tri$/, /^crescimento\s*tri$/]);
 
-                if (iMAT < 0 && iYTD < 0 && iTRI < 0) continue;
+                if (iMAT < 0 && iYTD < 0 && iTRI < 0) {
+                    console.warn('[SUPERA] Aba', sheetName, '— nenhuma coluna MAT/YTD/TRI detectada. Headers encontrados:', headers.join(' | '));
+                    continue;
+                }
+                if (iMercado < 0) {
+                    console.warn('[SUPERA] Aba', sheetName, '— coluna MERCADO não detectada. Headers:', headers.join(' | '));
+                }
 
                 const unitMode = detectUnitMode({
                     fileName: file.name,
@@ -211,6 +217,20 @@ async function parseFiles(files, forceUnit) {
                     forceUnit
                 });
                 diagnostics.push({ file: file.name, sheet: sheetName, mode: unitMode, forced: !!forceUnit });
+                console.log('[SUPERA] Aba', sheetName, '— colunas detectadas:', {
+                    Regional: iRegional >= 0 ? headers[iRegional] : '❌ NÃO ENCONTRADO',
+                    Distrital: iDistrital >= 0 ? headers[iDistrital] : '❌ NÃO ENCONTRADO',
+                    Setor: iSetor >= 0 ? headers[iSetor] : '❌ NÃO ENCONTRADO',
+                    Mercado: iMercado >= 0 ? headers[iMercado] : '❌ NÃO ENCONTRADO',
+                    Produto: iProduto >= 0 ? headers[iProduto] : '❌ NÃO ENCONTRADO',
+                    Cidade: iCidade >= 0 ? headers[iCidade] : '❌ NÃO ENCONTRADO',
+                    Brick: iBrick >= 0 ? headers[iBrick] : '❌ NÃO ENCONTRADO',
+                    MAT: iMAT >= 0 ? headers[iMAT] : '❌ NÃO ENCONTRADO',
+                    MATAnt: iMATAnt >= 0 ? headers[iMATAnt] : '(sem coluna anterior)',
+                    YTD: iYTD >= 0 ? headers[iYTD] : '(sem YTD)',
+                    TRI: iTRI >= 0 ? headers[iTRI] : '(sem TRI)',
+                    Modo: unitMode
+                });
 
                 /* Pré-agregação: chave = regional|distrital|setor|mercado|marca|brick|cidade */
                 const agg = new Map();
@@ -984,6 +1004,8 @@ function setUnitMode(mode) {
     if (!hasData && Object.values(all).some(a => a.length)) {
         toast('Nenhuma planilha de ' + (mode === 'RS' ? 'R$' : 'Unidades') + ' carregada ainda. Clique em "Carregar Dados" para adicionar.');
     }
+    /* Marca que o usuário escolheu explicitamente o modo (para o próximo upload) */
+    window._unitForced = mode;
     UI.unitMode = mode;
     applyHierarchy();
     document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
@@ -1178,8 +1200,6 @@ function renderBrick() {
     html += sh('share', 'SHARE %', 'r');
     html += sh('pos', 'POS.', 'c');
     html += sh('leader', 'LÍDER');
-    html += sh('leaderVolPrev', `${pdLbl} LÍDER ANT.`, 'r');
-    html += sh('leaderVol', `${pdLbl} LÍDER ATUAL`, 'r');
     html += sh('gap1', 'GAP 1ª', 'r');
     html += sh('gap2', 'GAP 2ª', 'r');
     html += sh('gap3', 'GAP 3ª', 'r');
@@ -1210,8 +1230,6 @@ function renderBrick() {
                 <td class="r"><strong>${l.share.toFixed(1)}%</strong></td>
                 <td class="c"><strong>${l.pos ? `${l.pos}ª` : '—'}</strong></td>
                 <td><strong>${l.leader.replace(/\s*\([^)]+\)/, '')}</strong></td>
-                <td class="r">${fmtValue(l.leaderVolPrev)}</td>
-                <td class="r">${fmtValue(l.leaderVol)}</td>
                 <td class="r">${l.gap1 ? fmtValue(l.gap1) : '—'}</td>
                 <td class="r">${l.gap2 ? fmtValue(l.gap2) : '—'}</td>
                 <td class="r">${l.gap3 ? fmtValue(l.gap3) : '—'}</td>
@@ -1542,7 +1560,8 @@ async function init(files, opts) {
         toast('Processando planilhas...');
         const { rowsByMode, diagnostics } = await parseFiles(files, forceUnit);
         if (!rowsByMode.UN.length && !rowsByMode.RS.length) {
-            toast('Nenhuma linha encontrada. Verifique o cabeçalho das planilhas.');
+            toast('Nenhuma linha encontrada. Verifique o cabeçalho das planilhas (veja o console para detalhes).');
+            console.error('[SUPERA] Nenhuma linha processada. Verifique se a planilha tem as colunas: Mercado, Produto/Marca, Brick, MAT/YTD/TRI.');
             return;
         }
 
@@ -1602,9 +1621,10 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btnSelectFile').addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', e => {
         if (!e.target.files.length) return;
-        // Se o usuário clicou em $ R$ ou # Un. antes do upload, respeitamos
-        const active = document.querySelector('.unit-btn.active');
-        const forceUnit = active ? (active.id === 'btnRS' ? 'RS' : 'UN') : null;
+        // forceUnit só é passado se o usuário EXPLICITAMENTE clicou num botão de modo
+        // (rastreado pela flag _unitForced). Sem clique explícito, deixa o auto-detect
+        // detectar pelo nome do arquivo / cabeçalhos.
+        const forceUnit = window._unitForced || null;
         init(e.target.files, { forceUnit });
         e.target.value = '';
     });
@@ -1616,8 +1636,7 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadZone.addEventListener('drop', e => {
             e.preventDefault();
             uploadZone.classList.remove('drag');
-            const active = document.querySelector('.unit-btn.active');
-            const forceUnit = active ? (active.id === 'btnRS' ? 'RS' : 'UN') : null;
+            const forceUnit = window._unitForced || null;
             if (e.dataTransfer.files.length) init(e.dataTransfer.files, { forceUnit });
         });
     }
