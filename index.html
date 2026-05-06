@@ -9,7 +9,7 @@
         content="Dashboard de análise estratégica de mercado para Distrital 101100 – Michel Bernardi">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=102">
+    <link rel="stylesheet" href="style.css?v=103">
 </head>
 
 <body>
@@ -55,6 +55,12 @@
             <a class="hdr-send-btn" href="seller-projection.html">
                 Ir para Resultado Projetado
             </a>
+            <!-- Atalho fixo: busca rápida por CNPJ (acessível de qualquer aba) -->
+            <div class="cnpj-quick-wrap" title="Digite o CNPJ e pressione Enter para abrir os dados da farmácia">
+                <span class="cnpj-quick-icon">🔎</span>
+                <input id="cnpjQuickInput" class="cnpj-quick-input" placeholder="Buscar CNPJ ou Brick (ex: 8606)" maxlength="30" autocomplete="off">
+                <button class="cnpj-quick-btn" id="cnpjQuickBtn" title="Consultar">Consultar</button>
+            </div>
         </div>
     </header>
 
@@ -116,18 +122,11 @@
             <div class="upload-box" id="uploadZone">
                 <div class="upload-icon">📊</div>
                 <h2>Inteligência de Mercado</h2>
-                <p>Arraste suas planilhas <strong>DDD UNIDADES – CONSOLIDADO</strong> e/ou <strong>DDD REAIS –
-                        CONSOLIDADO</strong> aqui, ou clique para selecionar.<br>
-                    Colunas esperadas: Distrital, Setor, Mercado, Produto, Cidade, Brick, MAT, MAT ANT, YTD, YTD ANT,
-                    TRI, TRI ANT.</p>
-                <button class="btn-primary" style="margin-top:20px" id="btnSelectFile">Selecionar Arquivo</button>
+                <p class="upload-main-txt">Arraste suas planilhas <strong>DDD UNIDADES</strong>, <strong>DDD REAIS</strong> e/ou <strong>UNIDADES POR PDVS</strong> aqui, ou clique para selecionar.</p>
+                <button class="btn-primary" style="margin-top:18px" id="btnSelectFile">Selecionar Arquivo</button>
                 <div id="uploadProgress" class="upload-progress" aria-live="polite"></div>
-                <p style="margin-top:18px;font-size:11px;color:#8a96b8">
-                    Você pode subir as duas planilhas (Un. e R$) em qualquer ordem. O dashboard detecta automaticamente
-                    pelo nome do arquivo, mas se quiser forçar, basta clicar em <strong># Un.</strong> ou <strong>$
-                        R$</strong> antes de soltar o arquivo.<br>
-                    A classificação Supera × Concorrente é feita automaticamente a partir do mapa interno de <strong>87
-                        mercados</strong>.
+                <p class="upload-note">
+                    Você pode subir as planilhas em qualquer ordem — o dashboard detecta o tipo automaticamente: as planilhas consolidadas (Un. e R$) vão para a análise estratégica, e a planilha <strong>UNIDADES POR PDVS</strong> alimenta a aba <strong>PDVs por Brick</strong> (busca por CNPJ e por número de Brick). Se quiser forçar o modo, basta clicar em <strong># Un.</strong> ou <strong>$ R$</strong> antes de soltar. A classificação Supera × Concorrente é feita a partir do mapa interno de <strong>87 mercados</strong>.
                 </p>
             </div>
         </div>
@@ -142,6 +141,7 @@
                 <button class="tab" data-tab="oport">Oportunidades</button>
                 <button class="tab" data-tab="entrar">Entrar no Mercado</button>
                 <button class="tab" data-tab="graficos">Gráficos</button>
+                <button class="tab tab-pdv-special" data-tab="pdv" title="Análise por farmácia / CNPJ">🏥 PDVs por Brick</button>
                 <div class="tab-rail-sep"></div>
                 <div id="sectorTabs" style="display:contents"></div>
             </div>
@@ -194,6 +194,7 @@
             <div id="tab-oport" class="tab-view" style="display:none"></div>
             <div id="tab-entrar" class="tab-view" style="display:none"></div>
             <div id="tab-graficos" class="tab-view" style="display:none"></div>
+            <div id="tab-pdv" class="tab-view" style="display:none"></div>
             <div id="sectorTabContents"></div>
 
         </div>
@@ -226,7 +227,20 @@
         </div>
     </div>
 
-    <script src="script.js?v=102"></script>
+    <!-- ════════════════════════════════════════
+     MODAL: PDV (farmácia) — dados públicos + vendas
+════════════════════════════════════════ -->
+    <div class="modal-overlay" id="pdvModal">
+        <div class="modal modal-xl">
+            <div class="modal-header">
+                <div class="modal-title" id="pdvModalTitle">Detalhes da Farmácia</div>
+                <button class="close-btn" id="pdvModalClose">✕</button>
+            </div>
+            <div id="pdvModalBody" class="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="script.js?v=103"></script>
 </body>
 
 </html>

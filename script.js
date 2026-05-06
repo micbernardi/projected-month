@@ -961,7 +961,7 @@ function showVerModal(market) {
    Setor / Mercado / Recomendação / Busca. Ela atualiza UI.* e re-renderiza
    a aba ATIVA (não só o Resumo). Assim os filtros ficam globais. */
 function getActiveTab() {
-    const ids = ['resumo', 'brick', 'oport', 'entrar', 'graficos'];
+    const ids = ['resumo', 'brick', 'oport', 'entrar', 'graficos', 'pdv'];
     for (const k of ids) {
         const el = $('tab-' + k);
         if (el && el.style.display !== 'none') return k;
@@ -975,6 +975,7 @@ function renderActiveTab() {
     else if (t === 'oport') renderOport();
     else if (t === 'entrar') renderEntrar();
     else if (t === 'graficos') renderGraficos();
+    else if (t === 'pdv') renderPDV();
 }
 function onFilterChange() {
     UI.sector = $('fbSec').value;
@@ -987,6 +988,10 @@ function onFilterChange() {
     document.querySelectorAll('.tab-sector').forEach(t => {
         t.classList.toggle('active-sector', t.getAttribute('data-sector') === UI.sector);
     });
+    // v5: sincroniza a busca global com a aba PDV (busca compartilhada)
+    if (typeof PDV !== 'undefined' && PDV.filter) {
+        PDV.filter.search = UI.search;
+    }
     renderActiveTab();
 }
 function setPeriodMode(mode) {
@@ -1057,16 +1062,30 @@ function rebuildSelectors() {
     }
     const fbSec = $('fbSec'); const fbMkt = $('fbMkt'); const fbGoto = $('fbGoto');
     [fbSec, fbMkt, fbGoto].forEach(sel => { while (sel.children.length > 1) sel.removeChild(sel.lastChild); });
-    DB.sectors.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; fbSec.appendChild(o); });
-    DB.markets.forEach(m => {
+    // Setores e mercados: une os da base consolidada com os da base PDV (se houver)
+    let sectors = [...DB.sectors];
+    let markets = [...DB.markets];
+    if (typeof PDV !== 'undefined' && PDV.pdvsByValueMode) {
+        const pdvList = PDV.pdvsByValueMode[UI.unitMode] || PDV.pdvsByValueMode.UN || [];
+        const sSet = new Set(sectors);
+        const mSet = new Set(markets);
+        pdvList.forEach(p => {
+            (p.setores || []).forEach(x => sSet.add(x));
+            (p.marcas || []).forEach(x => mSet.add(x));
+        });
+        sectors = [...sSet].sort();
+        markets = [...mSet].sort();
+    }
+    sectors.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; fbSec.appendChild(o); });
+    markets.forEach(m => {
         const o = document.createElement('option'); o.value = m; o.textContent = m; fbMkt.appendChild(o);
         const o2 = o.cloneNode(true); fbGoto.appendChild(o2);
     });
     /* mantém seleções atuais quando ainda existirem na nova lista */
-    if ($('fbSec')) $('fbSec').value = DB.sectors.includes(UI.sector) ? UI.sector : 'all';
-    if ($('fbMkt')) $('fbMkt').value = DB.markets.includes(UI.market) ? UI.market : 'all';
-    if (!DB.sectors.includes(UI.sector)) UI.sector = 'all';
-    if (!DB.markets.includes(UI.market)) UI.market = 'all';
+    if ($('fbSec')) $('fbSec').value = sectors.includes(UI.sector) ? UI.sector : 'all';
+    if ($('fbMkt')) $('fbMkt').value = markets.includes(UI.market) ? UI.market : 'all';
+    if (!sectors.includes(UI.sector)) UI.sector = 'all';
+    if (!markets.includes(UI.market)) UI.market = 'all';
 }
 
 /* v3.16 — disparado quando o usuário troca Regional ou Distrital. */
@@ -1514,7 +1533,7 @@ function updateDistritalHeader() {
 }
 
 function switchTab(tn) {
-    ['resumo', 'brick', 'oport', 'entrar', 'graficos'].forEach(k => {
+    ['resumo', 'brick', 'oport', 'entrar', 'graficos', 'pdv'].forEach(k => {
         const v = $('tab-' + k);
         if (v) v.style.display = (k === tn) ? 'block' : 'none';
     });
@@ -1523,6 +1542,7 @@ function switchTab(tn) {
     if (tn === 'entrar') renderEntrar();
     if (tn === 'graficos') renderGraficos();
     if (tn === 'resumo') renderResumo();
+    if (tn === 'pdv') renderPDV();
 }
 
 /* ===== EXPORT XLSX ===== */
@@ -1621,11 +1641,8 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btnSelectFile').addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', e => {
         if (!e.target.files.length) return;
-        // forceUnit só é passado se o usuário EXPLICITAMENTE clicou num botão de modo
-        // (rastreado pela flag _unitForced). Sem clique explícito, deixa o auto-detect
-        // detectar pelo nome do arquivo / cabeçalhos.
         const forceUnit = window._unitForced || null;
-        init(e.target.files, { forceUnit });
+        smartUpload(e.target.files, { forceUnit });
         e.target.value = '';
     });
 
@@ -1637,7 +1654,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             uploadZone.classList.remove('drag');
             const forceUnit = window._unitForced || null;
-            if (e.dataTransfer.files.length) init(e.dataTransfer.files, { forceUnit });
+            if (e.dataTransfer.files.length) smartUpload(e.dataTransfer.files, { forceUnit });
         });
     }
 
@@ -1800,4 +1817,1016 @@ function median(arr) {
     const s = [...arr].sort((a, b) => a - b);
     const m = Math.floor(s.length / 2);
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   v3.17 — MÓDULO PDVs por BRICK
+   ────────────────────────────────────────────────────────────────
+   Carrega planilhas do tipo "UNIDADESPORPDVS-DISTRITAL..." (e a
+   futura versão em R$), agrega por CNPJ × Brick × Produto e
+   permite consultar dados públicos de cada farmácia (BrasilAPI).
+   ════════════════════════════════════════════════════════════════ */
+
+const PDV = {
+    rowsByValueMode: { UN: [], RS: [] },  // todas as linhas brutas (uma por CNPJ × Marca × Brick)
+    pdvsByValueMode: { UN: [], RS: [] },  // agregadas: 1 obj por CNPJ
+    cnpjCache: {},                         // cache local de respostas BrasilAPI
+    sortKey: 'mat_cur',
+    sortDir: 'desc',
+    filter: { brick: 'all', cidade: 'all', setor: 'all', marca: 'all', search: '' }
+};
+
+/* ----- Helpers ----- */
+const onlyDigits = s => String(s || '').replace(/\D/g, '');
+
+function maskCNPJ(c) {
+    const d = onlyDigits(c);
+    if (d.length !== 14) return c;
+    return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
+function isValidCNPJ(c) {
+    return onlyDigits(c).length === 14;
+}
+
+/* ----- LocalStorage de cache CNPJ ----- */
+function loadCnpjCache() {
+    try {
+        const raw = localStorage.getItem('SUPERA_CNPJ_CACHE_v1');
+        if (raw) PDV.cnpjCache = JSON.parse(raw) || {};
+    } catch (e) { PDV.cnpjCache = {}; }
+}
+
+function saveCnpjCache() {
+    try { localStorage.setItem('SUPERA_CNPJ_CACHE_v1', JSON.stringify(PDV.cnpjCache)); }
+    catch (e) { /* ignore quota */ }
+}
+
+/* ----- Parser da planilha "UNIDADES POR PDVS" ----- */
+/*
+   Estrutura esperada (1 linha de header + dados):
+   Setor | Marca | Brick | PDV | MAT(p.p) | MAT | Cresc.MAT |
+   YTD(p.p.) | YTD | Cresc.YTD | TRI(p.y.) | TRI(p.p.) | TRI |
+   Cresc.TRI(p.y.) | Cresc.TRI(p.p.)
+
+   PDV = "CNPJ | RAZAO SOCIAL | BAIRRO - CIDADE / UF"
+*/
+async function parsePDVFile(file, forceUnit) {
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    if (!aoa.length) throw new Error('Planilha vazia.');
+
+    const fname = (file.name || '').toLowerCase();
+    let unitMode = forceUnit || (/(reai|r\$|rs)/i.test(fname) ? 'RS' : 'UN');
+
+    // Localiza header
+    let headerIdx = 0;
+    for (let i = 0; i < Math.min(5, aoa.length); i++) {
+        const row = aoa[i].map(c => String(c || '').toLowerCase());
+        if (row.some(c => c.includes('pdv')) && row.some(c => c.includes('brick'))) {
+            headerIdx = i; break;
+        }
+    }
+    const header = aoa[headerIdx].map(c => String(c || '').toLowerCase().trim());
+
+    const ix = (patterns) => header.findIndex(h => patterns.some(p => p.test(h)));
+    const iSet = ix([/^setor$/, /setor/]);
+    const iMrc = ix([/^marca$/, /marca/]);
+    const iBrk = ix([/^brick$/, /brick/]);
+    const iPdv = ix([/^pdv$/, /pdv/, /cnpj/]);
+    // MAT atual = coluna "MAT" sem (p.p), MAT anterior = "MAT (p.p)"
+    const iMatA = header.findIndex(h => /^mat$/i.test(h));
+    const iMatP = header.findIndex(h => /^mat\s*\(p\.?p\.?\)/i.test(h));
+    const iYtdA = header.findIndex(h => /^ytd$/i.test(h));
+    const iYtdP = header.findIndex(h => /^ytd\s*\(p\.?p\.?\)/i.test(h));
+    const iTriA = header.findIndex(h => /^tri$/i.test(h));
+    const iTriP = header.findIndex(h => /^tri\s*\(p\.?p\.?\)/i.test(h));
+    const iTriY = header.findIndex(h => /^tri\s*\(p\.?y\.?\)/i.test(h));
+
+    if (iPdv < 0 || iBrk < 0) throw new Error('Cabeçalho inválido (faltam PDV/Brick).');
+
+    const rows = [];
+    for (let r = headerIdx + 1; r < aoa.length; r++) {
+        const row = aoa[r];
+        if (!row || !row.length) continue;
+        const pdvStr = String(row[iPdv] || '').trim();
+        if (!pdvStr) continue;
+
+        // Quebra "CNPJ | RAZAO | ENDERECO"
+        const parts = pdvStr.split('|').map(s => s.trim());
+        const cnpjRaw = onlyDigits(parts[0] || '');
+        if (cnpjRaw.length !== 14) continue;
+        const razao = parts[1] || '';
+        const local = parts[2] || ''; // "BAIRRO - CIDADE / UF"
+        let bairro = '', cidade = '', uf = '';
+        const localM = local.match(/^(.*?)\s*-\s*(.*?)\s*\/\s*([A-Z]{2})\s*$/);
+        if (localM) { bairro = localM[1].trim(); cidade = localM[2].trim(); uf = localM[3].trim(); }
+
+        const setor = String(row[iSet] || '').trim();
+        const marca = String(row[iMrc] || '').trim();
+        const brick = String(row[iBrk] || '').trim();
+
+        const matA = iMatA >= 0 ? parseNum(row[iMatA]) : 0;
+        const matP = iMatP >= 0 ? parseNum(row[iMatP]) : 0;
+        const ytdA = iYtdA >= 0 ? parseNum(row[iYtdA]) : 0;
+        const ytdP = iYtdP >= 0 ? parseNum(row[iYtdP]) : 0;
+        const triA = iTriA >= 0 ? parseNum(row[iTriA]) : 0;
+        const triP = iTriP >= 0 ? parseNum(row[iTriP]) : 0;
+        const triY = iTriY >= 0 ? parseNum(row[iTriY]) : 0;
+
+        if (matA + matP + ytdA + ytdP + triA + triP === 0) continue;
+
+        // tri_prev = trimestre do ANO ANTERIOR (TRI p.y.), pois comparação é sempre ano vs ano.
+        // tri_qprev = trimestre imediatamente anterior (TRI p.p.) — guardado para referência futura.
+        rows.push({
+            cnpj: cnpjRaw, razao, bairro, cidade, uf,
+            setor, marca, brick,
+            mat_cur: matA, mat_prev: matP,
+            ytd_cur: ytdA, ytd_prev: ytdP,
+            tri_cur: triA, tri_prev: triY, tri_qprev: triP,
+            unitMode
+        });
+    }
+    return { rows, unitMode };
+}
+
+/* Agrega rows brutas em 1 entrada por CNPJ — com lista de produtos por dentro */
+function aggregatePDVs(rows) {
+    const map = new Map();
+    rows.forEach(r => {
+        let p = map.get(r.cnpj);
+        if (!p) {
+            p = {
+                cnpj: r.cnpj, razao: r.razao, bairro: r.bairro,
+                cidade: r.cidade, uf: r.uf,
+                bricks: new Set(), setores: new Set(), marcas: new Set(),
+                mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0,
+                tri_cur: 0, tri_prev: 0, tri_qprev: 0,
+                products: []
+            };
+            map.set(r.cnpj, p);
+        }
+        if (r.brick) p.bricks.add(r.brick);
+        if (r.setor) p.setores.add(r.setor);
+        if (r.marca) p.marcas.add(r.marca);
+        p.mat_cur += r.mat_cur; p.mat_prev += r.mat_prev;
+        p.ytd_cur += r.ytd_cur; p.ytd_prev += r.ytd_prev;
+        p.tri_cur += r.tri_cur; p.tri_prev += r.tri_prev; p.tri_qprev += (r.tri_qprev || 0);
+        p.products.push({
+            marca: r.marca, brick: r.brick, setor: r.setor,
+            mat_cur: r.mat_cur, mat_prev: r.mat_prev,
+            ytd_cur: r.ytd_cur, ytd_prev: r.ytd_prev,
+            tri_cur: r.tri_cur, tri_prev: r.tri_prev
+        });
+    });
+    return [...map.values()].map(p => ({
+        ...p,
+        bricks: [...p.bricks].sort(),
+        setores: [...p.setores].sort(),
+        marcas: [...p.marcas].sort()
+    }));
+}
+
+/* ----- Persist em localStorage ----- */
+function savePDVData() {
+    try {
+        localStorage.setItem('SUPERA_PDV_DATA_v1', JSON.stringify({
+            UN: PDV.rowsByValueMode.UN,
+            RS: PDV.rowsByValueMode.RS
+        }));
+    } catch (e) { /* quota */ }
+}
+
+function loadPDVData() {
+    try {
+        const raw = localStorage.getItem('SUPERA_PDV_DATA_v1');
+        if (raw) {
+            const obj = JSON.parse(raw);
+            PDV.rowsByValueMode.UN = obj.UN || [];
+            PDV.rowsByValueMode.RS = obj.RS || [];
+            PDV.pdvsByValueMode.UN = aggregatePDVs(PDV.rowsByValueMode.UN);
+            PDV.pdvsByValueMode.RS = aggregatePDVs(PDV.rowsByValueMode.RS);
+        }
+    } catch (e) { /* ignore */ }
+}
+
+/* ----- Upload da planilha PDV ----- */
+async function handlePDVUpload(files, opts) {
+    const forceUnit = (opts && opts.forceUnit) || null;
+    let countOk = 0, errors = [];
+    for (const f of files) {
+        try {
+            toast('Processando ' + f.name + '...');
+            const { rows, unitMode } = await parsePDVFile(f, forceUnit);
+            // Substitui (não acumula) o conjunto correspondente — comportamento mais previsível.
+            PDV.rowsByValueMode[unitMode] = rows;
+            PDV.pdvsByValueMode[unitMode] = aggregatePDVs(rows);
+            countOk++;
+        } catch (e) {
+            console.error('[PDV] Erro parse:', e);
+            errors.push(f.name + ': ' + e.message);
+        }
+    }
+    savePDVData();
+    if (countOk) {
+        const m = UI.unitMode;
+        const tot = PDV.pdvsByValueMode[m].length;
+        toast(`${tot} PDV(s) carregados em ${m === 'RS' ? 'R$' : 'Unidades'}.`);
+    }
+    if (errors.length) toast('Erros: ' + errors.join(' | '));
+    renderPDV();
+}
+
+function clearPDVData() {
+    PDV.rowsByValueMode = { UN: [], RS: [] };
+    PDV.pdvsByValueMode = { UN: [], RS: [] };
+    try { localStorage.removeItem('SUPERA_PDV_DATA_v1'); } catch (e) { }
+    PDV.filter = { brick: 'all', cidade: 'all', setor: 'all', marca: 'all', search: '' };
+    toast('Base de PDVs limpa.');
+    renderPDV();
+}
+
+/* ----- RENDER PRINCIPAL DA ABA ----- */
+function renderPDV() {
+    const el = $('tab-pdv');
+    if (!el) return;
+    el.classList.add('pdv-view');
+
+    const mode = UI.unitMode;
+    const pdvs = PDV.pdvsByValueMode[mode] || [];
+    const otherMode = mode === 'UN' ? 'RS' : 'UN';
+    const hasOther = (PDV.pdvsByValueMode[otherMode] || []).length > 0;
+
+    if (!pdvs.length) {
+        el.innerHTML = `
+            <div class="pdv-empty-state">
+                <div class="pdv-empty-icon">🏥</div>
+                <h2>Cadastro de farmácias por Brick — ${mode === 'RS' ? 'R$' : 'Unidades'}</h2>
+                <p>
+                    Carregue a planilha <strong>UNIDADES POR PDVS</strong> (extraída do IQVIA) para que o dashboard
+                    ative a consulta de cada farmácia por CNPJ. A busca rápida no header e o pop-up com endereço,
+                    telefone, razão social e vendas ficam disponíveis assim que a planilha for carregada.
+                </p>
+                ${hasOther ? `<p style="font-size:11.5px;color:#7a8aad;">Você já carregou a planilha em <b>${otherMode === 'RS' ? 'R$' : 'Unidades'}</b>. Para visualizar agora, clique em <b>${otherMode === 'RS' ? '$ R$' : '# Un.'}</b> no header.</p>` : ''}
+                <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
+                <button class="pdv-empty-btn" id="pdvEmptyBtn">📁 Carregar planilha de PDVs</button>
+            </div>`;
+        const inp = $('pdvFileInput');
+        const btn = $('pdvEmptyBtn');
+        if (btn && inp) {
+            btn.onclick = () => inp.click();
+            inp.onchange = e => { if (e.target.files.length) handlePDVUpload(e.target.files); e.target.value = ''; };
+        }
+        return;
+    }
+
+    // Toolbar + filtros
+    const totalPdvs = pdvs.length;
+    const totalUN = (PDV.pdvsByValueMode.UN || []).length;
+    const totalRS = (PDV.pdvsByValueMode.RS || []).length;
+    const periodLblHeader = (typeof UI !== 'undefined' && UI.periodMode) ? UI.periodMode : 'MAT';
+
+    let html = `
+        <div class="pdv-toolbar">
+            <h3>🏥 PDVs por Brick <span class="pdv-period-badge">${periodLblHeader}</span></h3>
+            <div class="pdv-tb-info">
+                Visualizando <b>${totalPdvs}</b> farmácia(s) em <b>${mode === 'RS' ? 'R$' : 'Unidades'}</b>
+                ${totalUN ? ' · Un.: <b>' + totalUN + '</b>' : ''}${totalRS ? ' · R$: <b>' + totalRS + '</b>' : ''}
+                · Período destacado na tabela: <b>${periodLblHeader}</b>
+            </div>
+            <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
+            <button class="pdv-upload-btn" id="pdvUploadBtn">📁 Carregar/Trocar planilha</button>
+            <button class="pdv-clear-btn" id="pdvClearBtn">🗑 Limpar PDVs</button>
+        </div>`;
+
+    // Coleta opções de filtro
+    const bricksSet = new Set(), citySet = new Set(), secSet = new Set(), marcaSet = new Set();
+    pdvs.forEach(p => {
+        p.bricks.forEach(b => bricksSet.add(b));
+        if (p.cidade) citySet.add(p.cidade);
+        p.setores.forEach(s => secSet.add(s));
+        p.marcas.forEach(m => marcaSet.add(m));
+    });
+    const optList = (s, all) => {
+        const arr = [...s].sort();
+        return `<option value="all">${all}</option>` + arr.map(v => `<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`).join('');
+    };
+
+    html += `
+        <div class="pdv-filterbar">
+            <label>Brick</label>
+            <select id="pdvFilterBrick">${optList(bricksSet, 'Todos os Bricks')}</select>
+            <label>Cidade</label>
+            <select id="pdvFilterCidade">${optList(citySet, 'Todas as Cidades')}</select>
+            <label>Setor</label>
+            <select id="pdvFilterSetor">${optList(secSet, 'Todos os Setores')}</select>
+            <label>Marca</label>
+            <select id="pdvFilterMarca">${optList(marcaSet, 'Todas as Marcas')}</select>
+            <input type="text" id="pdvFilterSearch" placeholder="🔍 Buscar CNPJ, razão social, cidade, bairro..." value="${escapeHTML(PDV.filter.search)}">
+            <span class="pdv-fb-spacer"></span>
+            <span class="pdv-fb-count" id="pdvCount"></span>
+        </div>`;
+
+    // Aplica filtros locais + filtros globais (UI.sector / UI.market do header)
+    const f = PDV.filter;
+    const gSector = (typeof UI !== 'undefined' && UI.sector && UI.sector !== 'all') ? UI.sector : null;
+    const gMarket = (typeof UI !== 'undefined' && UI.market && UI.market !== 'all') ? UI.market : null;
+    // Helpers para casar nomes (planilha PDV usa "101101 - NOME"; consolidada pode usar só "NOME")
+    const matchSector = (sectArr, target) => {
+        if (!target) return true;
+        const t = String(target).toUpperCase().trim();
+        return sectArr.some(s => {
+            const u = String(s).toUpperCase().trim();
+            return u === t || u.includes(t) || t.includes(u);
+        });
+    };
+    const matchMarket = (marcArr, target) => {
+        if (!target) return true;
+        const t = String(target).toUpperCase().trim();
+        return marcArr.some(m => {
+            const u = String(m).toUpperCase().trim();
+            // marcas PDV podem vir como "ALEVO (SP0)"; consolidada pode ser "ALEVO"
+            const uBase = u.replace(/\s*\(.*?\)\s*$/, '').trim();
+            const tBase = t.replace(/\s*\(.*?\)\s*$/, '').trim();
+            return u === t || uBase === tBase;
+        });
+    };
+    let filtered = pdvs.filter(p => {
+        if (f.brick !== 'all' && !p.bricks.includes(f.brick)) return false;
+        if (f.cidade !== 'all' && p.cidade !== f.cidade) return false;
+        if (f.setor !== 'all' && !p.setores.includes(f.setor)) return false;
+        if (f.marca !== 'all' && !p.marcas.includes(f.marca)) return false;
+        // Filtros globais
+        if (gSector && !matchSector(p.setores, gSector)) return false;
+        if (gMarket && !matchMarket(p.marcas, gMarket)) return false;
+        if (f.search) {
+            const blob = norm([p.cnpj, p.razao, p.cidade, p.bairro, p.bricks.join(' '), p.uf].join(' '));
+            if (!blob.includes(norm(f.search))) return false;
+        }
+        return true;
+    });
+
+    // Ordenação (suporta crescimento mat_g/ytd_g/tri_g calculado on the fly)
+    const dir = PDV.sortDir === 'asc' ? 1 : -1;
+    const k = PDV.sortKey;
+    const calcG = (p, prefix) => {
+        const cur = p[prefix + '_cur'] || 0, prev = p[prefix + '_prev'] || 0;
+        return prev > 0 ? (cur - prev) / prev : -Infinity;
+    };
+    filtered.sort((a, b) => {
+        let av, bv;
+        if (k === 'razao' || k === 'cidade' || k === 'cnpj') {
+            return String(a[k] || '').localeCompare(String(b[k] || '')) * dir;
+        }
+        if (k === 'bricks') { av = a.bricks.length; bv = b.bricks.length; }
+        else if (k === 'mat_g') { av = calcG(a, 'mat'); bv = calcG(b, 'mat'); }
+        else if (k === 'ytd_g') { av = calcG(a, 'ytd'); bv = calcG(b, 'ytd'); }
+        else if (k === 'tri_g') { av = calcG(a, 'tri'); bv = calcG(b, 'tri'); }
+        else { av = a[k]; bv = b[k]; }
+        return ((av || 0) - (bv || 0)) * dir;
+    });
+
+    // Cabeçalho da tabela
+    const sh = (key, label, cls, hint) => {
+        const sorted = PDV.sortKey === key;
+        const arrow = sorted ? (PDV.sortDir === 'desc' ? '▼' : '▲') : '↕';
+        return `<th class="${cls || ''} ${sorted ? 'sorted' : ''}" data-sort="${key}" ${hint ? 'title="' + hint + '"' : ''}>${label}<span class="sort-arrow">${arrow}</span></th>`;
+    };
+
+    // v5: período ativo do header (TRI/YTD/MAT) define a coluna "Atual" e "Anterior" em destaque
+    const pd = (typeof UI !== 'undefined' && UI.periodMode) ? UI.periodMode : 'MAT';
+    const periodLbl = pd === 'TRI' ? 'TRI' : pd === 'YTD' ? 'YTD' : 'MAT';
+    const keyAnt = pd.toLowerCase() + '_prev';
+    const keyCur = pd.toLowerCase() + '_cur';
+
+    html += `
+        <div class="pdv-tbl-wrap">
+            <table class="pdv-tbl">
+                <thead><tr>
+                    ${sh('cnpj', 'CNPJ', '', 'CNPJ da farmácia (clique para abrir detalhes)')}
+                    ${sh('razao', 'Razão Social', '', 'Nome registrado na Receita Federal')}
+                    ${sh('cidade', 'Cidade / Brick', '', 'Cidade e Brick atendido(s)')}
+                    ${sh('bricks', '#Bricks', 'r', 'Quantidade de bricks atendidos')}
+                    ${sh('mat_prev', 'MAT Ano Ant.', 'r', 'MAT do mesmo período do ano anterior (base de comparação)')}
+                    ${sh('mat_cur', 'MAT', 'r', 'MAT atual (últimos 12 meses)')}
+                    ${sh('mat_g', 'Cresc. MAT', 'r mark', 'Crescimento MAT vs ano anterior')}
+                    ${sh('ytd_prev', 'YTD Ano Ant.', 'r', 'YTD do mesmo período do ano anterior (base de comparação)')}
+                    ${sh('ytd_cur', 'YTD', 'r', 'YTD atual (acumulado do ano)')}
+                    ${sh('ytd_g', 'Cresc. YTD', 'r mark', 'Crescimento YTD vs ano anterior')}
+                    ${sh('tri_prev', 'TRI Ano Ant.', 'r', 'TRI do mesmo trimestre do ano anterior (base de comparação)')}
+                    ${sh('tri_cur', 'TRI', 'r', 'TRI atual (último trimestre fechado)')}
+                    ${sh('tri_g', 'Cresc. TRI', 'r mark', 'Crescimento TRI vs mesmo trimestre do ano anterior')}
+                </tr></thead>
+                <tbody>`;
+
+    const colCount = 13;
+    if (!filtered.length) {
+        html += `<tr><td colspan="${colCount}" class="pdv-empty">Nenhuma farmácia encontrada com os filtros atuais.</td></tr>`;
+    } else {
+        filtered.forEach(p => {
+            const gMAT = p.mat_prev > 0 ? (p.mat_cur - p.mat_prev) / p.mat_prev : null;
+            const gYTD = p.ytd_prev > 0 ? (p.ytd_cur - p.ytd_prev) / p.ytd_prev : null;
+            const gTRI = p.tri_prev > 0 ? (p.tri_cur - p.tri_prev) / p.tri_prev : null;
+            const gC = (g) => g == null ? '' : (g >= 0 ? 'pdv-growth-pos' : 'pdv-growth-neg');
+            const fmtG = (g) => g == null ? '—' : fmtPct(g);
+            const brickShort = p.bricks.length === 1 ? p.bricks[0].split(' - ')[0] : (p.bricks.length + ' bricks');
+            // Marca a coluna do período ativo (MAT/YTD/TRI) com classe especial
+            const isMAT = pd === 'MAT', isYTD = pd === 'YTD', isTRI = pd === 'TRI';
+            html += `<tr class="pdv-row-data">
+                <td class="pdv-cnpj-cell" data-cnpj="${p.cnpj}" title="Abrir detalhes">${maskCNPJ(p.cnpj)}</td>
+                <td class="pdv-razao-cell">${escapeHTML(p.razao)}</td>
+                <td class="pdv-cidade-cell">${escapeHTML(p.cidade)}${p.uf ? ' / ' + p.uf : ''}<br><span class="pdv-brick-cell">${escapeHTML(brickShort)}</span></td>
+                <td class="r">${p.bricks.length}</td>
+                <td class="r ${isMAT ? 'period-active' : ''}">${fmtValue(p.mat_prev)}</td>
+                <td class="r ${isMAT ? 'period-active' : ''}">${fmtValue(p.mat_cur)}</td>
+                <td class="r mark ${gC(gMAT)} ${isMAT ? 'period-active' : ''}">${fmtG(gMAT)}</td>
+                <td class="r ${isYTD ? 'period-active' : ''}">${fmtValue(p.ytd_prev)}</td>
+                <td class="r ${isYTD ? 'period-active' : ''}">${fmtValue(p.ytd_cur)}</td>
+                <td class="r mark ${gC(gYTD)} ${isYTD ? 'period-active' : ''}">${fmtG(gYTD)}</td>
+                <td class="r ${isTRI ? 'period-active' : ''}">${fmtValue(p.tri_prev)}</td>
+                <td class="r ${isTRI ? 'period-active' : ''}">${fmtValue(p.tri_cur)}</td>
+                <td class="r mark ${gC(gTRI)} ${isTRI ? 'period-active' : ''}">${fmtG(gTRI)}</td>
+            </tr>`;
+        });
+    }
+
+    html += `</tbody></table></div>`;
+    el.innerHTML = html;
+
+    // Listeners
+    const setSel = (id, key) => { const s = $(id); if (s) { s.value = PDV.filter[key]; s.onchange = () => { PDV.filter[key] = s.value; renderPDV(); }; } };
+    setSel('pdvFilterBrick', 'brick');
+    setSel('pdvFilterCidade', 'cidade');
+    setSel('pdvFilterSetor', 'setor');
+    setSel('pdvFilterMarca', 'marca');
+    const sEl = $('pdvFilterSearch');
+    if (sEl) {
+        let t; sEl.oninput = () => { clearTimeout(t); t = setTimeout(() => { PDV.filter.search = sEl.value; renderPDV(); }, 200); };
+    }
+    const cnt = $('pdvCount');
+    if (cnt) cnt.innerHTML = `<b>${filtered.length}</b> de ${pdvs.length}`;
+
+    // Sort headers
+    document.querySelectorAll('.pdv-tbl thead th[data-sort]').forEach(th => {
+        th.onclick = () => {
+            const key = th.getAttribute('data-sort');
+            if (PDV.sortKey === key) PDV.sortDir = PDV.sortDir === 'desc' ? 'asc' : 'desc';
+            else { PDV.sortKey = key; PDV.sortDir = (key === 'razao' || key === 'cidade' || key === 'cnpj') ? 'asc' : 'desc'; }
+            renderPDV();
+        };
+    });
+
+    // Click CNPJ → modal
+    document.querySelectorAll('.pdv-cnpj-cell[data-cnpj]').forEach(td => {
+        td.onclick = () => openPDVModal(td.getAttribute('data-cnpj'));
+    });
+
+    // Upload/Clear
+    const upBtn = $('pdvUploadBtn'), upInp = $('pdvFileInput'), clrBtn2 = $('pdvClearBtn');
+    if (upBtn && upInp) {
+        upBtn.onclick = () => upInp.click();
+        upInp.onchange = e => { if (e.target.files.length) handlePDVUpload(e.target.files); e.target.value = ''; };
+    }
+    if (clrBtn2) clrBtn2.onclick = () => {
+        if (confirm('Tem certeza que deseja remover todas as farmácias carregadas?')) clearPDVData();
+    };
+
+    // Recalcula offsets sticky depois do render (a tab-rail pode ter rolado p/ 2 linhas)
+    requestAnimationFrame(() => {
+        if (typeof recomputeStickyOffsets === 'function') recomputeStickyOffsets();
+    });
+}
+
+/* ----- Modal de detalhes da farmácia ----- */
+async function openPDVModal(cnpjRaw) {
+    const cnpj = onlyDigits(cnpjRaw);
+    if (cnpj.length !== 14) { toast('CNPJ inválido (14 dígitos).'); return; }
+
+    const modal = $('pdvModal');
+    const body = $('pdvModalBody');
+    const title = $('pdvModalTitle');
+    if (!modal || !body) return;
+    modal.classList.add('open');
+    title.innerHTML = `Farmácia · <code style="font-size:13px;background:#f0f4fa;padding:2px 8px;border-radius:4px;color:#1d4ed8;">${maskCNPJ(cnpj)}</code>`;
+
+    body.innerHTML = `<div class="pdv-loading"><div class="pdv-spinner"></div><div>Buscando dados da farmácia...</div></div>`;
+
+    // Dados de venda da minha base
+    const localPdv = findLocalPDV(cnpj);
+
+    // Dados públicos via cache → BrasilAPI (fallback ReceitaWS)
+    let info = PDV.cnpjCache[cnpj];
+    let fromCache = false;
+    if (info) { fromCache = true; }
+    else {
+        try { info = await fetchCNPJData(cnpj); PDV.cnpjCache[cnpj] = info; saveCnpjCache(); }
+        catch (e) {
+            body.innerHTML = renderPDVModalContent(cnpj, null, localPdv, false, e.message);
+            wirePDVModalActions();
+            return;
+        }
+    }
+    body.innerHTML = renderPDVModalContent(cnpj, info, localPdv, fromCache, null);
+    wirePDVModalActions();
+}
+
+function findLocalPDV(cnpj) {
+    const mode = UI.unitMode;
+    const list = PDV.pdvsByValueMode[mode] || [];
+    let found = list.find(p => p.cnpj === cnpj);
+    // Se não está no modo atual, procura no outro modo só pra termos algum dado
+    if (!found) {
+        const other = mode === 'UN' ? 'RS' : 'UN';
+        found = (PDV.pdvsByValueMode[other] || []).find(p => p.cnpj === cnpj);
+    }
+    return found || null;
+}
+
+async function fetchCNPJData(cnpj) {
+    // Primeiro: BrasilAPI (CORS friendly, gratuita, oficial Receita)
+    try {
+        const r = await fetch('https://brasilapi.com.br/api/cnpj/v1/' + cnpj);
+        if (r.ok) {
+            const d = await r.json();
+            return normalizeCNPJData(d, 'BrasilAPI');
+        }
+        if (r.status === 404) throw new Error('CNPJ não encontrado na Receita Federal.');
+    } catch (e) {
+        console.warn('[CNPJ] BrasilAPI falhou:', e);
+        // Fallback: ReceitaWS via JSONP-like proxy nao ha; tenta direto (pode falhar por CORS)
+        try {
+            const r = await fetch('https://publica.cnpj.ws/cnpj/' + cnpj);
+            if (r.ok) {
+                const d = await r.json();
+                return normalizeCNPJData(d, 'CNPJ.ws');
+            }
+        } catch (e2) { /* ignore */ }
+        throw e;
+    }
+    throw new Error('Erro inesperado ao consultar CNPJ.');
+}
+
+function normalizeCNPJData(d, source) {
+    // Aceita formato BrasilAPI ou cnpj.ws (estrutura aninhada)
+    if (d && d.estabelecimento) {
+        // cnpj.ws
+        const e = d.estabelecimento;
+        return {
+            source,
+            cnpj: (d.cnpj_raiz || e.cnpj || '') + '',
+            razao_social: d.razao_social || '',
+            nome_fantasia: e.nome_fantasia || '',
+            situacao: e.situacao_cadastral || '',
+            data_situacao: e.data_situacao_cadastral || '',
+            data_inicio: e.data_inicio_atividade || '',
+            cnae: (e.atividade_principal && e.atividade_principal.descricao) || '',
+            telefone: [e.ddd1 ? '(' + e.ddd1 + ') ' + (e.telefone1 || '') : '', e.ddd2 ? '(' + e.ddd2 + ') ' + (e.telefone2 || '') : ''].filter(s => s.trim()).join(' / '),
+            email: e.email || '',
+            logradouro: ((e.tipo_logradouro || '') + ' ' + (e.logradouro || '')).trim(),
+            numero: e.numero || '',
+            complemento: e.complemento || '',
+            bairro: e.bairro || '',
+            cep: e.cep || '',
+            municipio: (e.cidade && e.cidade.nome) || '',
+            uf: (e.estado && e.estado.sigla) || '',
+            porte: (d.porte && d.porte.descricao) || '',
+            natureza: (d.natureza_juridica && d.natureza_juridica.descricao) || ''
+        };
+    }
+    // BrasilAPI (flat)
+    const tel = (d.ddd_telefone_1 || '').toString();
+    let telFmt = tel;
+    if (tel.length >= 10) {
+        telFmt = '(' + tel.slice(0, 2) + ') ' + tel.slice(2, tel.length - 4) + '-' + tel.slice(-4);
+    }
+    return {
+        source,
+        cnpj: d.cnpj || '',
+        razao_social: d.razao_social || '',
+        nome_fantasia: d.nome_fantasia || '',
+        situacao: d.descricao_situacao_cadastral || '',
+        data_situacao: d.data_situacao_cadastral || '',
+        data_inicio: d.data_inicio_atividade || '',
+        cnae: d.cnae_fiscal_descricao || '',
+        telefone: telFmt,
+        email: d.email || '',
+        logradouro: ((d.descricao_tipo_de_logradouro || '') + ' ' + (d.logradouro || '')).trim(),
+        numero: d.numero || '',
+        complemento: d.complemento || '',
+        bairro: d.bairro || '',
+        cep: d.cep || '',
+        municipio: d.municipio || '',
+        uf: d.uf || '',
+        porte: d.porte || '',
+        natureza: d.natureza_juridica || ''
+    };
+}
+
+function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
+    if (err) {
+        return `<div class="pdv-error">⚠ ${escapeHTML(err)}<br><small style="font-weight:400">A consulta pública pode ter falhado por instabilidade ou bloqueio. Tente novamente em alguns segundos.</small></div>`;
+    }
+
+    const mode = UI.unitMode;
+    const modeLbl = mode === 'RS' ? 'R$' : 'Un.';
+
+    // KPIs (vendas locais)
+    let kpisHTML = '';
+    if (localPdv) {
+        const gMAT = localPdv.mat_prev > 0 ? (localPdv.mat_cur - localPdv.mat_prev) / localPdv.mat_prev : null;
+        const gYTD = localPdv.ytd_prev > 0 ? (localPdv.ytd_cur - localPdv.ytd_prev) / localPdv.ytd_prev : null;
+        const gTRI = localPdv.tri_prev > 0 ? (localPdv.tri_cur - localPdv.tri_prev) / localPdv.tri_prev : null;
+        const sub = (g) => g == null ? '<div class="pdv-kpi-sub">—</div>' : `<div class="pdv-kpi-sub ${g < 0 ? 'neg' : ''}">${fmtPct(g)}</div>`;
+        kpisHTML = `
+            <div class="pdv-kpis">
+                <div class="pdv-kpi"><div class="pdv-kpi-lbl">MAT (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(localPdv.mat_cur)}</div>${sub(gMAT)}</div>
+                <div class="pdv-kpi"><div class="pdv-kpi-lbl">YTD (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(localPdv.ytd_cur)}</div>${sub(gYTD)}</div>
+                <div class="pdv-kpi"><div class="pdv-kpi-lbl">TRI (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(localPdv.tri_cur)}</div>${sub(gTRI)}</div>
+                <div class="pdv-kpi"><div class="pdv-kpi-lbl">Bricks</div><div class="pdv-kpi-val">${localPdv.bricks.length}</div><div class="pdv-kpi-sub">${localPdv.marcas.length} marca(s)</div></div>
+            </div>`;
+    } else {
+        kpisHTML = `<div style="background:#fef3c7;color:#92400e;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:12px;font-weight:600;">⚠ Esta farmácia não consta na sua planilha IQVIA carregada (sem dados de venda).</div>`;
+    }
+
+    // Card cadastro Receita (layout compacto)
+    let cadHTML = '';
+    if (info) {
+        const sit = (info.situacao || '').toLowerCase();
+        const sitCls = sit.includes('ativa') ? 's-ativa' : (sit.includes('baix') ? 's-baixada' : (sit.includes('inapta') ? 's-inapta' : (sit.includes('suspen') ? 's-suspensa' : 's-nula')));
+        const enderecoLinha = [info.logradouro, info.numero, info.complemento].filter(Boolean).join(', ');
+        const cidadeUf = info.municipio && info.uf ? info.municipio + ' / ' + info.uf : (info.municipio || '');
+        const enderecoFull = [enderecoLinha, info.bairro, cidadeUf, info.cep ? 'CEP ' + info.cep : ''].filter(Boolean).join(' · ');
+        const telDigits = onlyDigits(info.telefone);
+        const nomeDisplay = info.nome_fantasia || info.razao_social || '—';
+        const razaoSecundaria = info.nome_fantasia && info.razao_social ? info.razao_social : '';
+
+        cadHTML = `
+            <div class="pdv-card pdv-card-compact">
+                <div class="pdv-card-h"><span class="pdv-card-h-ico">🏛️</span> Dados Cadastrais
+                    <span class="pdv-source-badge ${fromCache ? 'cache' : ''}">${fromCache ? 'Cache' : info.source || 'API'}</span>
+                </div>
+                <div class="pdv-name">${escapeHTML(nomeDisplay)}</div>
+                ${razaoSecundaria ? `<div class="pdv-name-sub">${escapeHTML(razaoSecundaria)}</div>` : ''}
+                <div class="pdv-meta-line">
+                    <code class="pdv-cnpj-pill">${maskCNPJ(cnpj)}</code>
+                    <span class="pdv-status ${sitCls}">${escapeHTML(info.situacao || '—')}</span>
+                    ${info.data_situacao ? `<span class="pdv-meta-since">desde ${fmtBRDate(info.data_situacao)}</span>` : ''}
+                </div>
+                <div class="pdv-info-grid">
+                    ${info.telefone ? `<div class="pdv-info-cell"><span class="pdv-info-ico">📞</span><div><div class="pdv-info-lbl">Telefone</div><div class="pdv-info-val">${escapeHTML(info.telefone)}</div></div></div>` : ''}
+                    ${info.email ? `<div class="pdv-info-cell"><span class="pdv-info-ico">✉️</span><div><div class="pdv-info-lbl">E-mail</div><div class="pdv-info-val">${escapeHTML(info.email)}</div></div></div>` : ''}
+                    <div class="pdv-info-cell pdv-info-cell-full"><span class="pdv-info-ico">📍</span><div><div class="pdv-info-lbl">Endereço</div><div class="pdv-info-val">${escapeHTML(enderecoFull) || '—'}</div></div></div>
+                </div>
+                <div class="pdv-chips">
+                    ${info.cnae ? `<span class="pdv-chip" title="CNAE"><b>CNAE:</b> ${escapeHTML(info.cnae)}</span>` : ''}
+                    ${info.data_inicio ? `<span class="pdv-chip"><b>Abertura:</b> ${fmtBRDate(info.data_inicio)}</span>` : ''}
+                    ${info.porte ? `<span class="pdv-chip"><b>Porte:</b> ${escapeHTML(info.porte)}</span>` : ''}
+                </div>
+                <div class="pdv-actions">
+                    ${info.telefone ? `<button class="pdv-action-btn" data-act="copy-tel" data-val="${escapeHTML(info.telefone)}">📋 Copiar telefone</button>` : ''}
+                    ${telDigits ? `<a class="pdv-action-btn" href="https://wa.me/55${telDigits}" target="_blank">💬 WhatsApp</a>` : ''}
+                    <a class="pdv-action-btn" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(enderecoFull + ' Brasil')}" target="_blank">🗺️ Maps</a>
+                    <button class="pdv-action-btn" data-act="copy-cnpj" data-val="${cnpj}">📋 CNPJ</button>
+                </div>
+            </div>`;
+    }
+
+    // Card vendas (sua planilha)
+    let venHTML = '';
+    if (localPdv) {
+        // Período ativo: define quais colunas aparecem na tabela de produtos
+        const periodUpper = (UI && UI.periodMode) || 'MAT';
+        const period = periodUpper.toLowerCase();
+        const pdLbl = periodUpper;
+        const curK = period + '_cur';
+        const prevK = period + '_prev';
+
+        // Lista produtos agrupados por marca, dentro do brick principal
+        const prodMap = new Map();
+        localPdv.products.forEach(p => {
+            const k = p.marca + '||' + p.brick;
+            const cur = prodMap.get(k) || { marca: p.marca, brick: p.brick, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0 };
+            cur.mat_cur += p.mat_cur; cur.mat_prev += p.mat_prev;
+            cur.ytd_cur += p.ytd_cur; cur.ytd_prev += p.ytd_prev || 0;
+            cur.tri_cur += p.tri_cur; cur.tri_prev += p.tri_prev || 0;
+            prodMap.set(k, cur);
+        });
+        const prodList = [...prodMap.values()].sort((a, b) => b[curK] - a[curK]);
+
+        let prodTbl = `<table class="pdv-prod-tbl"><thead><tr><th>Marca</th><th>Brick</th><th class="r">${pdLbl} Ant.</th><th class="r">${pdLbl}</th><th class="r">Cresc.</th></tr></thead><tbody>`;
+        prodList.forEach(p => {
+            const prev = p[prevK];
+            const cur = p[curK];
+            const g = prev > 0 ? (cur - prev) / prev : null;
+            const gCls = g == null ? '' : (g >= 0 ? 'pdv-growth-pos' : 'pdv-growth-neg');
+            const sup = isSupera(p.marca);
+            prodTbl += `<tr class="${sup ? 'is-supera' : ''}"><td><strong>${escapeHTML(p.marca)}</strong></td><td><small style="color:#6b7a99;">${escapeHTML(p.brick.split(' - ')[0])}</small></td><td class="r">${fmtValue(prev)}</td><td class="r">${fmtValue(cur)}</td><td class="r ${gCls}">${g == null ? '—' : fmtPct(g)}</td></tr>`;
+        });
+        prodTbl += '</tbody></table>';
+
+        venHTML = `
+            <div class="pdv-card">
+                <div class="pdv-card-h"><span class="pdv-card-h-ico">📊</span> Vendas IQVIA — ${modeLbl}</div>
+                <div class="pdv-row"><span class="pdv-k">Bricks</span><span class="pdv-v">${localPdv.bricks.map(b => `<code>${escapeHTML(b)}</code>`).join('<br>')}</span></div>
+                <div class="pdv-row"><span class="pdv-k">Setor(es)</span><span class="pdv-v"><small>${localPdv.setores.map(s => escapeHTML(s)).join('<br>') || '—'}</small></span></div>
+                <div class="pdv-row"><span class="pdv-k">Marcas</span><span class="pdv-v"><small>${localPdv.marcas.length} marca(s) com venda</small></span></div>
+                <div style="margin-top:10px;border-top:1px dashed #e0e7f1;padding-top:8px;">
+                    <div style="font-size:10.5px;color:#6b7a99;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Produtos vendidos por essa farmácia</div>
+                    ${prodTbl}
+                </div>
+            </div>`;
+    }
+
+    return kpisHTML + `<div class="pdv-modal-grid">${cadHTML}${venHTML}</div>`;
+}
+
+function wirePDVModalActions() {
+    document.querySelectorAll('#pdvModalBody [data-act]').forEach(el => {
+        el.onclick = () => {
+            const act = el.getAttribute('data-act');
+            const val = el.getAttribute('data-val');
+            if (act === 'copy-tel' || act === 'copy-cnpj') {
+                navigator.clipboard.writeText(val).then(() => toast('Copiado: ' + val));
+            }
+        };
+    });
+}
+
+function fmtBRDate(s) {
+    if (!s) return '';
+    // ISO yyyy-mm-dd ou dd/mm/yyyy
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        const [y, m, d] = s.slice(0, 10).split('-');
+        return `${d}/${m}/${y}`;
+    }
+    return s;
+}
+
+function escapeHTML(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/* ----- Atalho fixo no header (busca CNPJ ou Brick) ----- */
+function wireCnpjQuickSearch() {
+    const inp = $('cnpjQuickInput');
+    const btn = $('cnpjQuickBtn');
+    if (!inp || !btn) return;
+
+    // Máscara CNPJ apenas quando o usuário digita >=10 dígitos sem letras
+    inp.addEventListener('input', () => {
+        const raw = inp.value;
+        const hasLetters = /[a-zA-Z]/.test(raw);
+        const d = onlyDigits(raw);
+        if (hasLetters || d.length < 11) return;
+        const c = d.slice(0, 14);
+        let out = c;
+        if (c.length > 12) out = `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}`;
+        else if (c.length > 8) out = `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8)}`;
+        else if (c.length > 5) out = `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5)}`;
+        else if (c.length > 2) out = `${c.slice(0, 2)}.${c.slice(2)}`;
+        inp.value = out;
+    });
+
+    const fire = () => {
+        const raw = (inp.value || '').trim();
+        if (!raw) { toast('Digite um CNPJ ou número/nome do Brick.'); return; }
+        const digits = onlyDigits(raw);
+        const hasLetters = /[a-zA-Z]/.test(raw);
+        // CNPJ completo (14 dígitos sem letras) → modal de farmácia
+        if (digits.length === 14 && !hasLetters) { openPDVModal(digits); return; }
+        // Caso contrário, busca por Brick (numérico ou nome)
+        openBrickModal(raw);
+    };
+    btn.addEventListener('click', fire);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); fire(); } });
+}
+
+/* ----- Modal de listagem de PDVs por Brick ----- */
+function findBricks(query) {
+    const mode = UI.unitMode;
+    const list = PDV.pdvsByValueMode[mode] || [];
+    if (!list.length) return [];
+    const brickSet = new Set();
+    list.forEach(p => p.bricks.forEach(b => brickSet.add(b)));
+    const allBricks = [...brickSet];
+    const q = String(query || '').trim();
+    const qDigits = onlyDigits(q);
+    const qNorm = norm(q);
+    // 1) Match exato pelo código numérico (com ou sem zeros)
+    const numericMatches = qDigits ? allBricks.filter(b => {
+        const code = (b.split(' - ')[0] || '').trim();
+        const codeDigits = onlyDigits(code);
+        return codeDigits === qDigits || codeDigits.endsWith(qDigits) || codeDigits === qDigits.padStart(7, '0');
+    }) : [];
+    if (numericMatches.length) return numericMatches;
+    // 2) Match parcial pelo nome do brick
+    if (qNorm) {
+        const textMatches = allBricks.filter(b => norm(b).includes(qNorm));
+        if (textMatches.length) return textMatches;
+    }
+    // 3) Fallback: prefixo numérico (ex: 8 → bricks que começam com 0008)
+    if (qDigits) {
+        return allBricks.filter(b => onlyDigits(b.split(' - ')[0] || '').includes(qDigits));
+    }
+    return [];
+}
+
+function openBrickModal(query) {
+    const modal = $('pdvModal');
+    const body = $('pdvModalBody');
+    const title = $('pdvModalTitle');
+    if (!modal || !body) return;
+    const matches = findBricks(query);
+    if (!matches.length) {
+        toast('Nenhum brick encontrado para "' + query + '". Carregue a planilha de PDVs ou tente outro número/nome.');
+        return;
+    }
+    if (matches.length === 1) {
+        renderBrickModal(matches[0]);
+        modal.classList.add('open');
+        return;
+    }
+    // Múltiplos matches → tela de escolha
+    modal.classList.add('open');
+    title.innerHTML = `Bricks encontrados <span class="pdv-title-pill">${matches.length}</span>`;
+    let html = `<div class="brick-picker"><div class="brick-picker-h">Selecione o brick desejado:</div>`;
+    matches.forEach(b => {
+        html += `<button class="brick-picker-item" data-brick="${escapeHTML(b)}">${escapeHTML(b)}</button>`;
+    });
+    html += `</div>`;
+    body.innerHTML = html;
+    body.querySelectorAll('.brick-picker-item').forEach(btn => {
+        btn.onclick = () => renderBrickModal(btn.getAttribute('data-brick'));
+    });
+}
+
+function renderBrickModal(brickStr) {
+    const modal = $('pdvModal');
+    const body = $('pdvModalBody');
+    const title = $('pdvModalTitle');
+    const mode = UI.unitMode;
+    const modeLbl = mode === 'RS' ? 'R$' : 'Un.';
+    const list = (PDV.pdvsByValueMode[mode] || []).filter(p => p.bricks.includes(brickStr));
+    const code = brickStr.split(' - ')[0] || brickStr;
+    const name = brickStr.replace(code + ' - ', '');
+    title.innerHTML = `Brick · <span class="pdv-title-code">${escapeHTML(code)}</span> <span class="pdv-title-sep">·</span> <span class="pdv-title-name">${escapeHTML(name)}</span>`;
+
+    // Totais agregados do brick
+    let totMat = 0, totMatPrev = 0, totYtd = 0, totTri = 0, totProds = 0;
+    list.forEach(p => {
+        // Soma só os produtos cujo brick == brickStr
+        p.products.forEach(pr => { if (pr.brick === brickStr) {
+            totMat += pr.mat_cur; totMatPrev += pr.mat_prev; totYtd += pr.ytd_cur; totTri += pr.tri_cur; totProds++;
+        }});
+    });
+    const gMAT = totMatPrev > 0 ? (totMat - totMatPrev) / totMatPrev : null;
+    const subG = gMAT == null ? '<div class="pdv-kpi-sub">—</div>' : `<div class="pdv-kpi-sub ${gMAT < 0 ? 'neg' : ''}">${fmtPct(gMAT)}</div>`;
+
+    // Sort PDVs por MAT do brick (desc)
+    const rows = list.map(p => {
+        let mC = 0, mP = 0, yC = 0, tC = 0;
+        p.products.forEach(pr => { if (pr.brick === brickStr) { mC += pr.mat_cur; mP += pr.mat_prev; yC += pr.ytd_cur; tC += pr.tri_cur; }});
+        const g = mP > 0 ? (mC - mP) / mP : null;
+        return { ...p, _mat: mC, _matPrev: mP, _ytd: yC, _tri: tC, _g: g };
+    }).sort((a, b) => b._mat - a._mat);
+
+    let kpisHTML = `<div class="pdv-kpis pdv-kpis-tight">
+        <div class="pdv-kpi"><div class="pdv-kpi-lbl">PDVs</div><div class="pdv-kpi-val">${rows.length}</div><div class="pdv-kpi-sub">com venda</div></div>
+        <div class="pdv-kpi"><div class="pdv-kpi-lbl">MAT (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(totMat)}</div>${subG}</div>
+        <div class="pdv-kpi"><div class="pdv-kpi-lbl">YTD (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(totYtd)}</div></div>
+        <div class="pdv-kpi"><div class="pdv-kpi-lbl">TRI (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(totTri)}</div></div>
+    </div>`;
+
+    let tbl = `<div class="pdv-card"><div class="pdv-card-h"><span class="pdv-card-h-ico">🏪</span> Farmácias deste brick <span class="pdv-source-badge">${rows.length} PDV(s)</span></div>
+        <table class="pdv-prod-tbl pdv-brick-pdv-tbl"><thead><tr>
+            <th>CNPJ</th><th>Razão Social</th><th>Cidade / Bairro</th>
+            <th class="r">MAT Ano Ant.</th><th class="r">MAT</th><th class="r">YTD</th><th class="r">TRI</th><th class="r">Cresc.</th>
+        </tr></thead><tbody>`;
+    rows.forEach(p => {
+        const gCls = p._g == null ? '' : (p._g >= 0 ? 'pdv-growth-pos' : 'pdv-growth-neg');
+        tbl += `<tr class="brick-pdv-row" data-cnpj="${p.cnpj}" title="Abrir detalhes da farmácia">
+            <td><code>${maskCNPJ(p.cnpj)}</code></td>
+            <td><strong>${escapeHTML(p.razao)}</strong></td>
+            <td><span style="color:#1f2937;">${escapeHTML(p.cidade)}${p.uf ? '/' + p.uf : ''}</span>${p.bairro ? '<br><small style="color:#6b7a99;">' + escapeHTML(p.bairro) + '</small>' : ''}</td>
+            <td class="r">${fmtValue(p._matPrev)}</td>
+            <td class="r"><strong>${fmtValue(p._mat)}</strong></td>
+            <td class="r">${fmtValue(p._ytd)}</td>
+            <td class="r">${fmtValue(p._tri)}</td>
+            <td class="r ${gCls}">${p._g == null ? '—' : fmtPct(p._g)}</td>
+        </tr>`;
+    });
+    tbl += `</tbody></table></div>`;
+
+    body.innerHTML = kpisHTML + tbl;
+    body.querySelectorAll('.brick-pdv-row').forEach(tr => {
+        tr.onclick = () => openPDVModal(tr.getAttribute('data-cnpj'));
+    });
+}
+
+/* ----- Fechar modal PDV ----- */
+function wirePDVModalClose() {
+    const modal = $('pdvModal');
+    const closeBtn = $('pdvModalClose');
+    if (closeBtn) closeBtn.addEventListener('click', () => modal.classList.remove('open'));
+    if (modal) modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+}
+
+/* ----- BOOTSTRAP DO MÓDULO PDV ----- */
+document.addEventListener('DOMContentLoaded', () => {
+    loadCnpjCache();
+    loadPDVData();
+    wireCnpjQuickSearch();
+    wirePDVModalClose();
+
+    // Hook: re-render aba PDV quando trocar Un/R$
+    const origSetUnit = window.setUnitMode;
+    window.setUnitMode = function (mode) {
+        origSetUnit(mode);
+        if (document.querySelector('.tab[data-tab="pdv"].active')) renderPDV();
+    };
+});
+
+
+/* ============================================================
+   smartUpload — detecta o tipo de planilha e roteia
+   - Planilha de PDVs (UNIDADES POR PDVS): tem coluna "PDV" no cabeçalho
+   - Planilha consolidada (DDD UNIDADES / DDD REAIS): tem coluna "Mercado"/"Produto"
+   Roteamento por arquivo (cada um vai para seu destino).
+   ============================================================ */
+async function smartUpload(filesIn, opts) {
+    const files = Array.from(filesIn || []);
+    if (!files.length) return;
+    const consolidatedFiles = [];
+    const pdvFiles = [];
+
+    for (const f of files) {
+        try {
+            const kind = await detectFileKind(f);
+            if (kind === 'pdv') pdvFiles.push(f);
+            else if (kind === 'consolidated') consolidatedFiles.push(f);
+            else {
+                // ambíguo: tenta pelo nome
+                const nm = (f.name || '').toLowerCase();
+                if (nm.includes('pdv')) pdvFiles.push(f);
+                else consolidatedFiles.push(f);
+            }
+        } catch (e) {
+            console.error('detectFileKind falhou para', f.name, e);
+            consolidatedFiles.push(f);
+        }
+    }
+
+    // Processa primeiro o consolidado (porque ativa a tela do dashboard)
+    if (consolidatedFiles.length) {
+        await init(consolidatedFiles, opts);
+    }
+    if (pdvFiles.length) {
+        // Garante que a tela do dashboard está visível
+        const upView = $('uploadView'); const dashView = $('dashView');
+        const hadConsolidated = DB.rows && DB.rows.length > 0;
+        if (upView && dashView && getComputedStyle(upView).display !== 'none' && !hadConsolidated) {
+            upView.style.display = 'none';
+            dashView.style.display = 'block';
+            const kpiStrip = $('kpiStrip'); if (kpiStrip) kpiStrip.style.display = !hadConsolidated ? 'none' : 'flex';
+        }
+        await handlePDVUpload(pdvFiles, opts);
+        // Atualiza dropdowns globais (Setor / Mercado) com setores/marcas dos PDVs
+        if (typeof rebuildSelectors === 'function') rebuildSelectors();
+        // Se não havia base consolidada, ativa diretamente a aba PDV
+        if (!hadConsolidated) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            const pdvTab = document.querySelector('.tab[data-tab="pdv"]');
+            if (pdvTab) pdvTab.classList.add('active');
+            switchTab('pdv');
+        }
+        toast('Planilha de PDVs carregada! Acesse a aba "PDVs por Brick" para visualizar.');
+    }
+}
+
+async function detectFileKind(file) {
+    try {
+        const data = await file.arrayBuffer();
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        if (!ws) return 'unknown';
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        if (!aoa.length) return 'unknown';
+        // Inspeciona até as 6 primeiras linhas para achar o cabeçalho
+        for (let i = 0; i < Math.min(6, aoa.length); i++) {
+            const row = (aoa[i] || []).map(c => String(c || '').toLowerCase());
+            const hasPdv = row.some(c => /\bpdv\b/.test(c));
+            const hasBrick = row.some(c => /brick/.test(c));
+            const hasMkt = row.some(c => /mercado/.test(c));
+            const hasProd = row.some(c => /produto/.test(c));
+            if (hasPdv && hasBrick) return 'pdv';
+            if (hasMkt && (hasProd || hasBrick)) return 'consolidated';
+        }
+        return 'unknown';
+    } catch (e) {
+        return 'unknown';
+    }
 }

@@ -58,11 +58,11 @@
     --red: #dc2626;
     --ylw: #d97706;
 
-    /* alturas das barras sticky */
-    --hdr-h: 60px;
-    --kpi-h: 48px;
-    --tab-h: 38px;
-    --fb-h: 46px;
+    /* alturas das barras sticky (compactas) */
+    --hdr-h: 50px;
+    --kpi-h: 40px;
+    --tab-h: 34px;
+    --fb-h: 40px;
     --r: 5px;
 
     --sticky-tab: calc(var(--hdr-h) + var(--kpi-h));
@@ -90,11 +90,13 @@ body {
 ════════════════════════════════════════ */
 .hdr {
     background: var(--navy);
-    height: var(--hdr-h);
+    min-height: var(--hdr-h);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding: 4px 20px;
     position: fixed;
     top: 0;
     left: 0;
@@ -151,7 +153,10 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-shrink: 0
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .period-grp,
@@ -248,23 +253,23 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 0 16px;
+    padding: 0 12px;
     border-right: 1px solid var(--navy4);
     flex-shrink: 0;
 }
 
 .kpi-lbl {
-    font-size: 9px;
+    font-size: 8.5px;
     font-weight: 600;
     color: var(--top-txt3);
     text-transform: uppercase;
     letter-spacing: .5px;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
     white-space: nowrap;
 }
 
 .kpi-val {
-    font-size: 16px;
+    font-size: 14.5px;
     font-weight: 700;
     color: var(--top-txt);
     line-height: 1;
@@ -2311,3 +2316,1131 @@ td.vneg strong {
     color: #b91c1c !important;
     font-weight: 700 !important;
 }
+
+
+/* ════════════════════════════════════════════════════════════════
+   v3.17 — MÓDULO PDVs por BRICK (consulta de farmácias por CNPJ)
+   ════════════════════════════════════════════════════════════════ */
+
+/* Atalho fixo no header — busca rápida por CNPJ */
+.cnpj-quick-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .15);
+    border-radius: 8px;
+    padding: 4px 6px 4px 10px;
+    margin-left: 4px;
+    transition: all .2s ease;
+}
+
+.cnpj-quick-wrap:focus-within {
+    background: rgba(255, 255, 255, .14);
+    border-color: rgba(110, 231, 183, .6);
+    box-shadow: 0 0 0 2px rgba(110, 231, 183, .15);
+}
+
+.cnpj-quick-icon {
+    font-size: 12px;
+    opacity: .8;
+}
+
+.cnpj-quick-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    width: 200px;
+    max-width: 28vw;
+    letter-spacing: .2px;
+}
+
+.cnpj-quick-input::placeholder {
+    color: rgba(255, 255, 255, .45);
+    font-weight: 400;
+}
+
+.cnpj-quick-btn {
+    background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .15s ease;
+    font-family: 'Inter', system-ui, sans-serif;
+    letter-spacing: .3px;
+}
+
+.cnpj-quick-btn:hover {
+    filter: brightness(1.1);
+}
+
+.cnpj-quick-btn:active {
+    transform: translateY(1px);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ABA PDVs por Brick
+   ════════════════════════════════════════════════════════════════ */
+
+.pdv-view {
+    padding: 12px 18px 24px;
+}
+
+.pdv-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(180deg, #1e3a5f 0%, #16304f 100%);
+    color: #fff;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .12);
+}
+
+.pdv-toolbar h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 12px 0 0;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+}
+
+.pdv-toolbar .pdv-tb-info {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, .82);
+    margin-right: auto;
+    font-weight: 500;
+}
+
+.pdv-toolbar .pdv-tb-info b {
+    color: #6ee7b7;
+    font-weight: 700;
+}
+
+.pdv-toolbar .pdv-upload-btn,
+.pdv-toolbar .pdv-clear-btn {
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: all .15s ease;
+    letter-spacing: .25px;
+}
+
+.pdv-toolbar .pdv-upload-btn:hover,
+.pdv-toolbar .pdv-clear-btn:hover {
+    background: rgba(255, 255, 255, .22);
+    border-color: rgba(255, 255, 255, .35);
+}
+
+.pdv-toolbar .pdv-clear-btn {
+    background: rgba(239, 68, 68, .18);
+    border-color: rgba(239, 68, 68, .4);
+}
+
+.pdv-toolbar .pdv-clear-btn:hover {
+    background: rgba(239, 68, 68, .3);
+}
+
+/* Filtros internos da aba PDV */
+.pdv-filterbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    background: #f3f6fa;
+    border: 1px solid #dde4ec;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+
+.pdv-filterbar label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    color: #4a5b78;
+    font-weight: 700;
+    letter-spacing: .4px;
+    margin-right: 4px;
+}
+
+.pdv-filterbar select,
+.pdv-filterbar input[type="text"] {
+    background: #fff;
+    border: 1px solid #cdd6e2;
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-size: 12px;
+    color: #1a2742;
+    font-family: 'Inter', system-ui, sans-serif;
+    min-width: 130px;
+}
+
+.pdv-filterbar input[type="text"] {
+    min-width: 220px;
+}
+
+.pdv-filterbar select:focus,
+.pdv-filterbar input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, .12);
+}
+
+.pdv-filterbar .pdv-fb-spacer {
+    flex: 1;
+}
+
+.pdv-filterbar .pdv-fb-count {
+    font-size: 11.5px;
+    color: #2b3a59;
+    font-weight: 600;
+}
+
+.pdv-filterbar .pdv-fb-count b {
+    color: #1d4ed8;
+}
+
+/* Tabela PDV */
+.pdv-tbl-wrap {
+    background: #fff;
+    border: 1px solid #dde4ec;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
+}
+
+.pdv-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    color: #1a2742;
+}
+
+.pdv-tbl thead th {
+    background: #1e3a5f;
+    color: #fff;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 10px 8px;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    border-bottom: 2px solid #122a4a;
+}
+
+.pdv-tbl thead th.r {
+    text-align: right;
+}
+
+.pdv-tbl thead th .sort-arrow {
+    opacity: .5;
+    font-size: 9px;
+    margin-left: 3px;
+}
+
+.pdv-tbl thead th.sorted .sort-arrow {
+    opacity: 1;
+    color: #6ee7b7;
+}
+
+.pdv-tbl tbody tr {
+    border-bottom: 1px solid #eef1f6;
+    transition: background .12s ease;
+}
+
+.pdv-tbl tbody tr:hover {
+    background: #f3f8ff;
+}
+
+.pdv-tbl tbody td {
+    padding: 8px;
+    vertical-align: middle;
+    color: #1a2742;
+}
+
+.pdv-tbl tbody td.r {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.pdv-tbl .pdv-cnpj-cell {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: #1d4ed8;
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+}
+
+.pdv-tbl .pdv-cnpj-cell:hover {
+    color: #1e40af;
+}
+
+.pdv-tbl .pdv-razao-cell {
+    font-weight: 600;
+    color: #16304f;
+}
+
+.pdv-tbl .pdv-cidade-cell {
+    color: #4a5b78;
+    font-size: 11.5px;
+}
+
+.pdv-tbl .pdv-brick-cell {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 10.5px;
+    color: #6b7a99;
+}
+
+.pdv-tbl .pdv-empty {
+    text-align: center;
+    padding: 36px 12px;
+    color: #6b7a99;
+    font-style: italic;
+}
+
+.pdv-growth-pos {
+    color: #059669;
+    font-weight: 700;
+}
+
+.pdv-growth-neg {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+/* Painel de upload da aba PDV (estado vazio) */
+.pdv-empty-state {
+    background: linear-gradient(180deg, #f6f9fc 0%, #eef2f7 100%);
+    border: 2px dashed #b9c4d6;
+    border-radius: 12px;
+    padding: 40px 24px;
+    text-align: center;
+    color: #4a5b78;
+}
+
+.pdv-empty-state .pdv-empty-icon {
+    font-size: 38px;
+    margin-bottom: 8px;
+}
+
+.pdv-empty-state h2 {
+    font-size: 16px;
+    color: #1a2742;
+    margin: 4px 0 8px;
+    font-weight: 700;
+}
+
+.pdv-empty-state p {
+    font-size: 12.5px;
+    line-height: 1.6;
+    max-width: 620px;
+    margin: 0 auto 14px;
+}
+
+.pdv-empty-state .pdv-empty-btn {
+    background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 18px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Inter', system-ui, sans-serif;
+    letter-spacing: .3px;
+}
+
+.pdv-empty-state .pdv-empty-btn:hover {
+    filter: brightness(1.08);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MODAL DE FARMÁCIA (PDV)
+   ════════════════════════════════════════════════════════════════ */
+
+.pdv-modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 4px;
+}
+
+@media (max-width: 900px) {
+    .pdv-modal-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.pdv-card {
+    background: #fff;
+    border: 1px solid #dde4ec;
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .03);
+}
+
+.pdv-card-h {
+    font-size: 11px;
+    font-weight: 700;
+    color: #2563eb;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    margin: 0 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e0e7f1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pdv-card-h .pdv-card-h-ico {
+    font-size: 14px;
+}
+
+.pdv-row {
+    display: flex;
+    padding: 5px 0;
+    font-size: 12px;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.pdv-row .pdv-k {
+    color: #6b7a99;
+    font-weight: 600;
+    min-width: 110px;
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: .3px;
+    padding-top: 2px;
+}
+
+.pdv-row .pdv-v {
+    color: #1a2742;
+    font-weight: 500;
+    flex: 1;
+    word-break: break-word;
+}
+
+.pdv-row .pdv-v.pdv-strong {
+    font-weight: 700;
+    color: #16304f;
+    font-size: 13px;
+}
+
+.pdv-row .pdv-v code {
+    background: #f0f4fa;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #1d4ed8;
+}
+
+.pdv-status {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+.pdv-status.s-ativa {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.pdv-status.s-baixada,
+.pdv-status.s-inapta,
+.pdv-status.s-suspensa,
+.pdv-status.s-nula {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.pdv-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #e0e7f1;
+}
+
+.pdv-action-btn {
+    background: #f0f4fa;
+    color: #1d4ed8;
+    border: 1px solid #c7d4ea;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: all .12s ease;
+}
+
+.pdv-action-btn:hover {
+    background: #dde9fa;
+    border-color: #93b3e6;
+}
+
+.pdv-loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7a99;
+    font-size: 13px;
+}
+
+.pdv-loading .pdv-spinner {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border: 3px solid #e0e7f1;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: pdv-spin .8s linear infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes pdv-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.pdv-error {
+    text-align: center;
+    padding: 30px 20px;
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    color: #991b1b;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 4px;
+}
+
+/* Tabela de produtos vendidos para a farmácia (dentro do modal) */
+.pdv-prod-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+    margin-top: 4px;
+}
+
+.pdv-prod-tbl thead th {
+    background: #f3f6fa;
+    color: #2b3a59;
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .35px;
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1.5px solid #c7d1e0;
+}
+
+.pdv-prod-tbl thead th.r {
+    text-align: right;
+}
+
+.pdv-prod-tbl tbody td {
+    padding: 5px 8px;
+    border-bottom: 1px solid #eef1f6;
+    color: #1a2742;
+}
+
+.pdv-prod-tbl tbody td.r {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.pdv-prod-tbl tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.pdv-prod-tbl tbody tr.is-supera td {
+    background: #ecfdf5;
+}
+
+.pdv-prod-tbl tbody tr.is-supera td:first-child::before {
+    content: "★ ";
+    color: #059669;
+    font-weight: 700;
+}
+
+/* KPIs do PDV no topo do modal */
+.pdv-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+@media (max-width: 700px) {
+    .pdv-kpis {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.pdv-kpi {
+    background: linear-gradient(180deg, #1e3a5f 0%, #16304f 100%);
+    color: #fff;
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+}
+
+.pdv-kpi-lbl {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: rgba(255, 255, 255, .75);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.pdv-kpi-val {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+.pdv-kpi-sub {
+    font-size: 10px;
+    color: #6ee7b7;
+    margin-top: 2px;
+    font-weight: 600;
+}
+
+.pdv-kpi-sub.neg {
+    color: #fca5a5;
+}
+
+/* Indicador de fonte de dados do CNPJ (cache vs API) */
+.pdv-source-badge {
+    display: inline-block;
+    background: #e0e7f1;
+    color: #4a5b78;
+    font-size: 9.5px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.pdv-source-badge.cache {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Status dot extra para a faixa de status no header (PDV un./R$) */
+.dataset-status .ds-dot.ds-pdv {
+    background: rgba(59, 130, 246, .25);
+    color: #93c5fd;
+}
+
+.dataset-status .ds-dot.ds-pdv.ds-on {
+    background: rgba(110, 231, 183, .3);
+    color: #6ee7b7;
+}
+
+
+/* ════════════════════════════════════════
+   PDV MODAL - LAYOUT COMPACTO (v2)
+════════════════════════════════════════ */
+.pdv-card.pdv-card-compact {
+    padding: 12px 14px;
+}
+
+.pdv-card-compact .pdv-card-h {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    font-size: 10.5px;
+    border-bottom: 1px solid #e8eef7;
+}
+
+.pdv-name {
+    font-size: 16px;
+    font-weight: 800;
+    color: #16304f;
+    line-height: 1.2;
+    margin-bottom: 2px;
+    letter-spacing: -.1px;
+}
+
+.pdv-name-sub {
+    font-size: 11.5px;
+    color: #6b7a99;
+    font-weight: 500;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.pdv-meta-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #e8eef7;
+}
+
+.pdv-cnpj-pill {
+    background: #eef4ff;
+    color: #1d4ed8;
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+.pdv-meta-since {
+    color: #8896b3;
+    font-size: 10.5px;
+    font-weight: 500;
+}
+
+.pdv-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+    margin-bottom: 10px;
+}
+
+.pdv-info-cell {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 4px 0;
+}
+
+.pdv-info-cell-full {
+    grid-column: 1 / -1;
+}
+
+.pdv-info-ico {
+    font-size: 14px;
+    line-height: 1.2;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+.pdv-info-lbl {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #8896b3;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    line-height: 1.1;
+}
+
+.pdv-info-val {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #1f2937;
+    line-height: 1.35;
+    margin-top: 1px;
+    word-break: break-word;
+}
+
+.pdv-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed #e8eef7;
+}
+
+.pdv-chip {
+    background: #f5f7fb;
+    color: #4a5b78;
+    font-size: 10.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid #e3e9f2;
+    line-height: 1.3;
+}
+
+.pdv-chip b {
+    color: #1f2937;
+    font-weight: 700;
+}
+
+.pdv-card-compact .pdv-actions {
+    margin-top: 6px;
+    padding-top: 8px;
+    gap: 6px;
+}
+
+.pdv-card-compact .pdv-action-btn {
+    padding: 4px 9px;
+    font-size: 10.5px;
+}
+
+/* KPIs mais compactos quando solicitado */
+.pdv-kpis.pdv-kpis-tight {
+    margin-bottom: 10px;
+    gap: 6px;
+}
+
+/* Brick picker (busca por brick com múltiplos resultados) */
+.brick-picker {
+    padding: 6px 4px;
+}
+
+.brick-picker-h {
+    font-size: 12px;
+    color: #4a5b78;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.brick-picker-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: #f7faff;
+    border: 1px solid #dde4ec;
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #16304f;
+    cursor: pointer;
+    margin-bottom: 5px;
+    transition: all .12s ease;
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+.brick-picker-item:hover {
+    background: #e0e7f1;
+    border-color: #93b3e6;
+    transform: translateX(2px);
+}
+
+/* Tabela de PDVs do brick (clicável) */
+.pdv-brick-pdv-tbl tr.brick-pdv-row {
+    cursor: pointer;
+    transition: background .12s ease;
+}
+
+.pdv-brick-pdv-tbl tr.brick-pdv-row:hover {
+    background: #eaf2ff !important;
+}
+
+.pdv-brick-pdv-tbl tr.brick-pdv-row td code {
+    background: #f0f4fa;
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: #1d4ed8;
+    font-size: 10.5px;
+}
+
+/* Title do modal: ajustes para Brick */
+.pdv-title-pill {
+    background: #eef4ff;
+    color: #1d4ed8;
+    padding: 2px 9px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 6px;
+}
+
+.pdv-title-code {
+    background: #1d4ed8;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .3px;
+}
+
+.pdv-title-sep {
+    color: rgba(255, 255, 255, .4);
+    margin: 0 4px;
+}
+
+.pdv-title-name {
+    font-weight: 700;
+    color: #fff;
+    font-size: 13.5px;
+}
+
+@media (max-width: 700px) {
+    .pdv-info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* ════════════════════════════════════════
+   UPLOAD SCREEN — refinado v4
+════════════════════════════════════════ */
+.upload-screen {
+    min-height: calc(100vh - var(--hdr-h));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    box-sizing: border-box;
+}
+
+.upload-box {
+    padding: 44px 40px 36px;
+    max-width: 540px;
+}
+
+.upload-box .upload-main-txt {
+    color: var(--txt2);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 6px 0 0;
+}
+
+.upload-box .upload-note {
+    margin-top: 22px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #8a96b8;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.upload-box .upload-note strong {
+    color: #5a6b8c;
+    font-weight: 700;
+}
+
+
+/* ════════════════════════════════════════
+   v5 — Aba PDV diferenciada e tabela completa
+════════════════════════════════════════ */
+
+/* Aba "PDVs por Brick" com fundo distinto e separador antes */
+.tab.tab-pdv-special {
+    background: #eef9f3;
+    border: 1px solid #b9e4cf !important;
+    border-radius: 8px 8px 0 0;
+    color: #047857 !important;
+    font-weight: 700 !important;
+    margin-left: 8px;
+    padding: 8px 14px !important;
+    position: relative;
+    transition: all .15s ease;
+}
+
+.tab.tab-pdv-special::before {
+    content: "";
+    position: absolute;
+    left: -10px;
+    top: 12%;
+    height: 76%;
+    width: 1px;
+    background: linear-gradient(180deg, transparent, #c1d3e8, transparent);
+}
+
+.tab.tab-pdv-special:hover {
+    background: #dcf3e7;
+    color: #065f46 !important;
+}
+
+.tab.tab-pdv-special.active {
+    background: linear-gradient(180deg, #10b981 0%, #059669 100%) !important;
+    color: #fff !important;
+    border-color: #047857 !important;
+    box-shadow: 0 2px 6px rgba(5, 150, 105, .35);
+}
+
+/* Tabela PDV: sem overflow no wrap para preservar sticky header */
+.pdv-tbl-wrap {
+    overflow: visible !important;
+    max-width: 100%;
+    border-radius: 8px;
+}
+
+.pdv-tbl {
+    width: 100%;
+    table-layout: auto;
+    font-size: 12.5px;
+}
+
+/* Coluna razão social com elipse para caber */
+.pdv-tbl tbody td:nth-child(2) {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdv-tbl tbody td:nth-child(3) {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+/* Colunas numéricas: centralizadas (cabeçalho e valores) */
+.pdv-tbl thead th:nth-child(n+4),
+.pdv-tbl tbody td:nth-child(n+4) {
+    text-align: center !important;
+    white-space: nowrap;
+}
+
+.pdv-tbl thead th {
+    padding: 10px 6px !important;
+    font-size: 11.5px !important;
+    vertical-align: middle !important;
+    text-align: center !important;
+}
+
+.pdv-tbl thead th:nth-child(1),
+.pdv-tbl thead th:nth-child(2),
+.pdv-tbl thead th:nth-child(3) {
+    text-align: left !important;
+}
+
+.pdv-tbl tbody td {
+    padding: 10px 6px !important;
+    vertical-align: middle !important;
+}
+
+/* Aumentar respiro vertical das linhas para não colar no cabeçalho */
+.pdv-tbl tbody tr {
+    min-height: 44px;
+}
+
+.pdv-tbl thead th {
+    position: sticky;
+    top: var(--sticky-tbl, 164px);
+    z-index: 200;
+    background: #1e3a5f;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+}
+
+.pdv-tbl thead th:hover {
+    background: #2a4a73;
+}
+
+.pdv-tbl thead th.r {
+    text-align: right;
+    padding-right: 12px;
+}
+
+/* Coluna de crescimento (mark) tem destaque sutil de fundo */
+.pdv-tbl thead th.mark {
+    background: #15355a;
+    border-left: 1px solid rgba(255, 255, 255, .06);
+}
+
+.pdv-tbl tbody td.mark {
+    background: #fafcff;
+    border-left: 1px solid #e7eef7;
+    font-weight: 700;
+}
+
+/* Coluna do período ativo (TRI/YTD/MAT) ganha fundo dourado claro */
+.pdv-tbl tbody td.period-active {
+    background: linear-gradient(180deg, #fff8e1, #fef3c7) !important;
+    color: #1a2742;
+}
+
+.pdv-tbl thead th.sorted {
+    background: #2a5396;
+}
+
+/* Cores de evolução — padrão verde/vermelho consistente */
+.pdv-tbl tbody td.pdv-growth-pos,
+td.pdv-growth-pos {
+    color: #047857 !important;
+    font-weight: 700;
+}
+
+.pdv-tbl tbody td.pdv-growth-neg,
+td.pdv-growth-neg {
+    color: #b91c1c !important;
+    font-weight: 700;
+}
+
+/* Hover de linha mantendo o destaque do período ativo */
+.pdv-tbl tbody tr.pdv-row-data:hover td:not(.period-active) {
+    background: #f3f8ff;
+}
+.pdv-tbl tbody tr.pdv-row-data:hover td.period-active {
+    background: linear-gradient(180deg, #fef3c7, #fde68a) !important;
+}
+
+/* Painel de info do PDV mais limpo */
+.pdv-toolbar {
+    flex-wrap: wrap;
+    gap: 10px 14px;
+}
+
+/* Badge do período ativo (visual ao lado do título) */
+.pdv-period-badge {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 3px 10px;
+    background: linear-gradient(180deg, #fde68a, #fbbf24);
+    color: #78350f;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    vertical-align: middle;
+}
+
+/* Cresc. nas tabelas internas (modais) — reforçar consistência */
+.pdv-prod-tbl td.pdv-growth-pos {
+    color: #047857 !important;
+}
+.pdv-prod-tbl td.pdv-growth-neg {
+    color: #b91c1c !important;
+}
+.pdv-brick-pdv-tbl td.pdv-growth-pos { color: #047857 !important; font-weight: 700; }
+.pdv-brick-pdv-tbl td.pdv-growth-neg { color: #b91c1c !important; font-weight: 700; }
