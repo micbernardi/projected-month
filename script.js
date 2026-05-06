@@ -1003,10 +1003,15 @@ function setPeriodMode(mode) {
     renderActiveTab();
 }
 function setUnitMode(mode) {
-    /* v3.16 — base de checagem agora é o universo (allRowsByValueMode). */
+    /* v3.16 — base de checagem agora é o universo (allRowsByValueMode).
+       v5.5 — também considera a base de PDVs (independente de DDD consolidada). */
     const all = DB.allRowsByValueMode || { UN: [], RS: [] };
-    const hasData = all[mode] && all[mode].length;
-    if (!hasData && Object.values(all).some(a => a.length)) {
+    const hasDB = all[mode] && all[mode].length;
+    const hasPDV = (typeof PDV !== 'undefined' && PDV.rowsByValueMode && PDV.rowsByValueMode[mode] && PDV.rowsByValueMode[mode].length);
+    const hasData = hasDB || hasPDV;
+    const otherMode = mode === 'UN' ? 'RS' : 'UN';
+    const hasAnyOther = (all[otherMode] && all[otherMode].length) || (PDV && PDV.rowsByValueMode && PDV.rowsByValueMode[otherMode] && PDV.rowsByValueMode[otherMode].length);
+    if (!hasData && hasAnyOther) {
         toast('Nenhuma planilha de ' + (mode === 'RS' ? 'R$' : 'Unidades') + ' carregada ainda. Clique em "Carregar Dados" para adicionar.');
     }
     /* Marca que o usuário escolheu explicitamente o modo (para o próximo upload) */
@@ -1505,6 +1510,19 @@ function recomputeStickyOffsets() {
 /* Dispara recomputação após cada render/resize. */
 window.addEventListener('resize', () => recomputeStickyOffsets());
 
+/* v5.5 — Atualiza o badge de status das planilhas (Unidades / R$) considerando
+   tanto a base consolidada (DB) quanto a base de PDVs (PDV). */
+function updateDatasetStatus() {
+    const statusEl = $('datasetStatus');
+    if (!statusEl) return;
+    const allMM = DB.allRowsByValueMode || { UN: [], RS: [] };
+    const hasUN = (allMM.UN && allMM.UN.length) || (typeof PDV !== 'undefined' && PDV.rowsByValueMode && PDV.rowsByValueMode.UN && PDV.rowsByValueMode.UN.length);
+    const hasRS = (allMM.RS && allMM.RS.length) || (typeof PDV !== 'undefined' && PDV.rowsByValueMode && PDV.rowsByValueMode.RS && PDV.rowsByValueMode.RS.length);
+    const unOk = hasUN ? '<span class="ds-ok">Unidades</span>' : '<span class="ds-off">Unidades</span>';
+    const rsOk = hasRS ? '<span class="ds-ok">R$</span>' : '<span class="ds-off">R$</span>';
+    statusEl.innerHTML = `Planilhas: ${unOk} · ${rsOk}`;
+}
+
 function updateDistritalHeader() {
     const el = $('hdrDistrital');
     if (!el) return;
@@ -1598,13 +1616,24 @@ async function init(files, opts) {
         UI.distrital = 'all';
         buildDB(merged);
 
-        if (rowsByMode.RS.length && !rowsByMode.UN.length) {
+        /* v5.5 — Ajusta UI.unitMode automaticamente para o modo que tem dados,
+           garantindo que o Resumo Geral não fique vazio independente da ordem de upload.
+           Prioridade: respeita modo forçado pelo usuário; senão, usa o modo do upload
+           atual; senão mantém o atual se ainda válido. */
+        const hasMergedUN = (merged.UN || []).length > 0;
+        const hasMergedRS = (merged.RS || []).length > 0;
+        if (forceUnit === 'UN' || forceUnit === 'RS') {
+            UI.unitMode = forceUnit;
+        } else if (rowsByMode.RS.length && !rowsByMode.UN.length) {
             UI.unitMode = 'RS';
-            applyHierarchy();
-        } else if (rowsByMode.UN.length && !rowsByMode.RS.length && (prev.UN || []).length === rowsByMode.UN.length) {
+        } else if (rowsByMode.UN.length && !rowsByMode.RS.length) {
             UI.unitMode = 'UN';
-            applyHierarchy();
+        } else if (UI.unitMode === 'UN' && !hasMergedUN && hasMergedRS) {
+            UI.unitMode = 'RS';
+        } else if (UI.unitMode === 'RS' && !hasMergedRS && hasMergedUN) {
+            UI.unitMode = 'UN';
         }
+        applyHierarchy();
         document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
         const btn = $('btn' + UI.unitMode);
         if (btn) btn.classList.add('active');
@@ -1615,18 +1644,27 @@ async function init(files, opts) {
         rebuildSelectors();
         buildSectorTabs();
         updateDistritalHeader();
-        renderResumo();
-        // Recomputa alturas após primeiro render
+        /* v5.4 — Se a aba ativa for 'pdv' (caso usuário tenha carregado PDV antes),
+           devolve o foco para 'Resumo Geral' ao chegar a base consolidada, evitando
+           sobreposição visual. Caso contrário, mantém a aba atual. */
+        const activeTabEl = document.querySelector('.tab.active');
+        const activeTabName = activeTabEl ? activeTabEl.dataset.tab : null;
+        if (!activeTabName || activeTabName === 'pdv') {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            const resumoTab = document.querySelector('.tab[data-tab="resumo"]');
+            if (resumoTab) resumoTab.classList.add('active');
+            switchTab('resumo');
+        } else {
+            /* Re-renderiza a aba ativa atual com os novos dados */
+            switchTab(activeTabName);
+        }
+        // Recomputa alturas após primeiro render (e novamente após o paint completo,
+        // pois o kpiStrip e o filterBar podem ter mudado de altura).
         requestAnimationFrame(() => recomputeStickyOffsets());
+        setTimeout(() => recomputeStickyOffsets(), 120);
 
         const msg = diagnostics.map(d => `${d.file}${d.forced ? ' (forçada)' : ''}: ${d.mode === 'RS' ? 'R$' : 'Unidades'}`).join(' · ');
-        const statusEl = $('datasetStatus');
-        if (statusEl) {
-            const allMM = DB.allRowsByValueMode || { UN: [], RS: [] };
-            const unOk = (allMM.UN && allMM.UN.length) ? '<span class="ds-ok">Unidades</span>' : '<span class="ds-off">Unidades</span>';
-            const rsOk = (allMM.RS && allMM.RS.length) ? '<span class="ds-ok">R$</span>' : '<span class="ds-off">R$</span>';
-            statusEl.innerHTML = `Planilhas: ${unOk} · ${rsOk}`;
-        }
+        updateDatasetStatus();
         toast(DB.markets.length + ' mercados · ' + msg);
     } catch (e) {
         console.error('[SUPERA] Erro init:', e);
@@ -1879,7 +1917,12 @@ async function parsePDVFile(file, forceUnit) {
     if (!aoa.length) throw new Error('Planilha vazia.');
 
     const fname = (file.name || '').toLowerCase();
-    let unitMode = forceUnit || (/(reai|r\$|rs)/i.test(fname) ? 'RS' : 'UN');
+    /* v5.5 — Detecção de modo (R$ vs Un.):
+       1. Se o usuário forçou via botões do header, respeita.
+       2. Se o nome do arquivo contém "reai"/"r$"/"rs", classifica como RS.
+       3. Caso contrário, INSPECIONA os valores numéricos das colunas MAT/YTD/TRI:
+          se >25% das células não-zero tiverem casas decimais, é R$. Se forem inteiras, Un. */
+    let unitMode = forceUnit || (/(reai|r\$|\brs\b|valores)/i.test(fname) ? 'RS' : null);
 
     // Localiza header
     let headerIdx = 0;
@@ -1906,6 +1949,28 @@ async function parsePDVFile(file, forceUnit) {
     const iTriY = header.findIndex(h => /^tri\s*\(p\.?y\.?\)/i.test(h));
 
     if (iPdv < 0 || iBrk < 0) throw new Error('Cabeçalho inválido (faltam PDV/Brick).');
+
+    /* Heurística automática de R$ vs Un. quando não foi forçado nem detectado pelo nome */
+    if (!unitMode) {
+        let total = 0, decimals = 0;
+        const numCols = [iMatA, iMatP, iYtdA, iYtdP, iTriA, iTriP, iTriY].filter(i => i >= 0);
+        const limit = Math.min(aoa.length, headerIdx + 200); /* checa até 200 linhas */
+        for (let r = headerIdx + 1; r < limit; r++) {
+            const row = aoa[r];
+            if (!row) continue;
+            for (const c of numCols) {
+                const v = parseNum(row[c]);
+                if (v && Math.abs(v) > 0.0001) {
+                    total++;
+                    /* Se o valor não é inteiro (tem fração), conta como decimal */
+                    if (Math.abs(v - Math.round(v)) > 0.001) decimals++;
+                }
+            }
+        }
+        const ratio = total ? decimals / total : 0;
+        unitMode = (ratio > 0.25) ? 'RS' : 'UN';
+        console.log('[PDV][detectUnit]', file.name, '| amostras=', total, 'decimais=', decimals, 'ratio=', ratio.toFixed(2), '→ modo=', unitMode);
+    }
 
     const rows = [];
     for (let r = headerIdx + 1; r < aoa.length; r++) {
@@ -2031,11 +2096,28 @@ async function handlePDVUpload(files, opts) {
     }
     savePDVData();
     if (countOk) {
-        const m = UI.unitMode;
-        const tot = PDV.pdvsByValueMode[m].length;
-        toast(`${tot} PDV(s) carregados em ${m === 'RS' ? 'R$' : 'Unidades'}.`);
+        /* v5.5 — Mostra a contagem do MODO que acabou de ser carregado, e não
+           o modo ativo da UI (que pode estar diferente). */
+        const lastMode = (PDV.rowsByValueMode.UN.length > 0 && PDV.rowsByValueMode.RS.length > 0)
+            ? UI.unitMode
+            : (PDV.rowsByValueMode.RS.length ? 'RS' : 'UN');
+        const tot = PDV.pdvsByValueMode[lastMode].length;
+        /* Se a UI está em modo diferente do que acabou de chegar e não há dados consolidados
+           naquele modo, troca automaticamente para o modo carregado para evitar tela vazia. */
+        const allMM = (DB.allRowsByValueMode || { UN: [], RS: [] });
+        const dbHasCurrent = (allMM[UI.unitMode] || []).length > 0;
+        const pdvHasCurrent = (PDV.pdvsByValueMode[UI.unitMode] || []).length > 0;
+        if (!dbHasCurrent && !pdvHasCurrent && lastMode !== UI.unitMode) {
+            UI.unitMode = lastMode;
+            document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
+            const btn2 = $('btn' + UI.unitMode); if (btn2) btn2.classList.add('active');
+            applyHierarchy();
+        }
+        toast(`${tot} PDV(s) carregados em ${lastMode === 'RS' ? 'R$' : 'Unidades'}.`);
     }
     if (errors.length) toast('Erros: ' + errors.join(' | '));
+    /* Atualiza badge de status do header (Un./R$) após carregar PDV */
+    if (typeof updateDatasetStatus === 'function') updateDatasetStatus();
     renderPDV();
 }
 
@@ -2077,7 +2159,7 @@ function renderPDV() {
         const btn = $('pdvEmptyBtn');
         if (btn && inp) {
             btn.onclick = () => inp.click();
-            inp.onchange = e => { if (e.target.files.length) handlePDVUpload(e.target.files); e.target.value = ''; };
+            inp.onchange = e => { if (e.target.files.length) handlePDVUpload(e.target.files, { forceUnit: window._unitForced || null }); e.target.value = ''; };
         }
         return;
     }
@@ -2287,7 +2369,7 @@ function renderPDV() {
     const upBtn = $('pdvUploadBtn'), upInp = $('pdvFileInput'), clrBtn2 = $('pdvClearBtn');
     if (upBtn && upInp) {
         upBtn.onclick = () => upInp.click();
-        upInp.onchange = e => { if (e.target.files.length) handlePDVUpload(e.target.files); e.target.value = ''; };
+        upInp.onchange = e => { if (e.target.files.length) handlePDVUpload(e.target.files, { forceUnit: window._unitForced || null }); e.target.value = ''; };
     }
     if (clrBtn2) clrBtn2.onclick = () => {
         if (confirm('Tem certeza que deseja remover todas as farmácias carregadas?')) clearPDVData();
