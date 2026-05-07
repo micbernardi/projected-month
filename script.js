@@ -970,6 +970,9 @@ function getActiveTab() {
 }
 function renderActiveTab() {
     const t = getActiveTab();
+    /* v5.9 — mantém o select global #fbMkt sincronizado com a aba ativa
+       (Marca quando aba=pdv, Mercado para as demais). */
+    if (typeof refreshGlobalMarketFilter === 'function') refreshGlobalMarketFilter(t);
     if (t === 'resumo') renderResumo();
     else if (t === 'brick') renderBrick();
     else if (t === 'oport') renderOport();
@@ -1091,6 +1094,11 @@ function rebuildSelectors() {
     if ($('fbMkt')) $('fbMkt').value = markets.includes(UI.market) ? UI.market : 'all';
     if (!sectors.includes(UI.sector)) UI.sector = 'all';
     if (!markets.includes(UI.market)) UI.market = 'all';
+    /* v5.9 — após reconstruir o universo, reaplica a transformação
+       Mercado→Marca quando a aba ativa for PDV; nas demais, mantém mercados. */
+    if (typeof refreshGlobalMarketFilter === 'function') {
+        try { refreshGlobalMarketFilter(getActiveTab()); } catch (e) { }
+    }
 }
 
 /* v3.16 — disparado quando o usuário troca Regional ou Distrital. */
@@ -1575,12 +1583,59 @@ function switchTab(tn) {
         const v = $('tab-' + k);
         if (v) v.style.display = (k === tn) ? 'block' : 'none';
     });
+    /* v5.8 — quando estiver na aba PDV, transforma o filtro 'Mercado'
+       global em filtro 'Marca', listando as marcas presentes nos PDVs.
+       Em qualquer outra aba, restaura o comportamento original. */
+    refreshGlobalMarketFilter(tn);
     if (tn === 'brick') renderBrick();
     if (tn === 'oport') renderOport();
     if (tn === 'entrar') renderEntrar();
     if (tn === 'graficos') renderGraficos();
     if (tn === 'resumo') renderResumo();
     if (tn === 'pdv') renderPDV();
+}
+
+/* v5.8 — Reconstrói o select global #fbMkt conforme a aba ativa.
+   - Aba 'pdv'   → lista MARCAS (únicas dos PDVs carregados)
+   - Outras abas → lista MERCADOS (consolidada + PDVs) */
+function refreshGlobalMarketFilter(tabName) {
+    const lbl = document.getElementById('fbMktLabel');
+    const sel = document.getElementById('fbMkt');
+    const goto = document.getElementById('fbGoto');
+    if (!sel) return;
+    const isPdv = tabName === 'pdv';
+    if (lbl) lbl.textContent = isPdv ? 'Marca' : 'Mercado';
+    /* limpa opções exceto a primeira ("Todos…") */
+    while (sel.children.length > 1) sel.removeChild(sel.lastChild);
+    sel.firstElementChild.textContent = isPdv ? 'Todas as Marcas' : 'Todos os Mercados';
+    let items;
+    if (isPdv) {
+        const mode = (typeof UI !== 'undefined' && UI.unitMode) ? UI.unitMode : 'UN';
+        const pdvs = (PDV && PDV.pdvsByValueMode && PDV.pdvsByValueMode[mode]) || [];
+        const set = new Set();
+        pdvs.forEach(p => (p.marcas || []).forEach(m => set.add(m)));
+        items = [...set].sort();
+    } else {
+        items = [...(DB.markets || [])];
+        /* também une mercados de PDV (que coincidem com marcas) para evitar buracos */
+        try {
+            const all = new Set(items);
+            ['UN', 'RS'].forEach(m => (PDV.pdvsByValueMode[m] || []).forEach(p => (p.marcas || []).forEach(b => {
+                const base = String(b).replace(/\s*\(.*?\)\s*$/, '').trim();
+                if (base) all.add(base);
+            })));
+            items = [...all].sort();
+        } catch (e) { }
+    }
+    items.forEach(v => {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = v;
+        sel.appendChild(o);
+    });
+    /* preserva seleção se ainda válida */
+    const cur = (UI && UI.market) || 'all';
+    sel.value = items.includes(cur) ? cur : 'all';
+    if (UI) UI.market = sel.value;
 }
 
 /* ===== EXPORT XLSX ===== */
@@ -2162,19 +2217,37 @@ function renderPDV() {
     const hasOther = (PDV.pdvsByValueMode[otherMode] || []).length > 0;
 
     if (!pdvs.length) {
+        const otherLabel = otherMode === 'RS' ? 'R$' : 'Unidades';
+        const switchBtnLabel = otherMode === 'RS' ? '$ R$' : '# Un.';
+        const switchBtnId = 'btn' + otherMode;
         el.innerHTML = `
+            ${hasOther ? `
+                <div class="pdv-switch-banner">
+                    <span class="pdv-switch-icon">ℹ️</span>
+                    <span class="pdv-switch-msg">
+                        Você já carregou a planilha de PDVs em <b>${otherLabel}</b>.
+                    </span>
+                    <button class="pdv-switch-btn" data-target="${switchBtnId}">Visualizar em ${switchBtnLabel} →</button>
+                </div>` : ''}
             <div class="pdv-empty-state">
                 <div class="pdv-empty-icon">🏥</div>
                 <h2>Cadastro de farmácias por Brick — ${mode === 'RS' ? 'R$' : 'Unidades'}</h2>
                 <p>
-                    Carregue a planilha <strong>UNIDADES POR PDVS</strong> (extraída do IQVIA) para que o dashboard
-                    ative a consulta de cada farmácia por CNPJ. A busca rápida no header e o pop-up com endereço,
-                    telefone, razão social e vendas ficam disponíveis assim que a planilha for carregada.
+                    Carregue a planilha <strong>UNIDADES POR PDVS</strong> em <b>${mode === 'RS' ? 'R$' : 'Unidades'}</b>
+                    (extraída do IQVIA) para ativar a consulta de cada farmácia por CNPJ. A busca rápida no header
+                    e o pop-up com endereço, telefone, razão social e vendas ficam disponíveis assim que a planilha
+                    for carregada.
                 </p>
-                ${hasOther ? `<p style="font-size:11.5px;color:#7a8aad;">Você já carregou a planilha em <b>${otherMode === 'RS' ? 'R$' : 'Unidades'}</b>. Para visualizar agora, clique em <b>${otherMode === 'RS' ? '$ R$' : '# Un.'}</b> no header.</p>` : ''}
                 <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
-                <button class="pdv-empty-btn" id="pdvEmptyBtn">📁 Carregar planilha de PDVs</button>
+                <button class="pdv-empty-btn" id="pdvEmptyBtn">📁 Carregar planilha em ${mode === 'RS' ? 'R$' : 'Unidades'}</button>
             </div>`;
+        /* Botão do banner para alternar para o outro modo */
+        const swBtn = el.querySelector('.pdv-switch-btn');
+        if (swBtn) swBtn.onclick = () => {
+            const target = swBtn.dataset.target;
+            const targetEl = document.getElementById(target);
+            if (targetEl) targetEl.click();
+        };
         const inp = $('pdvFileInput');
         const btn = $('pdvEmptyBtn');
         if (btn && inp) {
@@ -2189,14 +2262,19 @@ function renderPDV() {
     const totalUN = (PDV.pdvsByValueMode.UN || []).length;
     const totalRS = (PDV.pdvsByValueMode.RS || []).length;
     const periodLblHeader = (typeof UI !== 'undefined' && UI.periodMode) ? UI.periodMode : 'MAT';
+    /* v6.0 — detecta antecipadamente a marca filtrada para mostrar no badge da toolbar */
+    const _gMkt = (typeof UI !== 'undefined' && UI.market && UI.market !== 'all') ? UI.market : null;
+    const _localMkt = (PDV.filter && PDV.filter.marca && PDV.filter.marca !== 'all') ? PDV.filter.marca : null;
+    const _activeBrandHdr = _localMkt || _gMkt;
 
     let html = `
         <div class="pdv-toolbar">
-            <h3>🏥 PDVs por Brick <span class="pdv-period-badge">${periodLblHeader}</span></h3>
+            <h3>🏥 PDVs por Brick <span class="pdv-period-badge">${periodLblHeader}</span>${_activeBrandHdr ? `<span class="pdv-brand-badge" title="A tabela exibe apenas as vendas da marca selecionada">Marca: ${escapeHTML(_activeBrandHdr)}</span>` : ''}</h3>
             <div class="pdv-tb-info">
                 Visualizando <b>${totalPdvs}</b> farmácia(s) em <b>${mode === 'RS' ? 'R$' : 'Unidades'}</b>
                 ${totalUN ? ' · Un.: <b>' + totalUN + '</b>' : ''}${totalRS ? ' · R$: <b>' + totalRS + '</b>' : ''}
                 · Período destacado na tabela: <b>${periodLblHeader}</b>
+                ${_activeBrandHdr ? `<br><span style="color:#0a4ea3;font-weight:600">⚠ Valores exibidos são apenas da marca <b>${escapeHTML(_activeBrandHdr)}</b> (não o total do PDV)</span>` : ''}
             </div>
             <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
             <button class="pdv-upload-btn" id="pdvUploadBtn">📁 Carregar/Trocar planilha</button>
@@ -2255,6 +2333,42 @@ function renderPDV() {
             return u === t || uBase === tBase;
         });
     };
+    /* v6.0 — quando o usuário escolhe uma marca específica (filtro local OU global),
+       a tabela passa a mostrar os valores DAQUELA marca em cada PDV (e não os totais).
+       activeBrand recebe a marca a ser destacada (preserva sufixo "(SP0)"). */
+    const activeBrand = (f.marca && f.marca !== 'all') ? f.marca : (gMarket || null);
+    const matchProductBrand = (prodMarca, target) => {
+        if (!target) return false;
+        const a = String(prodMarca || '').toUpperCase().trim();
+        const t = String(target).toUpperCase().trim();
+        const aBase = a.replace(/\s*\(.*?\)\s*$/, '').trim();
+        const tBase = t.replace(/\s*\(.*?\)\s*$/, '').trim();
+        return a === t || aBase === tBase;
+    };
+    /* Calcula os valores específicos da marca para um PDV */
+    const projectByBrand = (p, brand) => {
+        const items = (p.products || []).filter(pr => matchProductBrand(pr.marca, brand));
+        if (!items.length) return null;
+        const acc = {
+            ...p,
+            mat_cur: 0, mat_prev: 0,
+            ytd_cur: 0, ytd_prev: 0,
+            tri_cur: 0, tri_prev: 0,
+            _brandView: brand,
+            _brandBricks: new Set()
+        };
+        items.forEach(it => {
+            acc.mat_cur += +it.mat_cur || 0;
+            acc.mat_prev += +it.mat_prev || 0;
+            acc.ytd_cur += +it.ytd_cur || 0;
+            acc.ytd_prev += +it.ytd_prev || 0;
+            acc.tri_cur += +it.tri_cur || 0;
+            acc.tri_prev += +it.tri_prev || 0;
+            if (it.brick) acc._brandBricks.add(it.brick);
+        });
+        acc.bricks = [...acc._brandBricks].sort();
+        return acc;
+    };
     let filtered = pdvs.filter(p => {
         if (f.brick !== 'all' && !p.bricks.includes(f.brick)) return false;
         if (f.cidade !== 'all' && p.cidade !== f.cidade) return false;
@@ -2269,6 +2383,12 @@ function renderPDV() {
         }
         return true;
     });
+    /* v6.0 — substitui cada PDV pela projeção da marca selecionada */
+    if (activeBrand) {
+        filtered = filtered
+            .map(p => projectByBrand(p, activeBrand))
+            .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
+    }
 
     // Ordenação (suporta crescimento mat_g/ytd_g/tri_g calculado on the fly)
     const dir = PDV.sortDir === 'asc' ? 1 : -1;
@@ -2781,11 +2901,9 @@ function renderBrickModal(brickStr) {
     let totMat = 0, totMatPrev = 0, totYtd = 0, totTri = 0, totProds = 0;
     list.forEach(p => {
         // Soma só os produtos cujo brick == brickStr
-        p.products.forEach(pr => {
-            if (pr.brick === brickStr) {
-                totMat += pr.mat_cur; totMatPrev += pr.mat_prev; totYtd += pr.ytd_cur; totTri += pr.tri_cur; totProds++;
-            }
-        });
+        p.products.forEach(pr => { if (pr.brick === brickStr) {
+            totMat += pr.mat_cur; totMatPrev += pr.mat_prev; totYtd += pr.ytd_cur; totTri += pr.tri_cur; totProds++;
+        }});
     });
     const gMAT = totMatPrev > 0 ? (totMat - totMatPrev) / totMatPrev : null;
     const subG = gMAT == null ? '<div class="pdv-kpi-sub">—</div>' : `<div class="pdv-kpi-sub ${gMAT < 0 ? 'neg' : ''}">${fmtPct(gMAT)}</div>`;
@@ -2793,7 +2911,7 @@ function renderBrickModal(brickStr) {
     // Sort PDVs por MAT do brick (desc)
     const rows = list.map(p => {
         let mC = 0, mP = 0, yC = 0, tC = 0;
-        p.products.forEach(pr => { if (pr.brick === brickStr) { mC += pr.mat_cur; mP += pr.mat_prev; yC += pr.ytd_cur; tC += pr.tri_cur; } });
+        p.products.forEach(pr => { if (pr.brick === brickStr) { mC += pr.mat_cur; mP += pr.mat_prev; yC += pr.ytd_cur; tC += pr.tri_cur; }});
         const g = mP > 0 ? (mC - mP) / mP : null;
         return { ...p, _mat: mC, _matPrev: mP, _ytd: yC, _tri: tC, _g: g };
     }).sort((a, b) => b._mat - a._mat);
