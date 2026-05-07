@@ -1497,10 +1497,30 @@ function recomputeStickyOffsets() {
     const kpi = document.getElementById('kpiStrip');
     const tab = document.getElementById('tabRail');
     const fil = document.getElementById('filterBar');
-    const hH = hdr ? hdr.offsetHeight : 60;
-    const kH = (kpi && kpi.style.display !== 'none') ? kpi.offsetHeight : 0;
-    const tH = tab ? tab.offsetHeight : 38;
-    const fH = fil ? fil.offsetHeight : 46;
+    /* v5.6 — Defesa contra leituras prematuras (offsetHeight == 1)
+       Se o elemento ainda não foi totalmente pintado, mantém o valor
+       atual ao invés de gravar um valor inválido que colapsaria a barra. */
+    const safeH = (el, fallback, current, min) => {
+        if (!el) return fallback;
+        const h = el.offsetHeight;
+        if (h < (min || 20)) return current || fallback;
+        return h;
+    };
+    const cur = {
+        hdr: parseInt(getComputedStyle(root).getPropertyValue('--hdr-h')) || 0,
+        kpi: parseInt(getComputedStyle(root).getPropertyValue('--kpi-h')) || 0,
+        tab: parseInt(getComputedStyle(root).getPropertyValue('--tab-h')) || 0,
+        fb: parseInt(getComputedStyle(root).getPropertyValue('--fb-h')) || 0
+    };
+    const hH = safeH(hdr, 60, cur.hdr, 30);
+    /* kpi: se está oculto, valor = 0; senão usa scrollHeight como tamanho
+       real do conteúdo, com fallback de 40px (que é o min-height) */
+    let kH = 0;
+    if (kpi && kpi.style.display !== 'none' && getComputedStyle(kpi).display !== 'none') {
+        kH = Math.max(kpi.offsetHeight, kpi.scrollHeight, 40);
+    }
+    const tH = safeH(tab, 38, cur.tab, 20);
+    const fH = safeH(fil, 46, cur.fb, 20);
     root.style.setProperty('--hdr-h', hH + 'px');
     root.style.setProperty('--kpi-h', kH + 'px');
     root.style.setProperty('--tab-h', tH + 'px');
@@ -2761,9 +2781,11 @@ function renderBrickModal(brickStr) {
     let totMat = 0, totMatPrev = 0, totYtd = 0, totTri = 0, totProds = 0;
     list.forEach(p => {
         // Soma só os produtos cujo brick == brickStr
-        p.products.forEach(pr => { if (pr.brick === brickStr) {
-            totMat += pr.mat_cur; totMatPrev += pr.mat_prev; totYtd += pr.ytd_cur; totTri += pr.tri_cur; totProds++;
-        }});
+        p.products.forEach(pr => {
+            if (pr.brick === brickStr) {
+                totMat += pr.mat_cur; totMatPrev += pr.mat_prev; totYtd += pr.ytd_cur; totTri += pr.tri_cur; totProds++;
+            }
+        });
     });
     const gMAT = totMatPrev > 0 ? (totMat - totMatPrev) / totMatPrev : null;
     const subG = gMAT == null ? '<div class="pdv-kpi-sub">—</div>' : `<div class="pdv-kpi-sub ${gMAT < 0 ? 'neg' : ''}">${fmtPct(gMAT)}</div>`;
@@ -2771,7 +2793,7 @@ function renderBrickModal(brickStr) {
     // Sort PDVs por MAT do brick (desc)
     const rows = list.map(p => {
         let mC = 0, mP = 0, yC = 0, tC = 0;
-        p.products.forEach(pr => { if (pr.brick === brickStr) { mC += pr.mat_cur; mP += pr.mat_prev; yC += pr.ytd_cur; tC += pr.tri_cur; }});
+        p.products.forEach(pr => { if (pr.brick === brickStr) { mC += pr.mat_cur; mP += pr.mat_prev; yC += pr.ytd_cur; tC += pr.tri_cur; } });
         const g = mP > 0 ? (mC - mP) / mP : null;
         return { ...p, _mat: mC, _matPrev: mP, _ytd: yC, _tri: tC, _g: g };
     }).sort((a, b) => b._mat - a._mat);

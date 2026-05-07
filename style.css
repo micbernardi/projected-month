@@ -235,10 +235,13 @@ body {
 .kpi-strip {
     background: var(--navy2);
     border-bottom: 1px solid var(--navy4);
-    height: var(--kpi-h);
+    /* v5.6 — min-height permite que o conteúdo dimensione naturalmente.
+       Antes, height: var(--kpi-h) podia colapsar para 1px se a variável
+       fosse calculada num momento que o strip ainda não estava pintado. */
+    min-height: 40px;
     display: flex;
     align-items: center;
-    padding: 0 16px;
+    padding: 4px 16px;
     gap: 0;
     overflow-x: auto;
     position: fixed;
