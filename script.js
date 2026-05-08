@@ -1,4 +1,4 @@
-/* ════════════════════════════════════════
+﻿/* ════════════════════════════════════════
    SUPERA RX — ANÁLISE ESTRATÉGICA
    script.js v3 — share real Supera vs Concorrentes + header fixo ordenável
    ════════════════════════════════════════ */
@@ -3019,7 +3019,10 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
 
         venHTML = `
             <div class="pdv-card">
-                <div class="pdv-card-h"><span class="pdv-card-h-ico">📊</span> Vendas IQVIA — ${modeLbl}</div>
+                <div class="pdv-card-h">
+                    <span class="pdv-card-h-ico">📊</span> Vendas IQVIA — ${modeLbl}
+                    <button class="pdv-action-btn" style="margin-left:auto;background:#0f4ea3;color:#fff;border-color:#0f4ea3;" data-act="export-pdv" data-val="${cnpj}">⬇ Exportar Excel</button>
+                </div>
                 <div class="pdv-row"><span class="pdv-k">Bricks</span><span class="pdv-v">${localPdv.bricks.map(b => `<code>${escapeHTML(b)}</code>`).join('<br>')}</span></div>
                 <div class="pdv-row"><span class="pdv-k">Setor(es)</span><span class="pdv-v"><small>${localPdv.setores.map(s => escapeHTML(s)).join('<br>') || '—'}</small></span></div>
                 <div class="pdv-row"><span class="pdv-k">Marcas</span><span class="pdv-v"><small>${localPdv.marcas.length} marca(s) com venda</small></span></div>
@@ -3030,7 +3033,7 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
             </div>`;
     }
 
-    return kpisHTML + `<div class="pdv-modal-grid">${cadHTML}${venHTML}</div>`;
+    return kpisHTML + `<div class="pdv-modal-grid" data-export-cnpj="${cnpj}">${cadHTML}${venHTML}</div>`;
 }
 
 function wirePDVModalActions() {
@@ -3041,8 +3044,210 @@ function wirePDVModalActions() {
             if (act === 'copy-tel' || act === 'copy-cnpj') {
                 navigator.clipboard.writeText(val).then(() => toast('Copiado: ' + val));
             }
+            if (act === 'export-pdv') {
+                exportPDVModal(val);
+            }
         };
     });
+}
+
+/* ===== EXPORTAÇÃO DO MODAL DE PDV PARA EXCEL ===== */
+async function exportPDVModal(cnpjRaw) {
+    const mode = UI.unitMode;
+    const modeLbl = mode === 'RS' ? 'R$' : 'Un.';
+    const pdvs = PDV.pdvsByValueMode[mode] || [];
+    const p = pdvs.find(x => x.cnpj === onlyDigits(cnpjRaw));
+    if (!p) { toast('Dados do PDV nao encontrados.'); return; }
+
+    const info = PDV.cnpjCache[onlyDigits(cnpjRaw)] || null;
+    const fmtPct2 = g => g == null ? '' : ((g >= 0 ? '+' : '') + (g * 100).toFixed(1) + '%');
+    const toNum = v => (v == null || v === '') ? 0 : Number(v);
+
+    const gMAT = p.mat_prev > 0 ? (p.mat_cur - p.mat_prev) / p.mat_prev : null;
+    const gYTD = p.ytd_prev > 0 ? (p.ytd_cur - p.ytd_prev) / p.ytd_prev : null;
+    const gTRI = p.tri_prev > 0 ? (p.tri_cur - p.tri_prev) / p.tri_prev : null;
+    const gapMAT = (p.mat_cur || 0) - (p.mat_prev || 0);
+    const gapYTD = (p.ytd_cur || 0) - (p.ytd_prev || 0);
+    const gapTRI = (p.tri_cur || 0) - (p.tri_prev || 0);
+
+    const endFull = info ? [
+        [info.logradouro, info.numero, info.complemento].filter(Boolean).join(', '),
+        info.bairro,
+        (info.municipio && info.uf ? info.municipio + ' / ' + info.uf : info.municipio || ''),
+        info.cep ? 'CEP ' + info.cep : ''
+    ].filter(Boolean).join(' - ')
+        : (p.bairro ? p.bairro + ' - ' + p.cidade + ' / ' + p.uf : p.cidade + ' / ' + p.uf);
+
+    // Produtos
+    const periodUpper = (UI && UI.periodMode) || 'MAT';
+    const curK = periodUpper.toLowerCase() + '_cur';
+    const prodMap = new Map();
+    p.products.forEach(pr => {
+        const k = pr.marca + '||' + pr.brick;
+        const c = prodMap.get(k) || {
+            marca: pr.marca, brick: pr.brick,
+            mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0
+        };
+        c.mat_cur += pr.mat_cur; c.mat_prev += pr.mat_prev;
+        c.ytd_cur += pr.ytd_cur; c.ytd_prev += pr.ytd_prev || 0;
+        c.tri_cur += pr.tri_cur; c.tri_prev += pr.tri_prev || 0;
+        prodMap.set(k, c);
+    });
+    const prodList = [...prodMap.values()].sort((a, b) => b[curK] - a[curK]);
+
+    // Carrega ExcelJS se necessario
+    if (!window.ExcelJS) {
+        toast('Carregando exportador...');
+        await new Promise((ok, fail) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+            s.onload = ok;
+            s.onerror = () => fail(new Error('Falha ao carregar ExcelJS'));
+            document.head.appendChild(s);
+        });
+    }
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('PDV');
+
+    ws.columns = [
+        { width: 26 }, { width: 40 }, { width: 15 }, { width: 15 }, { width: 14 },
+        { width: 15 }, { width: 15 }, { width: 14 }, { width: 14 },
+        { width: 15 }, { width: 15 }, { width: 14 }, { width: 14 }
+    ];
+
+    // Estilos
+    const NAVY_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A3A6B' } };
+    const GREEN_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
+    const RED_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+    const THIN_B = side => ({ style: 'thin', color: { argb: 'FFD0D7E3' } });
+    const ALL_BORDER = { top: THIN_B(), left: THIN_B(), bottom: THIN_B(), right: THIN_B() };
+
+    const setHdr = (cell, v) => {
+        cell.value = v;
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Calibri' };
+        cell.fill = NAVY_FILL;
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = ALL_BORDER;
+    };
+    const setLbl = (cell, v) => {
+        cell.value = v;
+        cell.font = { bold: true, color: { argb: 'FF1A3A6B' }, size: 10, name: 'Calibri' };
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        cell.border = ALL_BORDER;
+    };
+    const setDat = (cell, v) => {
+        cell.value = v;
+        cell.font = { size: 10, name: 'Calibri' };
+        cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
+        cell.border = ALL_BORDER;
+    };
+    const setNum = (cell, v) => {
+        cell.value = toNum(v);
+        cell.font = { bold: true, size: 10, name: 'Calibri' };
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        cell.border = ALL_BORDER;
+    };
+    const setGap = (cell, v) => {
+        const val = toNum(v);
+        cell.value = val;
+        const pos = val >= 0;
+        cell.font = { bold: true, color: { argb: pos ? 'FF276221' : 'FF9C0006' }, size: 10, name: 'Calibri' };
+        cell.fill = pos ? GREEN_FILL : RED_FILL;
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        cell.border = ALL_BORDER;
+    };
+    const setPct = (cell, v, g) => {
+        const pos = g == null ? true : g >= 0;
+        cell.value = v || '';
+        cell.font = { bold: true, color: { argb: pos ? 'FF276221' : 'FF9C0006' }, size: 10, name: 'Calibri' };
+        cell.fill = pos ? GREEN_FILL : RED_FILL;
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        cell.border = ALL_BORDER;
+    };
+
+    // Campos cadastrais (sem Distrital)
+    const cadFields = [
+        ['CNPJ', maskCNPJ(p.cnpj)],
+        ['Razao Social', info ? (info.nome_fantasia || info.razao_social || p.razao) : p.razao],
+        ['Situacao', info ? (info.situacao || '') : ''],
+        ['Endereco', endFull],
+        ['Telefone', info ? (info.telefone || '') : ''],
+        ['Cidade', p.cidade + (p.uf ? ' / ' + p.uf : '')],
+        ['Bairro', p.bairro || ''],
+        ['Bricks', p.bricks.join(', ')],
+        ['Setor(es)', p.setores.join(', ')],
+    ];
+    cadFields.forEach(([l, v], i) => {
+        const row = ws.getRow(i + 1);
+        row.height = 16;
+        setLbl(row.getCell(1), l);
+        setDat(row.getCell(2), v);
+        ws.mergeCells(i + 1, 2, i + 1, 13);
+    });
+
+    // 3 linhas vazias (R10-R12)
+    [10, 11, 12].forEach(r => { ws.getRow(r).height = 10; });
+
+    // Cabecalho periodos (R13)
+    const r13 = ws.getRow(13); r13.height = 18;
+    ['Periodo', 'Ano Anterior (' + modeLbl + ')', 'Atual (' + modeLbl + ')', 'GAP (' + modeLbl + ')', 'Crescimento %']
+        .forEach((h, c) => setHdr(r13.getCell(c + 1), h));
+
+    // Dados periodos (R14-R16)
+    [
+        ['MAT', p.mat_prev, p.mat_cur, gapMAT, gMAT],
+        ['YTD', p.ytd_prev, p.ytd_cur, gapYTD, gYTD],
+        ['TRI', p.tri_prev, p.tri_cur, gapTRI, gTRI],
+    ].forEach(([lb, ant, cur, gp, g], i) => {
+        const row = ws.getRow(14 + i); row.height = 16;
+        setLbl(row.getCell(1), lb);
+        setNum(row.getCell(2), ant);
+        setNum(row.getCell(3), cur);
+        setGap(row.getCell(4), gp);
+        setPct(row.getCell(5), fmtPct2(g), g);
+    });
+
+    // Linha vazia R17
+    ws.getRow(17).height = 10;
+
+    // Cabecalho produtos (R18)
+    const r18 = ws.getRow(18); r18.height = 18;
+    ['Marca', 'MAT Ant.', 'MAT', 'GAP MAT', 'Cresc. MAT %',
+        'YTD Ant.', 'YTD', 'GAP YTD', 'Cresc. YTD %',
+        'TRI Ant.', 'TRI', 'GAP TRI', 'Cresc. TRI %']
+        .forEach((h, c) => setHdr(r18.getCell(c + 1), h));
+
+    // Linhas de produtos (R19+)
+    prodList.forEach((pr, i) => {
+        const row = ws.getRow(19 + i); row.height = 15;
+        const gm = pr.mat_prev > 0 ? (pr.mat_cur - pr.mat_prev) / pr.mat_prev : null;
+        const gy = pr.ytd_prev > 0 ? (pr.ytd_cur - pr.ytd_prev) / pr.ytd_prev : null;
+        const gt = pr.tri_prev > 0 ? (pr.tri_cur - pr.tri_prev) / pr.tri_prev : null;
+        setLbl(row.getCell(1), pr.marca);
+        setNum(row.getCell(2), pr.mat_prev);
+        setNum(row.getCell(3), pr.mat_cur);
+        setGap(row.getCell(4), pr.mat_cur - pr.mat_prev);
+        setPct(row.getCell(5), fmtPct2(gm), gm);
+        setNum(row.getCell(6), pr.ytd_prev);
+        setNum(row.getCell(7), pr.ytd_cur);
+        setGap(row.getCell(8), pr.ytd_cur - pr.ytd_prev);
+        setPct(row.getCell(9), fmtPct2(gy), gy);
+        setNum(row.getCell(10), pr.tri_prev);
+        setNum(row.getCell(11), pr.tri_cur);
+        setGap(row.getCell(12), pr.tri_cur - pr.tri_prev);
+        setPct(row.getCell(13), fmtPct2(gt), gt);
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'PDV_' + maskCNPJ(p.cnpj).replace(/[./\-]/g, '') + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Excel exportado com sucesso!');
 }
 
 function fmtBRDate(s) {
@@ -3323,3 +3528,5 @@ async function detectFileKind(file) {
         return 'unknown';
     }
 }
+
+
