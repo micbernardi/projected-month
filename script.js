@@ -27,7 +27,7 @@ const DBPersist = (() => {
     const STORE_NAME = 'dashboardData';
     const KEY = 'savedData';
     let db = null;
-    
+
     const init = async () => {
         /* v6.11 — Abre com versão 2 (compatível com upgrade prévio que criou
            outro objectStore). Em onupgradeneeded garantimos que o store
@@ -68,7 +68,7 @@ const DBPersist = (() => {
             });
         }
     };
-    
+
     const save = async (data) => {
         if (!db) await init();
         return new Promise((resolve, reject) => {
@@ -79,7 +79,7 @@ const DBPersist = (() => {
             req.onerror = () => reject(req.error);
         });
     };
-    
+
     const load = async () => {
         if (!db) await init();
         return new Promise((resolve, reject) => {
@@ -90,7 +90,7 @@ const DBPersist = (() => {
             req.onerror = () => reject(req.error);
         });
     };
-    
+
     const clear = async () => {
         if (!db) await init();
         return new Promise((resolve, reject) => {
@@ -101,7 +101,7 @@ const DBPersist = (() => {
             req.onerror = () => reject(req.error);
         });
     };
-    
+
     return { init, save, load, clear };
 })();
 
@@ -877,11 +877,10 @@ function showBrickModal(market, rec) {
         <th class="r">Share %</th>
         <th class="r">Evolução</th>
         <th>Líder do Brick</th>
-        <th class="r">Gap p/ superar</th>
     </tr></thead><tbody>`;
 
     if (!bricks.length) {
-        html += '<tr><td colspan="11" class="tbl-empty">Nenhum brick nessa categoria.</td></tr>';
+        html += '<tr><td colspan="10" class="tbl-empty">Nenhum brick nessa categoria.</td></tr>';
     } else {
         bricks.forEach((b, i) => {
             const gCls = b.growth != null && b.growth >= 0 ? 'vpos' : 'vneg';
@@ -916,7 +915,6 @@ function showBrickModal(market, rec) {
                 <td class="r"><strong>${b.share.toFixed(1)}%</strong></td>
                 <td class="r ${gCls}">${fmtPct(b.growth)}</td>
                 <td><small>${leaderIsSupera ? '<span class="vpos">✓ SUPERA</span>' : leaderName}</small></td>
-                <td class="r ${gapCls}"><small>${gapLabel}</small></td>
             </tr>`;
         });
     }
@@ -1836,7 +1834,7 @@ async function init(files, opts) {
         const msg = diagnostics.map(d => `${d.file}${d.forced ? ' (forçada)' : ''}: ${d.mode === 'RS' ? 'R$' : 'Unidades'}`).join(' · ');
         updateDatasetStatus();
         toast(DB.markets.length + ' mercados · ' + msg);
-        
+
         /* v6.2 — Salvar dados no IndexedDB para persistência */
         const dataToSave = {
             DB: DB,
@@ -1861,40 +1859,40 @@ document.addEventListener('DOMContentLoaded', async () => {
             UI.unitMode = savedData.UI?.unitMode || 'UN';
             UI.regional = savedData.UI?.regional || 'all';
             UI.distrital = savedData.UI?.distrital || 'all';
-            
+
             $('uploadView').style.display = 'none';
             $('dashView').style.display = 'block';
             $('kpiStrip').style.display = 'flex';
-            
+
             rebuildSelectors();
             buildSectorTabs();
             updateDistritalHeader();
             applyHierarchy();
-            
+
             document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
             const periodBtn = $('btn' + UI.periodMode);
             if (periodBtn) periodBtn.classList.add('active');
-            
+
             document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
             const unitBtn = $('btn' + UI.unitMode);
             if (unitBtn) unitBtn.classList.add('active');
-            
+
             switchTab('resumo');
             updateDatasetStatus();
-            
+
             /* Mostrar indicador de dados salvos */
             const historyInd = $('historyIndicator');
             if (historyInd) historyInd.style.display = 'flex';
-            
+
             requestAnimationFrame(() => recomputeStickyOffsets());
             setTimeout(() => recomputeStickyOffsets(), 120);
-            
+
             console.log('[SUPERA] Dados restaurados do historico');
         }
     } catch (e) {
         console.warn('[SUPERA] Erro ao carregar dados salvos:', e);
     }
-    
+
     const fileInput = $('fileInput');
     $('btnUpload').addEventListener('click', () => fileInput.click());
     $('btnSelectFile').addEventListener('click', () => fileInput.click());
@@ -1934,7 +1932,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             toast('Base limpa');
         });
     }
-    
+
     /* v6.2 — Botão para limpar histórico (IndexedDB) */
     const clrHistBtn = $('btnClearHistory');
     if (clrHistBtn) {
@@ -1998,7 +1996,7 @@ function renderOport() {
     const medianCur = median(mkts.map(m => m.current));
     const oport = mkts.filter(m => m.current >= medianCur && m.share < 50 && m.share > 5).sort((a, b) => (b.current - a.current));
     let html = '<div class="panel-block"><h3 class="panel-h3">Oportunidades Principais</h3>';
-    html += '<p class="panel-sub">Mercados grandes onde a Supera ainda não é líder, com volume relevante e espaço para crescer.</p>';
+    html += '<p class="panel-sub">Mercados grandes com volume relevante onde a Supera tem espaço para crescer ou consolidar liderança.</p>';
     html += '<table class="modal-tbl"><thead><tr><th>Mercado</th><th class="r">Mercado ' + pd + ' Ant.</th><th class="r">Mercado ' + pd + ' Atual</th><th class="r">Supera</th><th class="r">Share</th><th class="r">Crescimento</th><th class="c">Potencial</th></tr></thead><tbody>';
     if (!oport.length) html += '<tr><td colspan="7" class="tbl-empty">Sem oportunidades claras nos filtros atuais.</td></tr>';
     oport.forEach(m => {
@@ -3132,9 +3130,11 @@ function renderBrickModal(brickStr) {
     let totMat = 0, totMatPrev = 0, totYtd = 0, totTri = 0, totProds = 0;
     list.forEach(p => {
         // Soma só os produtos cujo brick == brickStr
-        p.products.forEach(pr => { if (pr.brick === brickStr) {
-            totMat += pr.mat_cur; totMatPrev += pr.mat_prev; totYtd += pr.ytd_cur; totTri += pr.tri_cur; totProds++;
-        }});
+        p.products.forEach(pr => {
+            if (pr.brick === brickStr) {
+                totMat += pr.mat_cur; totMatPrev += pr.mat_prev; totYtd += pr.ytd_cur; totTri += pr.tri_cur; totProds++;
+            }
+        });
     });
     const gMAT = totMatPrev > 0 ? (totMat - totMatPrev) / totMatPrev : null;
     const subG = gMAT == null ? '<div class="pdv-kpi-sub">—</div>' : `<div class="pdv-kpi-sub ${gMAT < 0 ? 'neg' : ''}">${fmtPct(gMAT)}</div>`;
@@ -3142,7 +3142,7 @@ function renderBrickModal(brickStr) {
     // Sort PDVs por MAT do brick (desc)
     const rows = list.map(p => {
         let mC = 0, mP = 0, yC = 0, tC = 0;
-        p.products.forEach(pr => { if (pr.brick === brickStr) { mC += pr.mat_cur; mP += pr.mat_prev; yC += pr.ytd_cur; tC += pr.tri_cur; }});
+        p.products.forEach(pr => { if (pr.brick === brickStr) { mC += pr.mat_cur; mP += pr.mat_prev; yC += pr.ytd_cur; tC += pr.tri_cur; } });
         const g = mP > 0 ? (mC - mP) / mP : null;
         return { ...p, _mat: mC, _matPrev: mP, _ytd: yC, _tri: tC, _g: g };
     }).sort((a, b) => b._mat - a._mat);
