@@ -2488,8 +2488,7 @@ function renderPDV() {
             <h3>🏥 PDVs por Brick <span class="pdv-period-badge">${periodLblHeader}</span>${_activeBrandHdr ? `<span class="pdv-brand-badge" title="A tabela exibe apenas as vendas da marca selecionada">Marca: ${escapeHTML(_activeBrandHdr)}</span>` : ''}</h3>
             <div class="pdv-tb-info">
                 Visualizando <b>${totalPdvs}</b> farmácia(s) em <b>${mode === 'RS' ? 'R$' : 'Unidades'}</b>
-                ${totalUN ? ' · Un.: <b>' + totalUN + '</b>' : ''}${totalRS ? ' · R$: <b>' + totalRS + '</b>' : ''}
-                · Período destacado na tabela: <b>${periodLblHeader}</b>
+                · Período: <b>${periodLblHeader}</b>
                 ${_activeBrandHdr ? `<br><span style="color:#0a4ea3;font-weight:600">⚠ Valores exibidos são apenas da marca <b>${escapeHTML(_activeBrandHdr)}</b> (não o total do PDV)</span>` : ''}
             </div>
             <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
