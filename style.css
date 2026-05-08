@@ -60,7 +60,7 @@
 
     /* alturas das barras sticky (densas) — v6.7: estética central de inteligência */
     --hdr-h: 42px;
-    --kpi-h: 32px;
+    --kpi-h: 34px;
     --tab-h: 28px;
     --fb-h: 32px;
     --r: 5px;
@@ -266,15 +266,18 @@ body {
 .kpi-strip {
     background: var(--navy2);
     border-bottom: 1px solid var(--navy4);
-    /* v5.6 — min-height permite que o conteúdo dimensione naturalmente.
-       Antes, height: var(--kpi-h) podia colapsar para 1px se a variável
-       fosse calculada num momento que o strip ainda não estava pintado. */
-    min-height: 32px;
+    /* v6.10 — height fixo igual à variável, sem padding vertical, para
+       que o offset sticky do tab-rail (top = hdr+kpi) seja perfeito
+       e nada vaze entre as barras durante o scroll. */
+    height: var(--kpi-h);
+    min-height: var(--kpi-h);
+    box-sizing: border-box;
     display: flex;
     align-items: center;
-    padding: 2px 12px;
+    padding: 0 12px;
     gap: 0;
     overflow-x: auto;
+    overflow-y: hidden;
     position: fixed;
     top: var(--hdr-h);
     left: 0;
@@ -325,10 +328,11 @@ body {
 .kpi-hero .kpi-lbl {
     color: #1d4ed8;
     font-weight: 700;
+    font-size: 8.5px;
     letter-spacing: .55px;
 }
 .kpi-hero .kpi-val {
-    font-size: 13.5px;
+    font-size: 14.5px;
     color: #0f172a;
     font-weight: 800;
     letter-spacing: -.2px;

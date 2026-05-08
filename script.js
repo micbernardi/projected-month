@@ -1580,9 +1580,13 @@ function recomputeStickyOffsets() {
     const hH = safeH(hdr, 60, cur.hdr, 30);
     /* kpi: se está oculto, valor = 0; senão usa scrollHeight como tamanho
        real do conteúdo, com fallback de 40px (que é o min-height) */
+    /* v6.10 — KPI strip agora tem height fixo (= --kpi-h). Lemos o
+       offsetHeight real, mas com fallback para o valor atual em caso de
+       leitura prematura. Não forçamos mínimo de 40, para não criar gap. */
     let kH = 0;
     if (kpi && kpi.style.display !== 'none' && getComputedStyle(kpi).display !== 'none') {
-        kH = Math.max(kpi.offsetHeight, kpi.scrollHeight, 40);
+        const h = kpi.offsetHeight;
+        kH = (h >= 20) ? h : (cur.kpi || 32);
     }
     const tH = safeH(tab, 38, cur.tab, 20);
     const fH = safeH(fil, 46, cur.fb, 20);
