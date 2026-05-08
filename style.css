@@ -3465,6 +3465,12 @@ td.vneg strong {
     color: #1a2742;
 }
 
+/* GAP e CRESC do período ativo: tonalidade mais clara/pálida para diferenciar do volume */
+.pdv-tbl tbody td.period-active.period-sub {
+    background: linear-gradient(180deg, #fffdf5, #fffaeb) !important;
+    border-left: 1px solid rgba(251, 191, 36, .25);
+}
+
 .pdv-tbl thead th.sorted {
     background: #2a5396;
 }
@@ -3488,6 +3494,9 @@ td.pdv-growth-neg {
 }
 .pdv-tbl tbody tr.pdv-row-data:hover td.period-active {
     background: linear-gradient(180deg, #fef3c7, #fde68a) !important;
+}
+.pdv-tbl tbody tr.pdv-row-data:hover td.period-active.period-sub {
+    background: linear-gradient(180deg, #fffaeb, #fef3c7) !important;
 }
 
 /* Painel de info do PDV mais limpo */

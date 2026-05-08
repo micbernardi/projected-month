@@ -139,7 +139,7 @@ const $ = id => document.getElementById(id);
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 const normU = s => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 const fmtN = n => n == null || n === 0 ? '—' : Math.round(n).toLocaleString('pt-BR');
-const fmtCurrency = n => n == null || n === 0 ? '—' : 'R$ ' + Math.round(n).toLocaleString('pt-BR');
+const fmtCurrency = n => n == null || n === 0 ? '—' : 'R$ ' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtValue = n => UI.unitMode === 'RS' ? fmtCurrency(n) : fmtN(n);
 const fmtPct = n => n == null ? '—' : (n >= 0 ? '+' : '') + (n * 100).toFixed(1) + '%';
 
@@ -2421,10 +2421,10 @@ function renderPDV() {
                 <div class="pdv-empty-icon">🏥</div>
                 <h2>Cadastro de farmácias por Brick — ${mode === 'RS' ? 'R$' : 'Unidades'}</h2>
                 <p>
-                    Carregue a planilha <strong>UNIDADES POR PDVS</strong> em <b>${mode === 'RS' ? 'R$' : 'Unidades'}</b>
-                    (extraída do IQVIA) para ativar a consulta de cada farmácia por CNPJ. A busca rápida no header
-                    e o pop-up com endereço, telefone, razão social e vendas ficam disponíveis assim que a planilha
-                    for carregada.
+                    Carregue a planilha <strong>UNIDADES POR PDVS em ${mode === 'RS' ? 'R$' : 'Unidades'}</strong>
+                    (extraída do IQVIA – SUPERA MDTR – GR) para ativar a consulta detalhada das farmácias por CNPJ.
+                    Após o carregamento, a busca rápida no cabeçalho e o pop-up com endereço, telefone, razão social
+                    e vendas ficarão disponíveis.
                 </p>
                 <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
                 <button class="pdv-empty-btn" id="pdvEmptyBtn">📁 Carregar planilha em ${mode === 'RS' ? 'R$' : 'Unidades'}</button>
@@ -2669,16 +2669,16 @@ function renderPDV() {
                 <td class="r">${p.bricks.length}</td>
                 <td class="r ${isMAT ? 'period-active' : ''}">${fmtValue(p.mat_prev)}</td>
                 <td class="r ${isMAT ? 'period-active' : ''}">${fmtValue(p.mat_cur)}</td>
-                <td class="r ${gapC(gapMAT)} ${isMAT ? 'period-active' : ''}">${fmtGap(gapMAT)}</td>
-                <td class="r mark ${gC(gMAT)} ${isMAT ? 'period-active' : ''}">${fmtG(gMAT)}</td>
+                <td class="r ${gapC(gapMAT)} ${isMAT ? 'period-active period-sub' : ''}">${fmtGap(gapMAT)}</td>
+                <td class="r mark ${gC(gMAT)} ${isMAT ? 'period-active period-sub' : ''}">${fmtG(gMAT)}</td>
                 <td class="r ${isYTD ? 'period-active' : ''}">${fmtValue(p.ytd_prev)}</td>
                 <td class="r ${isYTD ? 'period-active' : ''}">${fmtValue(p.ytd_cur)}</td>
-                <td class="r ${gapC(gapYTD)} ${isYTD ? 'period-active' : ''}">${fmtGap(gapYTD)}</td>
-                <td class="r mark ${gC(gYTD)} ${isYTD ? 'period-active' : ''}">${fmtG(gYTD)}</td>
+                <td class="r ${gapC(gapYTD)} ${isYTD ? 'period-active period-sub' : ''}">${fmtGap(gapYTD)}</td>
+                <td class="r mark ${gC(gYTD)} ${isYTD ? 'period-active period-sub' : ''}">${fmtG(gYTD)}</td>
                 <td class="r ${isTRI ? 'period-active' : ''}">${fmtValue(p.tri_prev)}</td>
                 <td class="r ${isTRI ? 'period-active' : ''}">${fmtValue(p.tri_cur)}</td>
-                <td class="r ${gapC(gapTRI)} ${isTRI ? 'period-active' : ''}">${fmtGap(gapTRI)}</td>
-                <td class="r mark ${gC(gTRI)} ${isTRI ? 'period-active' : ''}">${fmtG(gTRI)}</td>
+                <td class="r ${gapC(gapTRI)} ${isTRI ? 'period-active period-sub' : ''}">${fmtGap(gapTRI)}</td>
+                <td class="r mark ${gC(gTRI)} ${isTRI ? 'period-active period-sub' : ''}">${fmtG(gTRI)}</td>
             </tr>`;
         });
     }
