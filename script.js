@@ -2025,7 +2025,16 @@ function renderGraficos() {
     html += '</div>';
 
     // Share Supera por mercado (top 15 onde Supera tem presença)
-    const withSupera = mkts.filter(m => m.supera > 0).sort((a, b) => b.share - a.share).slice(0, 15);
+    // v6.9 — Excluir produtos específicos solicitados pelo usuário
+    const SHARE_EXCLUDE = ['BENZETACIL', 'PEN VE ORAL', 'PEN-VE ORAL', 'PENVE ORAL', 'VAGICAND', 'BIOFLAC', 'PHOSFOENEMA'];
+    const isExcluded = (name) => {
+        const up = String(name || '').toUpperCase();
+        return SHARE_EXCLUDE.some(ex => up.includes(ex));
+    };
+    const withSupera = mkts
+        .filter(m => m.supera > 0 && !isExcluded(m.market))
+        .sort((a, b) => b.share - a.share)
+        .slice(0, 15);
     html += '<div class="chart-card"><div class="chart-card-title">Maiores shares Supera (' + pd + ')</div>';
     withSupera.forEach(m => {
         html += `<div class="bar-row">
