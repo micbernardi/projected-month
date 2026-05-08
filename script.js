@@ -21,6 +21,63 @@ const PRODUCT_ROLE = (() => {
     return map;
 })();
 
+/* ===== PERSISTÊNCIA INDEXEDDB (v6.2) ===== */
+const DBPersist = (() => {
+    const DB_NAME = 'SuperaRX';
+    const STORE_NAME = 'dashboardData';
+    const KEY = 'savedData';
+    let db = null;
+    
+    const init = async () => {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = e => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME);
+                }
+            };
+            req.onsuccess = () => { db = req.result; resolve(db); };
+            req.onerror = () => reject(req.error);
+        });
+    };
+    
+    const save = async (data) => {
+        if (!db) await init();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.put(data, KEY);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    };
+    
+    const load = async () => {
+        if (!db) await init();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.get(KEY);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error);
+        });
+    };
+    
+    const clear = async () => {
+        if (!db) await init();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.delete(KEY);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    };
+    
+    return { init, save, load, clear };
+})();
+
 /* ===== STATE ===== */
 let DB = {
     rows: [],
@@ -1741,6 +1798,14 @@ async function init(files, opts) {
         const msg = diagnostics.map(d => `${d.file}${d.forced ? ' (forçada)' : ''}: ${d.mode === 'RS' ? 'R$' : 'Unidades'}`).join(' · ');
         updateDatasetStatus();
         toast(DB.markets.length + ' mercados · ' + msg);
+        
+        /* v6.2 — Salvar dados no IndexedDB para persistência */
+        const dataToSave = {
+            DB: DB,
+            UI: { periodMode: UI.periodMode, unitMode: UI.unitMode, regional: UI.regional, distrital: UI.distrital },
+            timestamp: new Date().toISOString()
+        };
+        DBPersist.save(dataToSave).catch(e => console.warn('[SUPERA] Erro ao salvar dados:', e));
     } catch (e) {
         console.error('[SUPERA] Erro init:', e);
         toast('Erro: ' + e.message);
@@ -1748,7 +1813,50 @@ async function init(files, opts) {
 }
 
 /* ===== EVENTOS ===== */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    /* v6.2 — Carregar dados salvos do IndexedDB ao iniciar */
+    try {
+        const savedData = await DBPersist.load();
+        if (savedData && savedData.DB && savedData.DB.rows && savedData.DB.rows.length > 0) {
+            DB = savedData.DB;
+            UI.periodMode = savedData.UI?.periodMode || 'MAT';
+            UI.unitMode = savedData.UI?.unitMode || 'UN';
+            UI.regional = savedData.UI?.regional || 'all';
+            UI.distrital = savedData.UI?.distrital || 'all';
+            
+            $('uploadView').style.display = 'none';
+            $('dashView').style.display = 'block';
+            $('kpiStrip').style.display = 'flex';
+            
+            rebuildSelectors();
+            buildSectorTabs();
+            updateDistritalHeader();
+            applyHierarchy();
+            
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+            const periodBtn = $('btn' + UI.periodMode);
+            if (periodBtn) periodBtn.classList.add('active');
+            
+            document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
+            const unitBtn = $('btn' + UI.unitMode);
+            if (unitBtn) unitBtn.classList.add('active');
+            
+            switchTab('resumo');
+            updateDatasetStatus();
+            
+            /* Mostrar indicador de dados salvos */
+            const historyInd = $('historyIndicator');
+            if (historyInd) historyInd.style.display = 'flex';
+            
+            requestAnimationFrame(() => recomputeStickyOffsets());
+            setTimeout(() => recomputeStickyOffsets(), 120);
+            
+            console.log('[SUPERA] Dados restaurados do historico');
+        }
+    } catch (e) {
+        console.warn('[SUPERA] Erro ao carregar dados salvos:', e);
+    }
+    
     const fileInput = $('fileInput');
     $('btnUpload').addEventListener('click', () => fileInput.click());
     $('btnSelectFile').addEventListener('click', () => fileInput.click());
@@ -1786,6 +1894,22 @@ document.addEventListener('DOMContentLoaded', () => {
             $('kpiStrip').style.display = 'none';
             $('uploadView').style.display = 'flex';
             toast('Base limpa');
+        });
+    }
+    
+    /* v6.2 — Botão para limpar histórico (IndexedDB) */
+    const clrHistBtn = $('btnClearHistory');
+    if (clrHistBtn) {
+        clrHistBtn.addEventListener('click', () => {
+            if (confirm('Tem certeza que deseja limpar o historico de dados salvos?')) {
+                DBPersist.clear().then(() => {
+                    $('historyIndicator').style.display = 'none';
+                    toast('Historico limpo');
+                }).catch(e => {
+                    console.error('[SUPERA] Erro ao limpar historico:', e);
+                    toast('Erro ao limpar historico');
+                });
+            }
         });
     }
 
@@ -2302,8 +2426,6 @@ function renderPDV() {
             <select id="pdvFilterCidade">${optList(citySet, 'Todas as Cidades')}</select>
             <label>Setor</label>
             <select id="pdvFilterSetor">${optList(secSet, 'Todos os Setores')}</select>
-            <label>Marca</label>
-            <select id="pdvFilterMarca">${optList(marcaSet, 'Todas as Marcas')}</select>
             <input type="text" id="pdvFilterSearch" placeholder="🔍 Buscar CNPJ, razão social, cidade, bairro..." value="${escapeHTML(PDV.filter.search)}">
             <span class="pdv-fb-spacer"></span>
             <span class="pdv-fb-count" id="pdvCount"></span>

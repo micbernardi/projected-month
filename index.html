@@ -18,44 +18,57 @@
      HEADER
 ════════════════════════════════════════ -->
     <header class="hdr" id="mainHeader">
-        <div class="hdr-left">
-            <div class="hdr-brand">
-                <span class="hdr-sup">SUPERA RX</span>
-                <span class="hdr-sep">·</span>
-                <span class="hdr-title">ANÁLISE ESTRATÉGICA</span>
+        <!-- Linha 1: brand + comandos principais -->
+        <div class="hdr-top">
+            <div class="hdr-left">
+                <div class="hdr-brand">
+                    <span class="hdr-sup">SUPERA RX</span>
+                    <span class="hdr-sep">·</span>
+                    <span class="hdr-title">ANÁLISE ESTRATÉGICA</span>
+                </div>
             </div>
-            <div class="hdr-sub"><span id="hdrDistrital"></span> | <span id="hdrPeriodLabel"></span></div>
+            <div class="hdr-right">
+                <div class="period-grp" id="periodGrp">
+                    <button class="period-btn" id="btnTRI" onclick="setPeriodMode('TRI')">TRI</button>
+                    <button class="period-btn" id="btnYTD" onclick="setPeriodMode('YTD')">YTD</button>
+                    <button class="period-btn active" id="btnMAT" onclick="setPeriodMode('MAT')">MAT</button>
+                </div>
+                <div class="unit-grp" id="unitGrp">
+                    <button class="unit-btn active" id="btnUN" onclick="setUnitMode('UN')"
+                        title="Visualizar base de Unidades"># Un.</button>
+                    <button class="unit-btn" id="btnRS" onclick="setUnitMode('RS')" title="Visualizar base de R$">$
+                        R$</button>
+                </div>
+                <div class="dataset-status" id="datasetStatus" title="Status das planilhas carregadas">
+                    <span class="ds-dot ds-off" id="dsUN">Un.</span>
+                    <span class="ds-dot ds-off" id="dsRS">R$</span>
+                </div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden multiple>
+                <button class="hdr-upload-btn" id="btnUpload" title="Carregar / trocar planilha">
+                    📁 Carregar
+                </button>
+                <button class="hdr-clear-btn" id="btnClearData" title="Limpar bases carregadas">
+                    🗑 Limpar
+                </button>
+                <button class="hdr-history-btn" id="btnClearHistory" title="Limpar dados salvos no navegador">
+                    🕐 <span class="hdr-btn-label-long">Histórico</span>
+                </button>
+                <div class="history-indicator" id="historyIndicator" title="Dados salvos no navegador"
+                    style="display:none">
+                    <span class="history-dot"></span> Salvo
+                </div>
+                <button class="hdr-send-btn" id="btnEnviar" title="Exportar para Excel" onclick="exportXLSX()">
+                    📤 Exportar
+                </button>
+                <a class="hdr-send-btn" href="seller-projection.html">
+                    Resultado Projetado
+                </a>
+            </div>
         </div>
-        <div class="hdr-right">
-            <div class="period-grp" id="periodGrp">
-                <button class="period-btn" id="btnTRI" onclick="setPeriodMode('TRI')">TRI</button>
-                <button class="period-btn" id="btnYTD" onclick="setPeriodMode('YTD')">YTD</button>
-                <button class="period-btn active" id="btnMAT" onclick="setPeriodMode('MAT')">MAT</button>
-            </div>
-            <div class="unit-grp" id="unitGrp">
-                <button class="unit-btn active" id="btnUN" onclick="setUnitMode('UN')"
-                    title="Visualizar base de Unidades"># Un.</button>
-                <button class="unit-btn" id="btnRS" onclick="setUnitMode('RS')" title="Visualizar base de R$">$
-                    R$</button>
-            </div>
-            <div class="dataset-status" id="datasetStatus" title="Status das planilhas carregadas">
-                <span class="ds-dot ds-off" id="dsUN">Un.</span>
-                <span class="ds-dot ds-off" id="dsRS">R$</span>
-            </div>
-            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden multiple>
-            <button class="hdr-upload-btn" id="btnUpload" title="Carregar / trocar planilha">
-                📁 Carregar Dados
-            </button>
-            <button class="hdr-clear-btn" id="btnClearData" title="Limpar bases carregadas">
-                🗑 Limpar
-            </button>
-            <button class="hdr-send-btn" id="btnEnviar" title="Exportar para Excel" onclick="exportXLSX()">
-                📤 Exportar
-            </button>
-            <a class="hdr-send-btn" href="seller-projection.html">
-                Ir para Resultado Projetado
-            </a>
-            <!-- Atalho fixo: busca rápida por CNPJ (acessível de qualquer aba) -->
+        <!-- Linha 2: badge contextual + busca rápida CNPJ/Brick -->
+        <div class="hdr-bottom">
+            <div class="hdr-sub"><span id="hdrDistrital"></span> <span class="hdr-sub-sep">|</span> <span
+                    id="hdrPeriodLabel"></span></div>
             <div class="cnpj-quick-wrap" title="Digite o CNPJ e pressione Enter para abrir os dados da farmácia">
                 <span class="cnpj-quick-icon">🔎</span>
                 <input id="cnpjQuickInput" class="cnpj-quick-input" placeholder="Buscar CNPJ ou Brick (ex: 8606)"
@@ -69,15 +82,15 @@
      KPI STRIP  (hidden until data loads)
 ════════════════════════════════════════ -->
     <div class="kpi-strip" id="kpiStrip" style="display:none">
-        <div class="kpi-item" id="kpi-mercado">
+        <div class="kpi-item kpi-hero" id="kpi-mercado">
             <div class="kpi-lbl">Mercado Total</div>
             <div class="kpi-val" id="ks-mercado">—</div>
         </div>
-        <div class="kpi-item" id="kpi-supera">
+        <div class="kpi-item kpi-hero" id="kpi-supera">
             <div class="kpi-lbl">Total Supera</div>
             <div class="kpi-val" id="ks-supera">—</div>
         </div>
-        <div class="kpi-item" id="kpi-share">
+        <div class="kpi-item kpi-hero kpi-hero-last" id="kpi-share">
             <div class="kpi-lbl">Share Geral</div>
             <div class="kpi-val" id="ks-share">—</div>
         </div>

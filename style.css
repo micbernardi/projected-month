@@ -58,11 +58,11 @@
     --red: #dc2626;
     --ylw: #d97706;
 
-    /* alturas das barras sticky (compactas) */
-    --hdr-h: 50px;
-    --kpi-h: 40px;
-    --tab-h: 34px;
-    --fb-h: 40px;
+    /* alturas das barras sticky (densas) — v6.7: estética central de inteligência */
+    --hdr-h: 42px;
+    --kpi-h: 32px;
+    --tab-h: 28px;
+    --fb-h: 32px;
     --r: 5px;
 
     --sticky-tab: calc(var(--hdr-h) + var(--kpi-h));
@@ -90,13 +90,9 @@ body {
 ════════════════════════════════════════ */
 .hdr {
     background: var(--navy);
-    min-height: var(--hdr-h);
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    row-gap: 4px;
-    padding: 4px 20px;
+    flex-direction: column;
+    padding: 3px 14px;
     position: fixed;
     top: 0;
     left: 0;
@@ -104,59 +100,92 @@ body {
     z-index: 400;
     border-bottom: 1px solid #1a2a44;
     box-shadow: 0 2px 6px rgba(15, 23, 42, .15);
-    gap: 16px;
+}
+
+.hdr-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 32px;
+    flex-wrap: wrap;
+    row-gap: 4px;
 }
 
 .hdr-left {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0
 }
 
 .hdr-brand {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     line-height: 1
 }
 
 .hdr-sup {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 800;
     color: #93c5fd;
-    letter-spacing: 1.2px;
+    letter-spacing: 1.1px;
     text-transform: uppercase;
 }
 
 .hdr-sep {
     color: rgba(255, 255, 255, .3);
-    font-size: 14px
+    font-size: 12px
 }
 
 .hdr-title {
-    font-size: 15px;
+    font-size: 13.5px;
     font-weight: 800;
     color: #ffffff;
-    letter-spacing: .5px;
+    letter-spacing: .4px;
     text-transform: uppercase;
 }
 
 .hdr-sub {
-    font-size: 11px;
-    color: #a9c2e8;
-    font-weight: 500;
+    font-size: 10.5px;
+    color: #cfe0fb;
+    font-weight: 600;
     letter-spacing: .2px;
+    padding: 1px 8px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1.5;
+    align-self: center;
+}
+.hdr-sub-sep {
+    color: rgba(255,255,255,.35);
+    margin: 0 4px;
 }
 
 .hdr-right {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 5px;
     flex-wrap: wrap;
     justify-content: flex-end;
     flex: 1 1 auto;
     min-width: 0;
+}
+
+/* v6.7 — Linha 2 do header: badge + busca CNPJ */
+.hdr-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 3px;
+    min-height: 22px;
+    flex-wrap: wrap;
+    row-gap: 3px;
 }
 
 .period-grp,
@@ -173,11 +202,12 @@ body {
     color: #c9d9f0;
     border: none;
     border-right: 1px solid rgba(255, 255, 255, .18);
-    padding: 5px 11px;
-    font-size: 11px;
+    padding: 3px 9px;
+    font-size: 10.5px;
     font-weight: 600;
     cursor: pointer;
     letter-spacing: .3px;
+    line-height: 1.4;
     transition: background .15s, color .15s;
 }
 
@@ -202,11 +232,12 @@ body {
 .hdr-send-btn {
     border: 1px solid rgba(255, 255, 255, .22);
     border-radius: var(--r);
-    padding: 6px 13px;
-    font-size: 11px;
+    padding: 3px 10px;
+    font-size: 10.5px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
+    line-height: 1.5;
     transition: background .15s;
 }
 
@@ -238,10 +269,10 @@ body {
     /* v5.6 — min-height permite que o conteúdo dimensione naturalmente.
        Antes, height: var(--kpi-h) podia colapsar para 1px se a variável
        fosse calculada num momento que o strip ainda não estava pintado. */
-    min-height: 40px;
+    min-height: 32px;
     display: flex;
     align-items: center;
-    padding: 4px 16px;
+    padding: 2px 12px;
     gap: 0;
     overflow-x: auto;
     position: fixed;
@@ -256,32 +287,60 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 0 12px;
+    padding: 0 9px;
     border-right: 1px solid var(--navy4);
     flex-shrink: 0;
 }
 
 .kpi-lbl {
-    font-size: 8.5px;
+    font-size: 8px;
     font-weight: 600;
     color: var(--top-txt3);
     text-transform: uppercase;
-    letter-spacing: .5px;
-    margin-bottom: 1px;
+    letter-spacing: .45px;
+    margin-bottom: 0;
     white-space: nowrap;
+    line-height: 1.1;
 }
 
 .kpi-val {
-    font-size: 14.5px;
+    font-size: 12.5px;
     font-weight: 700;
     color: var(--top-txt);
-    line-height: 1;
+    line-height: 1.05;
     white-space: nowrap;
+}
+
+/* ──────────────────────────────────────────────
+   v6.8 — Destaque sutil para os KPIs principais
+   (Mercado Total, Total Supera, Share Geral)
+   ──────────────────────────────────────────── */
+.kpi-hero {
+    position: relative;
+    background: linear-gradient(180deg, #f8fbff 0%, #eef2f8 100%);
+    padding: 0 12px !important;
+    box-shadow: inset 0 1px 0 rgba(29, 78, 216, .04);
+    border-top: 2px solid #1d4ed8;
+}
+.kpi-hero .kpi-lbl {
+    color: #1d4ed8;
+    font-weight: 700;
+    letter-spacing: .55px;
+}
+.kpi-hero .kpi-val {
+    font-size: 13.5px;
+    color: #0f172a;
+    font-weight: 800;
+    letter-spacing: -.2px;
+}
+.kpi-hero-last {
+    border-right: 1px solid #b9c4d8 !important;
+    box-shadow: inset 0 1px 0 rgba(29, 78, 216, .04), 1px 0 0 rgba(29, 78, 216, .06);
 }
 
 .kpi-sep {
     width: 1px;
-    height: 28px;
+    height: 22px;
     background: var(--navy4);
     margin: 0 8px;
     flex-shrink: 0;
@@ -293,11 +352,12 @@ body {
 
 .kpi-badge {
     display: inline-block;
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 13px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11.5px;
     font-weight: 700;
     text-align: center;
+    line-height: 1.4;
 }
 
 .b-lider {
@@ -402,8 +462,8 @@ body {
     min-height: var(--tab-h);
     display: flex;
     align-items: center;
-    padding: 4px 12px;
-    gap: 3px 6px;
+    padding: 2px 10px;
+    gap: 2px 5px;
     position: fixed;
     top: calc(var(--hdr-h) + var(--kpi-h));
     left: 0;
@@ -422,14 +482,15 @@ body {
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
-    padding: 8px 14px;
-    font-size: 12px;
+    padding: 4px 10px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--top-txt2);
     cursor: pointer;
     white-space: nowrap;
+    line-height: 1.3;
     transition: color .15s, border-color .15s;
-    height: 100%;
+}   height: 100%;
     display: flex;
     align-items: center;
 }
@@ -445,9 +506,9 @@ body {
 
 .tab-rail-sep {
     width: 1px;
-    height: 20px;
+    height: 16px;
     background: var(--navy4);
-    margin: 0 6px;
+    margin: 0 4px;
     flex-shrink: 0
 }
 
@@ -464,8 +525,8 @@ body {
     height: var(--fb-h);
     display: flex;
     align-items: center;
-    padding: 0 14px;
-    gap: 8px;
+    padding: 0 10px;
+    gap: 6px;
     position: fixed;
     top: var(--sticky-fb);
     left: 0;
@@ -481,7 +542,7 @@ body {
 }
 
 .fb-label {
-    font-size: 10px;
+    font-size: 9.5px;
     font-weight: 700;
     color: var(--top-txt3);
     text-transform: uppercase;
@@ -495,10 +556,11 @@ body {
     border: 1px solid var(--navy4);
     color: var(--top-txt);
     border-radius: var(--r);
-    padding: 4px 8px;
-    font-size: 11px;
+    padding: 2px 7px;
+    font-size: 10.5px;
     font-family: inherit;
     cursor: pointer;
+    line-height: 1.5;
     outline: none;
 }
 
@@ -522,7 +584,7 @@ body {
 }
 
 .fb-search {
-    width: 220px
+    width: 200px
 }
 
 .fb-search::placeholder {
@@ -536,11 +598,12 @@ body {
 .fb-btn {
     border: 1px solid var(--navy4);
     border-radius: var(--r);
-    padding: 5px 12px;
-    font-size: 11px;
+    padding: 3px 10px;
+    font-size: 10.5px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
+    line-height: 1.5;
     transition: background .15s;
     background: #fff;
     color: var(--top-txt);
@@ -1691,7 +1754,7 @@ body {
 
 /* ═══ Tabela Detalhe por Brick ═══ */
 .brick-view-wrap {
-    padding: 14px 16px;
+    padding: 8px 10px;
     background: var(--bg);
 }
 
@@ -2329,12 +2392,11 @@ td.vneg strong {
 .cnpj-quick-wrap {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     background: rgba(255, 255, 255, .08);
     border: 1px solid rgba(255, 255, 255, .15);
-    border-radius: 8px;
-    padding: 4px 6px 4px 10px;
-    margin-left: 4px;
+    border-radius: 6px;
+    padding: 1px 4px 1px 8px;
     transition: all .2s ease;
 }
 
@@ -2345,7 +2407,7 @@ td.vneg strong {
 }
 
 .cnpj-quick-icon {
-    font-size: 12px;
+    font-size: 11px;
     opacity: .8;
 }
 
@@ -2355,11 +2417,12 @@ td.vneg strong {
     outline: none;
     color: #fff;
     font-family: 'Inter', system-ui, sans-serif;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     width: 200px;
     max-width: 28vw;
     letter-spacing: .2px;
+    padding: 2px 0;
 }
 
 .cnpj-quick-input::placeholder {
@@ -2371,11 +2434,12 @@ td.vneg strong {
     background: linear-gradient(180deg, #10b981 0%, #059669 100%);
     color: #fff;
     border: none;
-    border-radius: 5px;
-    padding: 4px 10px;
-    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 9px;
+    font-size: 10.5px;
     font-weight: 600;
     cursor: pointer;
+    line-height: 1.5;
     transition: filter .15s ease;
     font-family: 'Inter', system-ui, sans-serif;
     letter-spacing: .3px;
@@ -2394,10 +2458,9 @@ td.vneg strong {
    ════════════════════════════════════════════════════════════════ */
 
 .pdv-view {
-    /* v5.7 — mantém o padding superior alinhado com a barra sticky
-       para que o banner e o card de empty-state não fiquem cobertos. */
-    padding: 12px 18px 24px;
-    padding-top: calc(var(--sticky-tbl) + 12px);
+    /* v6.7 — padding mais compacto, alinhado com barra sticky densa */
+    padding: 8px 10px 18px;
+    padding-top: calc(var(--sticky-tbl) + 8px);
 }
 
 .pdv-toolbar {
@@ -3267,11 +3330,11 @@ td.vneg strong {
 .tab.tab-pdv-special {
     background: #eef9f3;
     border: 1px solid #b9e4cf !important;
-    border-radius: 8px 8px 0 0;
+    border-radius: 6px 6px 0 0;
     color: #047857 !important;
     font-weight: 700 !important;
-    margin-left: 8px;
-    padding: 8px 14px !important;
+    margin-left: 6px;
+    padding: 4px 10px !important;
     position: relative;
     transition: all .15s ease;
 }
@@ -3526,4 +3589,69 @@ td.pdv-growth-neg {
     border-radius: 12px;
     letter-spacing: .3px;
     text-transform: uppercase;
+}
+
+
+/* v6.2 — Botão de limpar histórico e indicador de dados salvos */
+.hdr-history-btn {
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.hdr-history-btn:hover {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(124, 58, 237, 0.3);
+}
+
+.hdr-clear-btn {
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 6px;
+    padding: 6px 13px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+    background: rgba(255, 255, 255, .08);
+    color: #e6eefb;
+}
+
+.hdr-clear-btn:hover {
+    background: rgba(255, 255, 255, .18);
+}
+
+.history-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: #ecfdf5;
+    border: 1px solid #86efac;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #059669;
+}
+
+.history-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #10b981;
+    border-radius: 50%;
+    animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
