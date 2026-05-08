@@ -2179,7 +2179,11 @@ async function parsePDVFile(file, forceUnit) {
     const header = aoa[headerIdx].map(c => String(c || '').toLowerCase().trim());
 
     const ix = (patterns) => header.findIndex(h => patterns.some(p => p.test(h)));
-    const iSet = ix([/^setor$/, /setor/]);
+    // Colunas hierárquicas: Col 1=Regional, Col 2=Distrital, Col 3=Setor
+    // Tenta detectar pelo nome do cabeçalho; fallback para posição (0,1,2)
+    const iReg = ix([/^regional$/]) >= 0 ? ix([/^regional$/]) : 0;
+    const iDst = ix([/^distrital$/]) >= 0 ? ix([/^distrital$/]) : 1;
+    const iSet = ix([/^setor$/, /setor/]) >= 0 ? ix([/^setor$/, /setor/]) : 2;
     const iMrc = ix([/^marca$/, /marca/]);
     const iBrk = ix([/^brick$/, /brick/]);
     const iPdv = ix([/^pdv$/, /pdv/, /cnpj/]);
@@ -2233,6 +2237,8 @@ async function parsePDVFile(file, forceUnit) {
         const localM = local.match(/^(.*?)\s*-\s*(.*?)\s*\/\s*([A-Z]{2})\s*$/);
         if (localM) { bairro = localM[1].trim(); cidade = localM[2].trim(); uf = localM[3].trim(); }
 
+        const regional = String(row[iReg] || '').trim();
+        const distrital = String(row[iDst] || '').trim();
         const setor = String(row[iSet] || '').trim();
         const marca = String(row[iMrc] || '').trim();
         const brick = String(row[iBrk] || '').trim();
@@ -2251,7 +2257,7 @@ async function parsePDVFile(file, forceUnit) {
         // tri_qprev = trimestre imediatamente anterior (TRI p.p.) — guardado para referência futura.
         rows.push({
             cnpj: cnpjRaw, razao, bairro, cidade, uf,
-            setor, marca, brick,
+            regional, distrital, setor, marca, brick,
             mat_cur: matA, mat_prev: matP,
             ytd_cur: ytdA, ytd_prev: ytdP,
             tri_cur: triA, tri_prev: triY, tri_qprev: triP,
@@ -2271,6 +2277,7 @@ function aggregatePDVs(rows) {
                 cnpj: r.cnpj, razao: r.razao, bairro: r.bairro,
                 cidade: r.cidade, uf: r.uf,
                 bricks: new Set(), setores: new Set(), marcas: new Set(),
+                regionais: new Set(), distritais: new Set(),
                 mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0,
                 tri_cur: 0, tri_prev: 0, tri_qprev: 0,
                 products: []
@@ -2280,11 +2287,14 @@ function aggregatePDVs(rows) {
         if (r.brick) p.bricks.add(r.brick);
         if (r.setor) p.setores.add(r.setor);
         if (r.marca) p.marcas.add(r.marca);
+        if (r.regional) p.regionais.add(r.regional);
+        if (r.distrital) p.distritais.add(r.distrital);
         p.mat_cur += r.mat_cur; p.mat_prev += r.mat_prev;
         p.ytd_cur += r.ytd_cur; p.ytd_prev += r.ytd_prev;
         p.tri_cur += r.tri_cur; p.tri_prev += r.tri_prev; p.tri_qprev += (r.tri_qprev || 0);
         p.products.push({
             marca: r.marca, brick: r.brick, setor: r.setor,
+            regional: r.regional, distrital: r.distrital,
             mat_cur: r.mat_cur, mat_prev: r.mat_prev,
             ytd_cur: r.ytd_cur, ytd_prev: r.ytd_prev,
             tri_cur: r.tri_cur, tri_prev: r.tri_prev
@@ -2294,7 +2304,9 @@ function aggregatePDVs(rows) {
         ...p,
         bricks: [...p.bricks].sort(),
         setores: [...p.setores].sort(),
-        marcas: [...p.marcas].sort()
+        marcas: [...p.marcas].sort(),
+        regionais: [...p.regionais].sort(),
+        distritais: [...p.distritais].sort()
     }));
 }
 
@@ -2496,10 +2508,12 @@ function renderPDV() {
             <button class="pdv-clear-btn" id="pdvClearBtn">🗑 Limpar PDVs</button>
         </div>`;
 
-    // Aplica filtros locais + filtros globais (UI.sector / UI.market do header)
+    // Aplica filtros locais + filtros globais (UI.sector / UI.market / UI.distrital / UI.regional do header)
     const f = PDV.filter;
     const gSector = (typeof UI !== 'undefined' && UI.sector && UI.sector !== 'all') ? UI.sector : null;
     const gMarket = (typeof UI !== 'undefined' && UI.market && UI.market !== 'all') ? UI.market : null;
+    const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
+    const gRegional = (typeof UI !== 'undefined' && UI.regional && UI.regional !== 'all') ? UI.regional : null;
     // Helpers para casar nomes (planilha PDV usa "101101 - NOME"; consolidada pode usar só "NOME")
     const matchSector = (sectArr, target) => {
         if (!target) return true;
@@ -2561,9 +2575,11 @@ function renderPDV() {
         if (f.cidade !== 'all' && p.cidade !== f.cidade) return false;
         if (f.setor !== 'all' && !p.setores.includes(f.setor)) return false;
         if (f.marca !== 'all' && !p.marcas.includes(f.marca)) return false;
-        // Filtros globais
+        // Filtros globais (setor/mercado/distrital/regional do header)
         if (gSector && !matchSector(p.setores, gSector)) return false;
         if (gMarket && !matchMarket(p.marcas, gMarket)) return false;
+        if (gDistrital && !matchSector(p.distritais, gDistrital)) return false;
+        if (gRegional && !matchSector(p.regionais, gRegional)) return false;
         if (f.search) {
             const blob = norm([p.cnpj, p.razao, p.cidade, p.bairro, p.bricks.join(' '), p.uf].join(' '));
             if (!blob.includes(norm(f.search))) return false;
@@ -2615,6 +2631,32 @@ function renderPDV() {
     const keyAnt = pd.toLowerCase() + '_prev';
     const keyCur = pd.toLowerCase() + '_cur';
 
+    // Monta a ordem de exibição dos períodos: ativo primeiro, depois os outros
+    const periodOrder = pd === 'MAT' ? ['MAT', 'YTD', 'TRI']
+        : pd === 'YTD' ? ['YTD', 'MAT', 'TRI']
+            : ['TRI', 'MAT', 'YTD'];
+
+    const thDefs = {
+        MAT: [
+            sh('mat_prev', 'MAT Ano Ant.', 'r', 'MAT do mesmo período do ano anterior'),
+            sh('mat_cur', 'MAT', 'r', 'MAT atual (últimos 12 meses)'),
+            sh('mat_gap', 'GAP MAT', 'r', 'Diferença absoluta MAT (atual − anterior)'),
+            sh('mat_g', 'Cresc. MAT', 'r mark', 'Crescimento MAT vs ano anterior'),
+        ],
+        YTD: [
+            sh('ytd_prev', 'YTD Ano Ant.', 'r', 'YTD do mesmo período do ano anterior'),
+            sh('ytd_cur', 'YTD', 'r', 'YTD atual (acumulado do ano)'),
+            sh('ytd_gap', 'GAP YTD', 'r', 'Diferença absoluta YTD (atual − anterior)'),
+            sh('ytd_g', 'Cresc. YTD', 'r mark', 'Crescimento YTD vs ano anterior'),
+        ],
+        TRI: [
+            sh('tri_prev', 'TRI Ano Ant.', 'r', 'TRI do mesmo trimestre do ano anterior'),
+            sh('tri_cur', 'TRI', 'r', 'TRI atual (último trimestre fechado)'),
+            sh('tri_gap', 'GAP TRI', 'r', 'Diferença absoluta TRI (atual − anterior)'),
+            sh('tri_g', 'Cresc. TRI', 'r mark', 'Crescimento TRI vs mesmo trimestre do ano anterior'),
+        ],
+    };
+
     html += `
         <div class="pdv-tbl-wrap">
             <table class="pdv-tbl">
@@ -2623,18 +2665,7 @@ function renderPDV() {
                     ${sh('razao', 'Razão Social', '', 'Nome registrado na Receita Federal')}
                     ${sh('cidade', 'Cidade / Brick', '', 'Cidade e Brick atendido(s)')}
                     ${sh('bricks', '#Bricks', 'r', 'Quantidade de bricks atendidos')}
-                    ${sh('mat_prev', 'MAT Ano Ant.', 'r', 'MAT do mesmo período do ano anterior (base de comparação)')}
-                    ${sh('mat_cur', 'MAT', 'r', 'MAT atual (últimos 12 meses)')}
-                    ${sh('mat_gap', 'GAP MAT', 'r', 'Diferença absoluta MAT (atual − anterior)')}
-                    ${sh('mat_g', 'Cresc. MAT', 'r mark', 'Crescimento MAT vs ano anterior')}
-                    ${sh('ytd_prev', 'YTD Ano Ant.', 'r', 'YTD do mesmo período do ano anterior (base de comparação)')}
-                    ${sh('ytd_cur', 'YTD', 'r', 'YTD atual (acumulado do ano)')}
-                    ${sh('ytd_gap', 'GAP YTD', 'r', 'Diferença absoluta YTD (atual − anterior)')}
-                    ${sh('ytd_g', 'Cresc. YTD', 'r mark', 'Crescimento YTD vs ano anterior')}
-                    ${sh('tri_prev', 'TRI Ano Ant.', 'r', 'TRI do mesmo trimestre do ano anterior (base de comparação)')}
-                    ${sh('tri_cur', 'TRI', 'r', 'TRI atual (último trimestre fechado)')}
-                    ${sh('tri_gap', 'GAP TRI', 'r', 'Diferença absoluta TRI (atual − anterior)')}
-                    ${sh('tri_g', 'Cresc. TRI', 'r mark', 'Crescimento TRI vs mesmo trimestre do ano anterior')}
+                    ${periodOrder.flatMap(p2 => thDefs[p2]).join('')}
                 </tr></thead>
                 <tbody>`;
 
@@ -2659,25 +2690,35 @@ function renderPDV() {
                 return sign + fmtValue(v);
             };
             const brickShort = p.bricks.length === 1 ? p.bricks[0].split(' - ')[0] : (p.bricks.length + ' bricks');
-            // Marca a coluna do período ativo (MAT/YTD/TRI) com classe especial
-            const isMAT = pd === 'MAT', isYTD = pd === 'YTD', isTRI = pd === 'TRI';
+
+            // Células de cada período (ativo recebe classes de destaque)
+            const tdGroups = {
+                MAT: [
+                    `<td class="r ${pd === 'MAT' ? 'period-active' : ''}">${fmtValue(p.mat_prev)}</td>`,
+                    `<td class="r ${pd === 'MAT' ? 'period-active' : ''}">${fmtValue(p.mat_cur)}</td>`,
+                    `<td class="r ${gapC(gapMAT)} ${pd === 'MAT' ? 'period-active period-sub' : ''}">${fmtGap(gapMAT)}</td>`,
+                    `<td class="r mark ${gC(gMAT)} ${pd === 'MAT' ? 'period-active period-sub' : ''}">${fmtG(gMAT)}</td>`,
+                ],
+                YTD: [
+                    `<td class="r ${pd === 'YTD' ? 'period-active' : ''}">${fmtValue(p.ytd_prev)}</td>`,
+                    `<td class="r ${pd === 'YTD' ? 'period-active' : ''}">${fmtValue(p.ytd_cur)}</td>`,
+                    `<td class="r ${gapC(gapYTD)} ${pd === 'YTD' ? 'period-active period-sub' : ''}">${fmtGap(gapYTD)}</td>`,
+                    `<td class="r mark ${gC(gYTD)} ${pd === 'YTD' ? 'period-active period-sub' : ''}">${fmtG(gYTD)}</td>`,
+                ],
+                TRI: [
+                    `<td class="r ${pd === 'TRI' ? 'period-active' : ''}">${fmtValue(p.tri_prev)}</td>`,
+                    `<td class="r ${pd === 'TRI' ? 'period-active' : ''}">${fmtValue(p.tri_cur)}</td>`,
+                    `<td class="r ${gapC(gapTRI)} ${pd === 'TRI' ? 'period-active period-sub' : ''}">${fmtGap(gapTRI)}</td>`,
+                    `<td class="r mark ${gC(gTRI)} ${pd === 'TRI' ? 'period-active period-sub' : ''}">${fmtG(gTRI)}</td>`,
+                ],
+            };
+
             html += `<tr class="pdv-row-data">
                 <td class="pdv-cnpj-cell" data-cnpj="${p.cnpj}" title="Abrir detalhes">${maskCNPJ(p.cnpj)}</td>
                 <td class="pdv-razao-cell">${escapeHTML(p.razao)}</td>
                 <td class="pdv-cidade-cell">${escapeHTML(p.cidade)}${p.uf ? ' / ' + p.uf : ''}<br><span class="pdv-brick-cell">${escapeHTML(brickShort)}</span></td>
                 <td class="r">${p.bricks.length}</td>
-                <td class="r ${isMAT ? 'period-active' : ''}">${fmtValue(p.mat_prev)}</td>
-                <td class="r ${isMAT ? 'period-active' : ''}">${fmtValue(p.mat_cur)}</td>
-                <td class="r ${gapC(gapMAT)} ${isMAT ? 'period-active period-sub' : ''}">${fmtGap(gapMAT)}</td>
-                <td class="r mark ${gC(gMAT)} ${isMAT ? 'period-active period-sub' : ''}">${fmtG(gMAT)}</td>
-                <td class="r ${isYTD ? 'period-active' : ''}">${fmtValue(p.ytd_prev)}</td>
-                <td class="r ${isYTD ? 'period-active' : ''}">${fmtValue(p.ytd_cur)}</td>
-                <td class="r ${gapC(gapYTD)} ${isYTD ? 'period-active period-sub' : ''}">${fmtGap(gapYTD)}</td>
-                <td class="r mark ${gC(gYTD)} ${isYTD ? 'period-active period-sub' : ''}">${fmtG(gYTD)}</td>
-                <td class="r ${isTRI ? 'period-active' : ''}">${fmtValue(p.tri_prev)}</td>
-                <td class="r ${isTRI ? 'period-active' : ''}">${fmtValue(p.tri_cur)}</td>
-                <td class="r ${gapC(gapTRI)} ${isTRI ? 'period-active period-sub' : ''}">${fmtGap(gapTRI)}</td>
-                <td class="r mark ${gC(gTRI)} ${isTRI ? 'period-active period-sub' : ''}">${fmtG(gTRI)}</td>
+                ${periodOrder.flatMap(p2 => tdGroups[p2]).join('')}
             </tr>`;
         });
     }
