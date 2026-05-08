@@ -29,17 +29,44 @@ const DBPersist = (() => {
     let db = null;
     
     const init = async () => {
-        return new Promise((resolve, reject) => {
-            const req = indexedDB.open(DB_NAME, 1);
+        /* v6.11 — Abre com versão 2 (compatível com upgrade prévio que criou
+           outro objectStore). Em onupgradeneeded garantimos que o store
+           primário sempre existe; em VersionError, descartamos e recriamos. */
+        const tryOpen = (version) => new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, version);
             req.onupgradeneeded = e => {
-                const db = e.target.result;
-                if (!db.objectStoreNames.contains(STORE_NAME)) {
-                    db.createObjectStore(STORE_NAME);
+                const _db = e.target.result;
+                if (!_db.objectStoreNames.contains(STORE_NAME)) {
+                    _db.createObjectStore(STORE_NAME);
                 }
             };
             req.onsuccess = () => { db = req.result; resolve(db); };
             req.onerror = () => reject(req.error);
+            req.onblocked = () => reject(new Error('blocked'));
         });
+        try {
+            return await tryOpen(2);
+        } catch (e) {
+            /* Se falhar, tenta sem versao (abre na versão atual existente) */
+            return await new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME);
+                req.onsuccess = () => {
+                    db = req.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        /* Store primário não existe — recria o banco */
+                        db.close();
+                        const delReq = indexedDB.deleteDatabase(DB_NAME);
+                        delReq.onsuccess = async () => {
+                            try { resolve(await tryOpen(1)); } catch (er) { reject(er); }
+                        };
+                        delReq.onerror = () => reject(delReq.error);
+                        return;
+                    }
+                    resolve(db);
+                };
+                req.onerror = () => reject(req.error);
+            });
+        }
     };
     
     const save = async (data) => {
@@ -1666,6 +1693,13 @@ function refreshGlobalMarketFilter(tabName) {
     if (!sel) return;
     const isPdv = tabName === 'pdv';
     if (lbl) lbl.textContent = isPdv ? 'Marca' : 'Mercado';
+    /* v6.11 — Busca unificada na aba PDV: esconde a busca global da
+       filter-bar e a busca CNPJ rápida do header (linha 2). A única caixa
+       de busca ativa passa a ser a interna da pdv-filterbar. */
+    const fbSearchWrap = document.querySelector('.fb-search-wrap');
+    const cnpjQuickWrap = document.querySelector('.cnpj-quick-wrap');
+    if (fbSearchWrap) fbSearchWrap.style.display = isPdv ? 'none' : '';
+    if (cnpjQuickWrap) cnpjQuickWrap.style.display = isPdv ? 'none' : '';
     /* limpa opções exceto a primeira ("Todos…") */
     while (sel.children.length > 1) sel.removeChild(sel.lastChild);
     sel.firstElementChild.textContent = isPdv ? 'Todas as Marcas' : 'Todos os Mercados';
@@ -2266,14 +2300,33 @@ function aggregatePDVs(rows) {
     }));
 }
 
-/* ----- Persist em localStorage ----- */
+/* ----- Persist em localStorage (PDV) -----
+   v6.11 — Conforme decisão do usuário, não persistimos PDVs caso ultrapassem
+   a quota de localStorage (~5MB). Os dados de R$/Un. da análise principal
+   continuam persistindo em IndexedDB (DBPersist) sem limite de tamanho.
+   Quando a quota é excedida, mostramos um aviso amigável ao usuário. */
+let _pdvQuotaWarned = false;
 function savePDVData() {
     try {
-        localStorage.setItem('SUPERA_PDV_DATA_v1', JSON.stringify({
+        const data = JSON.stringify({
             UN: PDV.rowsByValueMode.UN,
             RS: PDV.rowsByValueMode.RS
-        }));
-    } catch (e) { /* quota */ }
+        });
+        localStorage.setItem('SUPERA_PDV_DATA_v1', data);
+        _pdvQuotaWarned = false;
+    } catch (e) {
+        /* Quota exceeded — limpa qualquer entrada parcial e avisa o usuário */
+        try { localStorage.removeItem('SUPERA_PDV_DATA_v1'); } catch (_) { }
+        if (!_pdvQuotaWarned) {
+            _pdvQuotaWarned = true;
+            try {
+                if (typeof toast === 'function') {
+                    toast('Base de PDVs muito grande para histórico local. Você precisará recarregar a planilha PDV ao reabrir.', 'warn', 5000);
+                }
+            } catch (_) { }
+            console.warn('[PDV] Quota localStorage excedida — histórico de PDVs não será mantido entre sessões.');
+        }
+    }
 }
 
 function loadPDVData() {
@@ -2404,21 +2457,8 @@ function renderPDV() {
     const _localMkt = (PDV.filter && PDV.filter.marca && PDV.filter.marca !== 'all') ? PDV.filter.marca : null;
     const _activeBrandHdr = _localMkt || _gMkt;
 
-    let html = `
-        <div class="pdv-toolbar">
-            <h3>🏥 PDVs por Brick <span class="pdv-period-badge">${periodLblHeader}</span>${_activeBrandHdr ? `<span class="pdv-brand-badge" title="A tabela exibe apenas as vendas da marca selecionada">Marca: ${escapeHTML(_activeBrandHdr)}</span>` : ''}</h3>
-            <div class="pdv-tb-info">
-                Visualizando <b>${totalPdvs}</b> farmácia(s) em <b>${mode === 'RS' ? 'R$' : 'Unidades'}</b>
-                ${totalUN ? ' · Un.: <b>' + totalUN + '</b>' : ''}${totalRS ? ' · R$: <b>' + totalRS + '</b>' : ''}
-                · Período destacado na tabela: <b>${periodLblHeader}</b>
-                ${_activeBrandHdr ? `<br><span style="color:#0a4ea3;font-weight:600">⚠ Valores exibidos são apenas da marca <b>${escapeHTML(_activeBrandHdr)}</b> (não o total do PDV)</span>` : ''}
-            </div>
-            <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
-            <button class="pdv-upload-btn" id="pdvUploadBtn">📁 Carregar/Trocar planilha</button>
-            <button class="pdv-clear-btn" id="pdvClearBtn">🗑 Limpar PDVs</button>
-        </div>`;
-
-    // Coleta opções de filtro
+    // v6.11 — Coleta opções de filtro ANTES de montar o HTML
+    //         (necessário porque a filterbar agora vem antes do banner)
     const bricksSet = new Set(), citySet = new Set(), secSet = new Set(), marcaSet = new Set();
     pdvs.forEach(p => {
         p.bricks.forEach(b => bricksSet.add(b));
@@ -2431,7 +2471,8 @@ function renderPDV() {
         return `<option value="all">${all}</option>` + arr.map(v => `<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`).join('');
     };
 
-    html += `
+    // v6.11 — Filterbar PRIMEIRO (com a única busca unificada)
+    let html = `
         <div class="pdv-filterbar">
             <label>Brick</label>
             <select id="pdvFilterBrick">${optList(bricksSet, 'Todos os Bricks')}</select>
@@ -2439,9 +2480,23 @@ function renderPDV() {
             <select id="pdvFilterCidade">${optList(citySet, 'Todas as Cidades')}</select>
             <label>Setor</label>
             <select id="pdvFilterSetor">${optList(secSet, 'Todos os Setores')}</select>
-            <input type="text" id="pdvFilterSearch" placeholder="🔍 Buscar CNPJ, razão social, cidade, bairro..." value="${escapeHTML(PDV.filter.search)}">
-            <span class="pdv-fb-spacer"></span>
+            <input type="text" id="pdvFilterSearch" placeholder="🔍 Buscar CNPJ, razão social, cidade, bairro, marca..." value="${escapeHTML(PDV.filter.search)}">
             <span class="pdv-fb-count" id="pdvCount"></span>
+        </div>`;
+
+    // v6.11 — Banner DEPOIS da filterbar
+    html += `
+        <div class="pdv-toolbar">
+            <h3>🏥 PDVs por Brick <span class="pdv-period-badge">${periodLblHeader}</span>${_activeBrandHdr ? `<span class="pdv-brand-badge" title="A tabela exibe apenas as vendas da marca selecionada">Marca: ${escapeHTML(_activeBrandHdr)}</span>` : ''}</h3>
+            <div class="pdv-tb-info">
+                Visualizando <b>${totalPdvs}</b> farmácia(s) em <b>${mode === 'RS' ? 'R$' : 'Unidades'}</b>
+                ${totalUN ? ' · Un.: <b>' + totalUN + '</b>' : ''}${totalRS ? ' · R$: <b>' + totalRS + '</b>' : ''}
+                · Período destacado na tabela: <b>${periodLblHeader}</b>
+                ${_activeBrandHdr ? `<br><span style="color:#0a4ea3;font-weight:600">⚠ Valores exibidos são apenas da marca <b>${escapeHTML(_activeBrandHdr)}</b> (não o total do PDV)</span>` : ''}
+            </div>
+            <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
+            <button class="pdv-upload-btn" id="pdvUploadBtn">📁 Carregar/Trocar planilha</button>
+            <button class="pdv-clear-btn" id="pdvClearBtn">🗑 Limpar PDVs</button>
         </div>`;
 
     // Aplica filtros locais + filtros globais (UI.sector / UI.market do header)
@@ -2525,13 +2580,15 @@ function renderPDV() {
             .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
     }
 
-    // Ordenação (suporta crescimento mat_g/ytd_g/tri_g calculado on the fly)
+    // Ordenação (suporta crescimento mat_g/ytd_g/tri_g e GAP mat_gap/ytd_gap/tri_gap calculados on the fly)
     const dir = PDV.sortDir === 'asc' ? 1 : -1;
     const k = PDV.sortKey;
     const calcG = (p, prefix) => {
         const cur = p[prefix + '_cur'] || 0, prev = p[prefix + '_prev'] || 0;
         return prev > 0 ? (cur - prev) / prev : -Infinity;
     };
+    // v6.11 — GAP absoluto = atual − anterior
+    const calcGap = (p, prefix) => (p[prefix + '_cur'] || 0) - (p[prefix + '_prev'] || 0);
     filtered.sort((a, b) => {
         let av, bv;
         if (k === 'razao' || k === 'cidade' || k === 'cnpj') {
@@ -2541,6 +2598,9 @@ function renderPDV() {
         else if (k === 'mat_g') { av = calcG(a, 'mat'); bv = calcG(b, 'mat'); }
         else if (k === 'ytd_g') { av = calcG(a, 'ytd'); bv = calcG(b, 'ytd'); }
         else if (k === 'tri_g') { av = calcG(a, 'tri'); bv = calcG(b, 'tri'); }
+        else if (k === 'mat_gap') { av = calcGap(a, 'mat'); bv = calcGap(b, 'mat'); }
+        else if (k === 'ytd_gap') { av = calcGap(a, 'ytd'); bv = calcGap(b, 'ytd'); }
+        else if (k === 'tri_gap') { av = calcGap(a, 'tri'); bv = calcGap(b, 'tri'); }
         else { av = a[k]; bv = b[k]; }
         return ((av || 0) - (bv || 0)) * dir;
     });
@@ -2568,17 +2628,20 @@ function renderPDV() {
                     ${sh('bricks', '#Bricks', 'r', 'Quantidade de bricks atendidos')}
                     ${sh('mat_prev', 'MAT Ano Ant.', 'r', 'MAT do mesmo período do ano anterior (base de comparação)')}
                     ${sh('mat_cur', 'MAT', 'r', 'MAT atual (últimos 12 meses)')}
+                    ${sh('mat_gap', 'GAP MAT', 'r', 'Diferença absoluta MAT (atual − anterior)')}
                     ${sh('mat_g', 'Cresc. MAT', 'r mark', 'Crescimento MAT vs ano anterior')}
                     ${sh('ytd_prev', 'YTD Ano Ant.', 'r', 'YTD do mesmo período do ano anterior (base de comparação)')}
                     ${sh('ytd_cur', 'YTD', 'r', 'YTD atual (acumulado do ano)')}
+                    ${sh('ytd_gap', 'GAP YTD', 'r', 'Diferença absoluta YTD (atual − anterior)')}
                     ${sh('ytd_g', 'Cresc. YTD', 'r mark', 'Crescimento YTD vs ano anterior')}
                     ${sh('tri_prev', 'TRI Ano Ant.', 'r', 'TRI do mesmo trimestre do ano anterior (base de comparação)')}
                     ${sh('tri_cur', 'TRI', 'r', 'TRI atual (último trimestre fechado)')}
+                    ${sh('tri_gap', 'GAP TRI', 'r', 'Diferença absoluta TRI (atual − anterior)')}
                     ${sh('tri_g', 'Cresc. TRI', 'r mark', 'Crescimento TRI vs mesmo trimestre do ano anterior')}
                 </tr></thead>
                 <tbody>`;
 
-    const colCount = 13;
+    const colCount = 16;
     if (!filtered.length) {
         html += `<tr><td colspan="${colCount}" class="pdv-empty">Nenhuma farmácia encontrada com os filtros atuais.</td></tr>`;
     } else {
@@ -2586,8 +2649,18 @@ function renderPDV() {
             const gMAT = p.mat_prev > 0 ? (p.mat_cur - p.mat_prev) / p.mat_prev : null;
             const gYTD = p.ytd_prev > 0 ? (p.ytd_cur - p.ytd_prev) / p.ytd_prev : null;
             const gTRI = p.tri_prev > 0 ? (p.tri_cur - p.tri_prev) / p.tri_prev : null;
+            // v6.11 — GAP absoluto = atual − anterior
+            const gapMAT = (p.mat_cur || 0) - (p.mat_prev || 0);
+            const gapYTD = (p.ytd_cur || 0) - (p.ytd_prev || 0);
+            const gapTRI = (p.tri_cur || 0) - (p.tri_prev || 0);
             const gC = (g) => g == null ? '' : (g >= 0 ? 'pdv-growth-pos' : 'pdv-growth-neg');
+            const gapC = (v) => v > 0 ? 'pdv-growth-pos' : (v < 0 ? 'pdv-growth-neg' : '');
             const fmtG = (g) => g == null ? '—' : fmtPct(g);
+            const fmtGap = (v) => {
+                if (!v) return '—';
+                const sign = v > 0 ? '+' : '';
+                return sign + fmtValue(v);
+            };
             const brickShort = p.bricks.length === 1 ? p.bricks[0].split(' - ')[0] : (p.bricks.length + ' bricks');
             // Marca a coluna do período ativo (MAT/YTD/TRI) com classe especial
             const isMAT = pd === 'MAT', isYTD = pd === 'YTD', isTRI = pd === 'TRI';
@@ -2598,12 +2671,15 @@ function renderPDV() {
                 <td class="r">${p.bricks.length}</td>
                 <td class="r ${isMAT ? 'period-active' : ''}">${fmtValue(p.mat_prev)}</td>
                 <td class="r ${isMAT ? 'period-active' : ''}">${fmtValue(p.mat_cur)}</td>
+                <td class="r ${gapC(gapMAT)} ${isMAT ? 'period-active' : ''}">${fmtGap(gapMAT)}</td>
                 <td class="r mark ${gC(gMAT)} ${isMAT ? 'period-active' : ''}">${fmtG(gMAT)}</td>
                 <td class="r ${isYTD ? 'period-active' : ''}">${fmtValue(p.ytd_prev)}</td>
                 <td class="r ${isYTD ? 'period-active' : ''}">${fmtValue(p.ytd_cur)}</td>
+                <td class="r ${gapC(gapYTD)} ${isYTD ? 'period-active' : ''}">${fmtGap(gapYTD)}</td>
                 <td class="r mark ${gC(gYTD)} ${isYTD ? 'period-active' : ''}">${fmtG(gYTD)}</td>
                 <td class="r ${isTRI ? 'period-active' : ''}">${fmtValue(p.tri_prev)}</td>
                 <td class="r ${isTRI ? 'period-active' : ''}">${fmtValue(p.tri_cur)}</td>
+                <td class="r ${gapC(gapTRI)} ${isTRI ? 'period-active' : ''}">${fmtGap(gapTRI)}</td>
                 <td class="r mark ${gC(gTRI)} ${isTRI ? 'period-active' : ''}">${fmtG(gTRI)}</td>
             </tr>`;
         });
@@ -2620,7 +2696,27 @@ function renderPDV() {
     setSel('pdvFilterMarca', 'marca');
     const sEl = $('pdvFilterSearch');
     if (sEl) {
-        let t; sEl.oninput = () => { clearTimeout(t); t = setTimeout(() => { PDV.filter.search = sEl.value; renderPDV(); }, 200); };
+        /* v6.11 — Corrige bug de digitação: ao re-renderizar, o input é destruído
+           e o usuário perde o foco. Solução: salvar selectionStart/End antes do
+           render e restaurá-los logo após, mantendo o cursor onde estava. */
+        let t;
+        sEl.oninput = () => {
+            clearTimeout(t);
+            t = setTimeout(() => {
+                const focusedId = (document.activeElement && document.activeElement.id) || null;
+                const selStart = sEl.selectionStart;
+                const selEnd = sEl.selectionEnd;
+                PDV.filter.search = sEl.value;
+                renderPDV();
+                if (focusedId === 'pdvFilterSearch') {
+                    const newEl = document.getElementById('pdvFilterSearch');
+                    if (newEl) {
+                        newEl.focus();
+                        try { newEl.setSelectionRange(selStart, selEnd); } catch (e) { /* noop */ }
+                    }
+                }
+            }, 200);
+        };
     }
     const cnt = $('pdvCount');
     if (cnt) cnt.innerHTML = `<b>${filtered.length}</b> de ${pdvs.length}`;
