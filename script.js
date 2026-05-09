@@ -1,4 +1,4 @@
-﻿/* ════════════════════════════════════════
+/* ════════════════════════════════════════
    SUPERA RX — ANÁLISE ESTRATÉGICA
    script.js v3 — share real Supera vs Concorrentes + header fixo ordenável
    ════════════════════════════════════════ */
@@ -2179,11 +2179,12 @@ async function parsePDVFile(file, forceUnit) {
     const header = aoa[headerIdx].map(c => String(c || '').toLowerCase().trim());
 
     const ix = (patterns) => header.findIndex(h => patterns.some(p => p.test(h)));
-    // Colunas hierárquicas: Col 1=Regional, Col 2=Distrital, Col 3=Setor
-    // Tenta detectar pelo nome do cabeçalho; fallback para posição (0,1,2)
-    const iReg = ix([/^regional$/]) >= 0 ? ix([/^regional$/]) : 0;
-    const iDst = ix([/^distrital$/]) >= 0 ? ix([/^distrital$/]) : 1;
-    const iSet = ix([/^setor$/, /setor/]) >= 0 ? ix([/^setor$/, /setor/]) : 2;
+    // Colunas hierárquicas: detecção EXCLUSIVAMENTE por nome.
+    // Se a planilha não tem colunas "Regional"/"Distrital" explícitas, derivamos do código do Setor.
+    // Setor típico: "101101 - NOME" → Distrital = "101100" (4 primeiros + "00"), Regional = "101000"
+    const iReg = ix([/^regional$/]);   // -1 se não existir
+    const iDst = ix([/^distrital$/]);  // -1 se não existir
+    const iSet = ix([/^setor$/, /setor/]);
     const iMrc = ix([/^marca$/, /marca/]);
     const iBrk = ix([/^brick$/, /brick/]);
     const iPdv = ix([/^pdv$/, /pdv/, /cnpj/]);
@@ -2237,9 +2238,20 @@ async function parsePDVFile(file, forceUnit) {
         const localM = local.match(/^(.*?)\s*-\s*(.*?)\s*\/\s*([A-Z]{2})\s*$/);
         if (localM) { bairro = localM[1].trim(); cidade = localM[2].trim(); uf = localM[3].trim(); }
 
-        const regional = String(row[iReg] || '').trim();
-        const distrital = String(row[iDst] || '').trim();
-        const setor = String(row[iSet] || '').trim();
+        const setor = iSet >= 0 ? String(row[iSet] || '').trim() : '';
+        // Deriva código numérico do setor (ex: "101101 - NOME" → "101101")
+        const setorCodeMatch = setor.match(/(\d{4,6})/);
+        const setorCode = setorCodeMatch ? setorCodeMatch[1] : '';
+        // Distrital: usa coluna se existir, senão deriva (4 primeiros dígitos + "00")
+        let distrital = iDst >= 0 ? String(row[iDst] || '').trim() : '';
+        if (!distrital && setorCode.length >= 4) {
+            distrital = setorCode.slice(0, 4) + '00';
+        }
+        // Regional: usa coluna se existir, senão deriva (3 primeiros dígitos + "000")
+        let regional = iReg >= 0 ? String(row[iReg] || '').trim() : '';
+        if (!regional && setorCode.length >= 3) {
+            regional = setorCode.slice(0, 3) + '000';
+        }
         const marca = String(row[iMrc] || '').trim();
         const brick = String(row[iBrk] || '').trim();
 
@@ -2458,7 +2470,6 @@ function renderPDV() {
     }
 
     // Toolbar + filtros
-    const totalPdvs = pdvs.length;
     const totalUN = (PDV.pdvsByValueMode.UN || []).length;
     const totalRS = (PDV.pdvsByValueMode.RS || []).length;
     const periodLblHeader = (typeof UI !== 'undefined' && UI.periodMode) ? UI.periodMode : 'MAT';
@@ -2467,10 +2478,57 @@ function renderPDV() {
     const _localMkt = (PDV.filter && PDV.filter.marca && PDV.filter.marca !== 'all') ? PDV.filter.marca : null;
     const _activeBrandHdr = _localMkt || _gMkt;
 
-    // v6.11 — Coleta opções de filtro ANTES de montar o HTML
-    //         (necessário porque a filterbar agora vem antes do banner)
+    // ── Filtros globais do header (distrital / setor / regional) ──────────────
+    // Aplicados PRIMEIRO sobre o universo completo de PDVs do modo atual.
+    // Isso garante que os dropdowns e o contador reflitam apenas o recorte ativo.
+    const f = PDV.filter;
+    const gSector = (typeof UI !== 'undefined' && UI.sector && UI.sector !== 'all') ? UI.sector : null;
+    const gMarket = (typeof UI !== 'undefined' && UI.market && UI.market !== 'all') ? UI.market : null;
+    const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
+    const gRegional = (typeof UI !== 'undefined' && UI.regional && UI.regional !== 'all') ? UI.regional : null;
+    // Helpers para casar nomes (planilha PDV usa código numérico; consolidada pode usar "101100 - NOME")
+    // Extrai o código numérico de uma string e o normaliza para 6 dígitos
+    const extractCode = (s) => {
+        const m = String(s || '').match(/(\d{4,6})/);
+        return m ? m[1].padEnd(6, '0').slice(0, 6) : '';
+    };
+    const matchSector = (sectArr, target) => {
+        if (!target) return true;
+        const t = String(target).toUpperCase().trim();
+        const tCode = extractCode(t);
+        return sectArr.some(s => {
+            const u = String(s).toUpperCase().trim();
+            const uCode = extractCode(u);
+            // Compara primeiro pelo código numérico (mais confiável)
+            if (tCode && uCode && tCode === uCode) return true;
+            // Fallback: compara pela string completa
+            return u === t || u.includes(t) || t.includes(u);
+        });
+    };
+    const matchMarket = (marcArr, target) => {
+        if (!target) return true;
+        const t = String(target).toUpperCase().trim();
+        return marcArr.some(m => {
+            const u = String(m).toUpperCase().trim();
+            const uBase = u.replace(/\s*\(.*?\)\s*$/, '').trim();
+            const tBase = t.replace(/\s*\(.*?\)\s*$/, '').trim();
+            return u === t || uBase === tBase;
+        });
+    };
+
+    // Pré-filtragem pelos filtros do header (distrital/setor/regional/mercado)
+    const pdvsGlobal = pdvs.filter(p => {
+        if (gDistrital && !matchSector(p.distritais, gDistrital)) return false;
+        if (gRegional  && !matchSector(p.regionais,  gRegional))  return false;
+        if (gSector    && !matchSector(p.setores,    gSector))    return false;
+        if (gMarket    && !matchMarket(p.marcas,     gMarket))    return false;
+        return true;
+    });
+    const totalPdvs = pdvsGlobal.length;
+
+    // Coleta opções de filtro local a partir do universo já recortado pelos filtros globais
     const bricksSet = new Set(), citySet = new Set(), secSet = new Set(), marcaSet = new Set();
-    pdvs.forEach(p => {
+    pdvsGlobal.forEach(p => {
         p.bricks.forEach(b => bricksSet.add(b));
         if (p.cidade) citySet.add(p.cidade);
         p.setores.forEach(s => secSet.add(s));
@@ -2494,13 +2552,19 @@ function renderPDV() {
             <span class="pdv-fb-count" id="pdvCount"></span>
         </div>`;
 
-    // v6.11 — Banner DEPOIS da filterbar
+    // Banner DEPOIS da filterbar — inclui badges de contexto para filtros do header ativos
+    const _ctxBadges = [
+        gDistrital ? `<span class="pdv-ctx-badge pdv-ctx-dist" title="Filtro de Distrital ativo">📍 ${escapeHTML(gDistrital)}</span>` : '',
+        gSector    ? `<span class="pdv-ctx-badge pdv-ctx-setor" title="Filtro de Setor ativo">🏢 ${escapeHTML(gSector)}</span>` : '',
+        gRegional  ? `<span class="pdv-ctx-badge pdv-ctx-reg" title="Filtro de Regional ativo">🌐 ${escapeHTML(gRegional)}</span>` : '',
+    ].filter(Boolean).join('');
     html += `
         <div class="pdv-toolbar">
-            <h3>🏥 PDVs por Brick <span class="pdv-period-badge">${periodLblHeader}</span>${_activeBrandHdr ? `<span class="pdv-brand-badge" title="A tabela exibe apenas as vendas da marca selecionada">Marca: ${escapeHTML(_activeBrandHdr)}</span>` : ''}</h3>
+            <h3>🏥 PDVs por Brick <span class="pdv-period-badge">${periodLblHeader}</span>${_ctxBadges}${_activeBrandHdr ? `<span class="pdv-brand-badge" title="A tabela exibe apenas as vendas da marca selecionada">Marca: ${escapeHTML(_activeBrandHdr)}</span>` : ''}</h3>
             <div class="pdv-tb-info">
                 Visualizando <b>${totalPdvs}</b> farmácia(s) em <b>${mode === 'RS' ? 'R$' : 'Unidades'}</b>
                 · Período: <b>${periodLblHeader}</b>
+                ${(gDistrital || gSector || gRegional) ? `<br><span style="color:#1d4ed8;font-weight:600">⚑ Dados filtrados pelo recorte do header</span>` : ''}
                 ${_activeBrandHdr ? `<br><span style="color:#0a4ea3;font-weight:600">⚠ Valores exibidos são apenas da marca <b>${escapeHTML(_activeBrandHdr)}</b> (não o total do PDV)</span>` : ''}
             </div>
             <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
@@ -2508,32 +2572,8 @@ function renderPDV() {
             <button class="pdv-clear-btn" id="pdvClearBtn">🗑 Limpar PDVs</button>
         </div>`;
 
-    // Aplica filtros locais + filtros globais (UI.sector / UI.market / UI.distrital / UI.regional do header)
-    const f = PDV.filter;
-    const gSector = (typeof UI !== 'undefined' && UI.sector && UI.sector !== 'all') ? UI.sector : null;
-    const gMarket = (typeof UI !== 'undefined' && UI.market && UI.market !== 'all') ? UI.market : null;
-    const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
-    const gRegional = (typeof UI !== 'undefined' && UI.regional && UI.regional !== 'all') ? UI.regional : null;
-    // Helpers para casar nomes (planilha PDV usa "101101 - NOME"; consolidada pode usar só "NOME")
-    const matchSector = (sectArr, target) => {
-        if (!target) return true;
-        const t = String(target).toUpperCase().trim();
-        return sectArr.some(s => {
-            const u = String(s).toUpperCase().trim();
-            return u === t || u.includes(t) || t.includes(u);
-        });
-    };
-    const matchMarket = (marcArr, target) => {
-        if (!target) return true;
-        const t = String(target).toUpperCase().trim();
-        return marcArr.some(m => {
-            const u = String(m).toUpperCase().trim();
-            // marcas PDV podem vir como "ALEVO (SP0)"; consolidada pode ser "ALEVO"
-            const uBase = u.replace(/\s*\(.*?\)\s*$/, '').trim();
-            const tBase = t.replace(/\s*\(.*?\)\s*$/, '').trim();
-            return u === t || uBase === tBase;
-        });
-    };
+    // ── Filtros locais da aba PDV (brick / cidade / setor / marca / busca) ──────
+    // Aplicados sobre pdvsGlobal (já pré-filtrado pelos filtros do header).
     /* v6.0 — quando o usuário escolhe uma marca específica (filtro local OU global),
        a tabela passa a mostrar os valores DAQUELA marca em cada PDV (e não os totais).
        activeBrand recebe a marca a ser destacada (preserva sufixo "(SP0)"). */
@@ -2570,16 +2610,11 @@ function renderPDV() {
         acc.bricks = [...acc._brandBricks].sort();
         return acc;
     };
-    let filtered = pdvs.filter(p => {
+    let filtered = pdvsGlobal.filter(p => {
         if (f.brick !== 'all' && !p.bricks.includes(f.brick)) return false;
         if (f.cidade !== 'all' && p.cidade !== f.cidade) return false;
         if (f.setor !== 'all' && !p.setores.includes(f.setor)) return false;
         if (f.marca !== 'all' && !p.marcas.includes(f.marca)) return false;
-        // Filtros globais (setor/mercado/distrital/regional do header)
-        if (gSector && !matchSector(p.setores, gSector)) return false;
-        if (gMarket && !matchMarket(p.marcas, gMarket)) return false;
-        if (gDistrital && !matchSector(p.distritais, gDistrital)) return false;
-        if (gRegional && !matchSector(p.regionais, gRegional)) return false;
         if (f.search) {
             const blob = norm([p.cnpj, p.razao, p.cidade, p.bairro, p.bricks.join(' '), p.uf].join(' '));
             if (!blob.includes(norm(f.search))) return false;

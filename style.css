@@ -3607,6 +3607,21 @@ td.pdv-growth-neg {
     text-transform: uppercase;
 }
 
+/* Badges de contexto — indicam filtro de Distrital / Setor / Regional ativo na aba PDV */
+.pdv-ctx-badge {
+    display: inline-block;
+    margin-left: 7px;
+    padding: 2px 9px;
+    font-size: 10.5px;
+    font-weight: 700;
+    border-radius: 10px;
+    letter-spacing: .3px;
+    vertical-align: middle;
+}
+.pdv-ctx-dist { background: linear-gradient(135deg, #1d4ed8, #3b82f6); color: #fff; }
+.pdv-ctx-setor { background: linear-gradient(135deg, #059669, #10b981); color: #fff; }
+.pdv-ctx-reg { background: linear-gradient(135deg, #7c3aed, #a78bfa); color: #fff; }
+
 
 /* v6.2 — Botão de limpar histórico e indicador de dados salvos */
 .hdr-history-btn {
