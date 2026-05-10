@@ -3005,48 +3005,55 @@ td.vneg strong {
     font-weight: 700;
 }
 
+.pdv-prod-tbl thead th:hover {
+    background: #e2e8f0;
+}
+
 /* KPIs do PDV no topo do modal */
 .pdv-kpis {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 14px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-bottom: 10px;
 }
 
 @media (max-width: 700px) {
-    .pdv-kpis {
-        grid-template-columns: repeat(2, 1fr);
-    }
+    .pdv-kpis { flex-wrap: wrap; }
+    .pdv-kpis .pdv-kpi { flex: 1 1 calc(50% - 6px); }
 }
 
 .pdv-kpi {
     background: linear-gradient(180deg, #1e3a5f 0%, #16304f 100%);
     color: #fff;
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 6px;
+    padding: 5px 10px;
     text-align: center;
+    flex: 1;
+    min-width: 0;
 }
 
 .pdv-kpi-lbl {
-    font-size: 9.5px;
+    font-size: 8.5px;
     text-transform: uppercase;
     letter-spacing: .5px;
-    color: rgba(255, 255, 255, .75);
+    color: rgba(255, 255, 255, .7);
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
+    white-space: nowrap;
 }
 
 .pdv-kpi-val {
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 700;
     color: #fff;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 .pdv-kpi-sub {
-    font-size: 10px;
+    font-size: 9px;
     color: #6ee7b7;
-    margin-top: 2px;
+    margin-top: 1px;
     font-weight: 600;
 }
 

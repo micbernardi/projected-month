@@ -3126,20 +3126,19 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
             ? `Score ${localPdv.scoreClasse}/100 · Volume percentil ${localPdv.percVolume}% no setor · Potencial percentil ${localPdv.percPotencial}%${potLabel}${setorLabel}`
             : 'Classificação não disponível (carregue a planilha DDD para habilitar o potencial de mercado)';
         kpisHTML = `
-            <div class="pdv-kpis">
-                <div class="pdv-kpi pdv-kpi-classe">
+            <div class="pdv-kpis pdv-kpis-tight">
+                <div class="pdv-kpi pdv-kpi-classe" style="min-width:110px">
                     <div class="pdv-kpi-lbl">Classificação</div>
                     <div class="pdv-kpi-val">
-                        <span class="pdv-classe-badge ${classeCls[localPdv.classe] || ''}" title="${classeTooltip}" style="font-size:18px;padding:4px 14px;">
+                        <span class="pdv-classe-badge ${classeCls[localPdv.classe] || ''}" title="${classeTooltip}" style="font-size:15px;padding:3px 12px;">
                             ${localPdv.classe || '—'}
                         </span>
                     </div>
                     <div class="pdv-kpi-sub" title="${classeTooltip}">${localPdv.classe ? classeLabels[localPdv.classe] : '—'}</div>
                 </div>
-                <div class="pdv-kpi"><div class="pdv-kpi-lbl">MAT (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(localPdv.mat_cur)}</div>${sub(gMAT)}</div>
-                <div class="pdv-kpi"><div class="pdv-kpi-lbl">YTD (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(localPdv.ytd_cur)}</div>${sub(gYTD)}</div>
-                <div class="pdv-kpi"><div class="pdv-kpi-lbl">TRI (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(localPdv.tri_cur)}</div>${sub(gTRI)}</div>
-                <div class="pdv-kpi"><div class="pdv-kpi-lbl">Bricks</div><div class="pdv-kpi-val">${localPdv.bricks.length}</div><div class="pdv-kpi-sub">${localPdv.marcas.length} marca(s)</div></div>
+                <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">MAT (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(localPdv.mat_cur)}</div>${sub(gMAT)}</div>
+                <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">YTD (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(localPdv.ytd_cur)}</div>${sub(gYTD)}</div>
+                <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">TRI (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(localPdv.tri_cur)}</div>${sub(gTRI)}</div>
             </div>`;
     } else {
         kpisHTML = `<div style="background:#fef3c7;color:#92400e;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:12px;font-weight:600;">⚠ Esta farmácia não consta na sua planilha IQVIA carregada (sem dados de venda).</div>`;
@@ -3208,18 +3207,61 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
             cur.tri_cur += p.tri_cur; cur.tri_prev += p.tri_prev || 0;
             prodMap.set(k, cur);
         });
-        const prodList = [...prodMap.values()].sort((a, b) => b[curK] - a[curK]);
 
-        let prodTbl = `<table class="pdv-prod-tbl"><thead><tr><th>Marca</th><th>Brick</th><th class="r">${pdLbl} Ant.</th><th class="r">${pdLbl}</th><th class="r">Cresc.</th></tr></thead><tbody>`;
-        prodList.forEach(p => {
-            const prev = p[prevK];
-            const cur = p[curK];
-            const g = prev > 0 ? (cur - prev) / prev : null;
-            const gCls = g == null ? '' : (g >= 0 ? 'pdv-growth-pos' : 'pdv-growth-neg');
-            const sup = isSupera(p.marca);
-            prodTbl += `<tr class="${sup ? 'is-supera' : ''}"><td><strong>${escapeHTML(p.marca)}</strong></td><td><small style="color:#6b7a99;">${escapeHTML(p.brick.split(' - ')[0])}</small></td><td class="r">${fmtValue(prev)}</td><td class="r">${fmtValue(cur)}</td><td class="r ${gCls}">${g == null ? '—' : fmtPct(g)}</td></tr>`;
-        });
-        prodTbl += '</tbody></table>';
+        // Helper para montar a tabela de produtos com ordenação
+        const buildProdTbl = (list, sortKey, sortDir) => {
+            // Enriquece cada item com gap e crescimento calculados
+            const enriched = list.map(p => {
+                const prev = p[prevK] || 0, cur = p[curK] || 0;
+                return { ...p, _prev: prev, _cur: cur, _gap: cur - prev, _g: prev > 0 ? (cur - prev) / prev : null };
+            });
+            // Ordena
+            enriched.sort((a, b) => {
+                let av, bv;
+                if (sortKey === 'marca') return String(a.marca).localeCompare(String(b.marca)) * (sortDir === 'asc' ? 1 : -1);
+                if (sortKey === 'brick') return String(a.brick).localeCompare(String(b.brick)) * (sortDir === 'asc' ? 1 : -1);
+                if (sortKey === 'prev') { av = a._prev; bv = b._prev; }
+                else if (sortKey === 'cur') { av = a._cur; bv = b._cur; }
+                else if (sortKey === 'gap') { av = a._gap; bv = b._gap; }
+                else if (sortKey === 'g') { av = a._g == null ? -Infinity : a._g; bv = b._g == null ? -Infinity : b._g; }
+                else { av = a._cur; bv = b._cur; }
+                return (av - bv) * (sortDir === 'asc' ? 1 : -1);
+            });
+            const arr = (key) => {
+                if (sortKey !== key) return '<span style="opacity:.45;margin-left:3px;font-size:9px">↕</span>';
+                return `<span style="margin-left:3px;font-size:9px;color:#6ee7b7">${sortDir === 'desc' ? '▼' : '▲'}</span>`;
+            };
+            const thStyle = 'cursor:pointer;user-select:none;white-space:nowrap;';
+            let tbl = `<table class="pdv-prod-tbl" id="pdvProdTbl">
+                <thead><tr>
+                    <th style="${thStyle}" data-sort="marca">Marca${arr('marca')}</th>
+                    <th class="r" style="${thStyle}" data-sort="prev">${pdLbl} Ant.${arr('prev')}</th>
+                    <th class="r" style="${thStyle}" data-sort="cur">${pdLbl}${arr('cur')}</th>
+                    <th class="r" style="${thStyle}" data-sort="gap">GAP${arr('gap')}</th>
+                    <th class="r" style="${thStyle}" data-sort="g">Cresc.${arr('g')}</th>
+                </tr></thead><tbody>`;
+            enriched.forEach(p => {
+                const gapCls = p._gap > 0 ? 'pdv-growth-pos' : (p._gap < 0 ? 'pdv-growth-neg' : '');
+                const gCls = p._g == null ? '' : (p._g >= 0 ? 'pdv-growth-pos' : 'pdv-growth-neg');
+                const gapFmt = p._gap === 0 ? '—' : (p._gap > 0 ? '+' : '') + fmtValue(p._gap);
+                const sup = isSupera(p.marca);
+                tbl += `<tr class="${sup ? 'is-supera' : ''}">
+                    <td><strong>${escapeHTML(p.marca)}</strong></td>
+                    <td class="r">${fmtValue(p._prev)}</td>
+                    <td class="r">${fmtValue(p._cur)}</td>
+                    <td class="r ${gapCls}">${gapFmt}</td>
+                    <td class="r ${gCls}">${p._g == null ? '—' : fmtPct(p._g)}</td>
+                </tr>`;
+
+            });
+            tbl += '</tbody></table>';
+            return tbl;
+        };
+
+        // Estado de sort (começa por cur desc)
+        let prodSortKey = 'cur', prodSortDir = 'desc';
+        const prodList = [...prodMap.values()];
+        const prodTbl = buildProdTbl(prodList, prodSortKey, prodSortDir);
 
         venHTML = `
             <div class="pdv-card">
@@ -3230,14 +3272,35 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
                 <div class="pdv-row"><span class="pdv-k">Bricks</span><span class="pdv-v">${localPdv.bricks.map(b => `<code>${escapeHTML(b)}</code>`).join('<br>')}</span></div>
                 <div class="pdv-row"><span class="pdv-k">Setor(es)</span><span class="pdv-v"><small>${localPdv.setores.map(s => escapeHTML(s)).join('<br>') || '—'}</small></span></div>
                 <div class="pdv-row"><span class="pdv-k">Marcas</span><span class="pdv-v"><small>${localPdv.marcas.length} marca(s) com venda</small></span></div>
-                <div style="margin-top:10px;border-top:1px dashed #e0e7f1;padding-top:8px;">
+                <div style="margin-top:10px;border-top:1px dashed #e0e7f1;padding-top:8px;" id="pdvProdWrap">
                     <div style="font-size:10.5px;color:#6b7a99;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Produtos vendidos por essa farmácia</div>
                     ${prodTbl}
                 </div>
             </div>`;
-    }
+
+        // Wiring sort — event delegation no wrap (persiste após re-renders da tabela)
+        setTimeout(() => {
+            const wrap = document.getElementById('pdvProdWrap');
+            if (!wrap) return;
+            wrap.addEventListener('click', function handleProdSort(e) {
+                const th = e.target.closest('th[data-sort]');
+                if (!th) return;
+                const key = th.getAttribute('data-sort');
+                if (prodSortKey === key) prodSortDir = prodSortDir === 'desc' ? 'asc' : 'desc';
+                else { prodSortKey = key; prodSortDir = key === 'marca' ? 'asc' : 'desc'; }
+                const newTbl = buildProdTbl(prodList, prodSortKey, prodSortDir);
+                const tmp = document.createElement('div');
+                tmp.innerHTML = newTbl;
+                const oldTbl = wrap.querySelector('#pdvProdTbl');
+                if (oldTbl) oldTbl.replaceWith(tmp.firstElementChild);
+                // wrap e o listener permanecem; nenhum re-wire necessário
+            });
+        }, 50);
+    } // end if (localPdv) — venHTML
 
     return kpisHTML + `<div class="pdv-modal-grid" data-export-cnpj="${cnpj}">${cadHTML}${venHTML}</div>`;
+
+
 }
 
 function wirePDVModalActions() {
