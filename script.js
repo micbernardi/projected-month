@@ -1735,22 +1735,60 @@ function refreshGlobalMarketFilter(tabName) {
 function exportXLSX() {
     if (!DB.rows.length) { toast('Nenhum dado para exportar'); return; }
     const pd = UI.periodMode;
+    const isRS = UI.unitMode === 'RS';
+    const FMT_CONTABIL = '_("R$"* #,##0.00_);_("R$"* \\(#,##0.00\\);_("R$"* "-"??_);_(@_)';
+    const FMT_PCT = '0.00%';
+    const lbl = isRS ? 'R$' : 'Un.';
+
+    // Monta linhas com valores numéricos reais (não strings formatadas)
     const data = DB.rows.map(r => {
         const d = r.data[pd];
-        return {
+        const obj = {
             'Setor (GD)': r.sector,
             'Mercado': r.market,
             'Produto': r.product,
             'Tipo': r.role,
             'Brick': r.brickName,
             'Cidade': r.cidade,
-            ['Unid. ' + pd + ' Anterior']: d.previous,
-            ['Unid. ' + pd + ' Atual']: d.current,
-            'Crescimento %': d.growth != null ? (d.growth * 100).toFixed(2) + '%' : ''
         };
+        obj[lbl + ' ' + pd + ' Anterior'] = d.previous || 0;
+        obj[lbl + ' ' + pd + ' Atual']    = d.current  || 0;
+        obj['Crescimento %'] = d.growth != null ? d.growth : '';
+        return obj;
     });
+
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
+
+    // Descobre índices das colunas numéricas pelo header
+    const headers = Object.keys(data[0] || {});
+    const numCols  = [lbl + ' ' + pd + ' Anterior', lbl + ' ' + pd + ' Atual'];
+    const pctCols  = ['Crescimento %'];
+
+    // Aplica formato e alinhamento em cada célula de dados
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let R = range.s.r; R <= range.e.r; R++) {
+        for (let C = range.s.c; C <= range.e.c; C++) {
+            const addr = XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[addr]) continue;
+            const colName = headers[C];
+            const isHeader = R === 0;
+            const isNumCol = numCols.includes(colName);
+            const isPctCol = pctCols.includes(colName);
+
+            if (!ws[addr].s) ws[addr].s = {};
+            // Alinhamento centralizado para todas as colunas de valor
+            if (isNumCol || isPctCol) {
+                ws[addr].s.alignment = { horizontal: 'center', vertical: 'center' };
+            }
+            // Formato contábil (RS) ou percentual — só nas linhas de dados
+            if (!isHeader) {
+                if (isNumCol && isRS) ws[addr].z = FMT_CONTABIL;
+                if (isPctCol && ws[addr].t === 'n') ws[addr].z = FMT_PCT;
+            }
+        }
+    }
+
     XLSX.utils.book_append_sheet(wb, ws, 'Dados');
     XLSX.writeFile(wb, 'supera_rx_' + pd + '_' + UI.unitMode + '.xlsx');
     toast('Arquivo exportado');
@@ -2115,7 +2153,7 @@ const PDV = {
     cnpjCache: {},                         // cache local de respostas BrasilAPI
     sortKey: 'mat_cur',
     sortDir: 'desc',
-    filter: { brick: 'all', cidade: 'all', setor: 'all', marca: 'all', search: '' }
+    filter: { brick: 'all', cidade: 'all', setor: 'all', marca: 'all', classe: 'all', search: '' }
 };
 
 /* ----- Helpers ----- */
@@ -2322,6 +2360,66 @@ function aggregatePDVs(rows) {
     }));
 }
 
+/* =================================================================
+   CLASSIFICACAO AA / A / B / C  (100% volume MAT por setor)
+   -----------------------------------------------------------------
+   Score = percentil de volume MAT da farmacia dentro do seu setor
+   dominante (setor onde ela tem maior venda).
+   Cortes: AA >= 90 | A >= 70 | B >= 40 | C < 40
+   ================================================================= */
+function classificarPDVs(pdvs) {
+    if (!pdvs || !pdvs.length) return pdvs;
+
+    /* Setor dominante: aquele onde a farmacia tem maior venda MAT */
+    var setorDominante = function(p) {
+        if (!p.setores || !p.setores.length) return '__geral__';
+        if (p.setores.length === 1) return p.setores[0];
+        var acc = new Map();
+        (p.products || []).forEach(function(pr) {
+            var s = pr.setor || p.setores[0];
+            acc.set(s, (acc.get(s) || 0) + (pr.mat_cur || 0));
+        });
+        var best = p.setores[0], bestVal = -1;
+        acc.forEach(function(v, s) { if (v > bestVal) { bestVal = v; best = s; } });
+        return best;
+    };
+
+    /* Agrupa por setor dominante */
+    var porSetor = new Map();
+    pdvs.forEach(function(p) {
+        var setor = setorDominante(p);
+        p._setorClassif = setor;
+        if (!porSetor.has(setor)) porSetor.set(setor, []);
+        porSetor.get(setor).push(p);
+    });
+
+    /* Percentil: quantas farmácias do setor vendem MENOS que esta */
+    var percentila = function(arr, val) {
+        if (!arr.length) return 0;
+        return (arr.filter(function(v) { return v < val; }).length / arr.length) * 100;
+    };
+
+    /* Classifica cada setor */
+    porSetor.forEach(function(lista) {
+        var volumes = lista.map(function(p) { return p.mat_cur || 0; }).sort(function(a, b) { return a - b; });
+        lista.forEach(function(p) {
+            var score = percentila(volumes, p.mat_cur || 0);
+            p.percVolume    = Math.round(score);
+            p.percPotencial = null;
+            p.scoreClasse   = Math.round(score);
+            p.potencialMkt  = null;
+            p._potMatchDB   = false;
+            if      (score >= 90) p.classe = 'AA';
+            else if (score >= 70) p.classe = 'A';
+            else if (score >= 40) p.classe = 'B';
+            else                  p.classe = 'C';
+        });
+    });
+
+    return pdvs;
+}
+
+
 /* ----- Persist em localStorage (PDV) -----
    v6.11 — Conforme decisão do usuário, não persistimos PDVs caso ultrapassem
    a quota de localStorage (~5MB). Os dados de R$/Un. da análise principal
@@ -2358,8 +2456,8 @@ function loadPDVData() {
             const obj = JSON.parse(raw);
             PDV.rowsByValueMode.UN = obj.UN || [];
             PDV.rowsByValueMode.RS = obj.RS || [];
-            PDV.pdvsByValueMode.UN = aggregatePDVs(PDV.rowsByValueMode.UN);
-            PDV.pdvsByValueMode.RS = aggregatePDVs(PDV.rowsByValueMode.RS);
+            PDV.pdvsByValueMode.UN = classificarPDVs(aggregatePDVs(PDV.rowsByValueMode.UN));
+            PDV.pdvsByValueMode.RS = classificarPDVs(aggregatePDVs(PDV.rowsByValueMode.RS));
         }
     } catch (e) { /* ignore */ }
 }
@@ -2374,7 +2472,7 @@ async function handlePDVUpload(files, opts) {
             const { rows, unitMode } = await parsePDVFile(f, forceUnit);
             // Substitui (não acumula) o conjunto correspondente — comportamento mais previsível.
             PDV.rowsByValueMode[unitMode] = rows;
-            PDV.pdvsByValueMode[unitMode] = aggregatePDVs(rows);
+            PDV.pdvsByValueMode[unitMode] = classificarPDVs(aggregatePDVs(rows));
             countOk++;
         } catch (e) {
             console.error('[PDV] Erro parse:', e);
@@ -2548,6 +2646,14 @@ function renderPDV() {
             <select id="pdvFilterCidade">${optList(citySet, 'Todas as Cidades')}</select>
             <label>Setor</label>
             <select id="pdvFilterSetor">${optList(secSet, 'Todos os Setores')}</select>
+            <label>Classe</label>
+            <select id="pdvFilterClasse">
+                <option value="all">Todas as Classes</option>
+                <option value="AA">⭐⭐ AA — Estratégica</option>
+                <option value="A">⭐ A — Prioritária</option>
+                <option value="B">B — Desenvolvimento</option>
+                <option value="C">C — Monitoramento</option>
+            </select>
             <input type="text" id="pdvFilterSearch" placeholder="🔍 Buscar CNPJ, razão social, cidade, bairro, marca..." value="${escapeHTML(PDV.filter.search)}">
             <span class="pdv-fb-count" id="pdvCount"></span>
         </div>`;
@@ -2615,6 +2721,7 @@ function renderPDV() {
         if (f.cidade !== 'all' && p.cidade !== f.cidade) return false;
         if (f.setor !== 'all' && !p.setores.includes(f.setor)) return false;
         if (f.marca !== 'all' && !p.marcas.includes(f.marca)) return false;
+        if (f.classe !== 'all' && p.classe !== f.classe) return false;
         if (f.search) {
             const blob = norm([p.cnpj, p.razao, p.cidade, p.bairro, p.bricks.join(' '), p.uf].join(' '));
             if (!blob.includes(norm(f.search))) return false;
@@ -2696,15 +2803,15 @@ function renderPDV() {
         <div class="pdv-tbl-wrap">
             <table class="pdv-tbl">
                 <thead><tr>
+                    ${sh('classe', 'Classe', 'pdv-col-classe', 'Classificação estratégica AA/A/B/C (70% volume MAT no setor + 30% potencial de mercado do brick)')}
                     ${sh('cnpj', 'CNPJ', '', 'CNPJ da farmácia (clique para abrir detalhes)')}
                     ${sh('razao', 'Razão Social', '', 'Nome registrado na Receita Federal')}
                     ${sh('cidade', 'Cidade / Brick', '', 'Cidade e Brick atendido(s)')}
-                    ${sh('bricks', '#Bricks', 'r', 'Quantidade de bricks atendidos')}
                     ${periodOrder.flatMap(p2 => thDefs[p2]).join('')}
                 </tr></thead>
                 <tbody>`;
 
-    const colCount = 16;
+    const colCount = 15;
     if (!filtered.length) {
         html += `<tr><td colspan="${colCount}" class="pdv-empty">Nenhuma farmácia encontrada com os filtros atuais.</td></tr>`;
     } else {
@@ -2748,11 +2855,19 @@ function renderPDV() {
                 ],
             };
 
+            const classeInfo = {
+                AA: { label: 'AA', cls: 'pdv-classe-aa', title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Estratégica` },
+                A:  { label: 'A',  cls: 'pdv-classe-a',  title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Prioritária` },
+                B:  { label: 'B',  cls: 'pdv-classe-b',  title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Desenvolvimento` },
+                C:  { label: 'C',  cls: 'pdv-classe-c',  title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Monitoramento` },
+            };
+            const ci = classeInfo[p.classe] || { label: '—', cls: '', title: 'Sem classificação' };
+
             html += `<tr class="pdv-row-data">
+                <td class="pdv-col-classe"><span class="pdv-classe-badge ${ci.cls}" title="${ci.title}">${ci.label}</span></td>
                 <td class="pdv-cnpj-cell" data-cnpj="${p.cnpj}" title="Abrir detalhes">${maskCNPJ(p.cnpj)}</td>
                 <td class="pdv-razao-cell">${escapeHTML(p.razao)}</td>
                 <td class="pdv-cidade-cell">${escapeHTML(p.cidade)}${p.uf ? ' / ' + p.uf : ''}<br><span class="pdv-brick-cell">${escapeHTML(brickShort)}</span></td>
-                <td class="r">${p.bricks.length}</td>
                 ${periodOrder.flatMap(p2 => tdGroups[p2]).join('')}
             </tr>`;
         });
@@ -2767,6 +2882,7 @@ function renderPDV() {
     setSel('pdvFilterCidade', 'cidade');
     setSel('pdvFilterSetor', 'setor');
     setSel('pdvFilterMarca', 'marca');
+    setSel('pdvFilterClasse', 'classe');
     const sEl = $('pdvFilterSearch');
     if (sEl) {
         /* v6.11 — Corrige bug de digitação: ao re-renderizar, o input é destruído
@@ -2965,8 +3081,24 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         const gYTD = localPdv.ytd_prev > 0 ? (localPdv.ytd_cur - localPdv.ytd_prev) / localPdv.ytd_prev : null;
         const gTRI = localPdv.tri_prev > 0 ? (localPdv.tri_cur - localPdv.tri_prev) / localPdv.tri_prev : null;
         const sub = (g) => g == null ? '<div class="pdv-kpi-sub">—</div>' : `<div class="pdv-kpi-sub ${g < 0 ? 'neg' : ''}">${fmtPct(g)}</div>`;
+        const classeLabels = { AA: '⭐⭐ AA · Estratégica', A: '⭐ A · Prioritária', B: 'B · Desenvolvimento', C: 'C · Monitoramento' };
+        const classeCls    = { AA: 'pdv-classe-aa', A: 'pdv-classe-a', B: 'pdv-classe-b', C: 'pdv-classe-c' };
+        const potLabel = localPdv._potMatchDB === false ? ' (estimado — brick sem match no DB)' : '';
+        const setorLabel = localPdv._setorClassif ? ` · Setor de referência: ${localPdv._setorClassif}` : '';
+        const classeTooltip = localPdv.classe
+            ? `Score ${localPdv.scoreClasse}/100 · Volume percentil ${localPdv.percVolume}% no setor · Potencial percentil ${localPdv.percPotencial}%${potLabel}${setorLabel}`
+            : 'Classificação não disponível (carregue a planilha DDD para habilitar o potencial de mercado)';
         kpisHTML = `
             <div class="pdv-kpis">
+                <div class="pdv-kpi pdv-kpi-classe">
+                    <div class="pdv-kpi-lbl">Classificação</div>
+                    <div class="pdv-kpi-val">
+                        <span class="pdv-classe-badge ${classeCls[localPdv.classe] || ''}" title="${classeTooltip}" style="font-size:18px;padding:4px 14px;">
+                            ${localPdv.classe || '—'}
+                        </span>
+                    </div>
+                    <div class="pdv-kpi-sub" title="${classeTooltip}">${localPdv.classe ? classeLabels[localPdv.classe] : '—'}</div>
+                </div>
                 <div class="pdv-kpi"><div class="pdv-kpi-lbl">MAT (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(localPdv.mat_cur)}</div>${sub(gMAT)}</div>
                 <div class="pdv-kpi"><div class="pdv-kpi-lbl">YTD (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(localPdv.ytd_cur)}</div>${sub(gYTD)}</div>
                 <div class="pdv-kpi"><div class="pdv-kpi-lbl">TRI (${modeLbl})</div><div class="pdv-kpi-val">${fmtValue(localPdv.tri_cur)}</div>${sub(gTRI)}</div>
@@ -3145,63 +3277,81 @@ async function exportPDVModal(cnpjRaw) {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('PDV');
 
-    ws.columns = [
-        { width: 26 }, { width: 40 }, { width: 15 }, { width: 15 }, { width: 14 },
-        { width: 15 }, { width: 15 }, { width: 14 }, { width: 14 },
-        { width: 15 }, { width: 15 }, { width: 14 }, { width: 14 }
-    ];
+    // Larguras — exatamente como na planilha modelo aprovada
+    ws.getColumn(1).width  = 28;  // A  - Marca/Label
+    ws.getColumn(2).width  = 16;  // B  - Ant. período 1
+    // C e D: largura default do Excel (colunas do meio de cada grupo)
+    ws.getColumn(5).width  = 13;  // E  - Cresc. %
+    ws.getColumn(6).width  = 16;  // F  - Ant. período 2
+    // G e H: largura default
+    ws.getColumn(9).width  = 13;  // I  - Cresc. %
+    ws.getColumn(10).width = 16;  // J  - Ant. período 3
+    // K e L: largura default
+    ws.getColumn(13).width = 13;  // M  - Cresc. %
 
-    // Estilos
+    // Estilos — idênticos ao modelo PLANILHA_EXPORTADA_MODELO_.xlsx
+    const FONT = 'Aptos Narrow';
+    const FONT_SZ = 11;
     const NAVY_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A3A6B' } };
     const GREEN_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
-    const RED_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
-    const THIN_B = side => ({ style: 'thin', color: { argb: 'FFD0D7E3' } });
+    const RED_FILL   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+    const THIN_B = () => ({ style: 'thin', color: { argb: 'FFD0D7E3' } });
     const ALL_BORDER = { top: THIN_B(), left: THIN_B(), bottom: THIN_B(), right: THIN_B() };
+    const FMT_CONTABIL = '_("R$"* #,##0.00_);_("R$"* \\(#,##0.00\\);_("R$"* "-"??_);_(@_)';
+    const isRS = mode === 'RS';
 
+    // Header (fundo navy, texto branco, centralizado)
     const setHdr = (cell, v) => {
         cell.value = v;
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Calibri' };
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: FONT_SZ, name: FONT };
         cell.fill = NAVY_FILL;
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
         cell.border = ALL_BORDER;
     };
+    // Label (col A — navy bold, alinhado à esquerda, sem fundo)
     const setLbl = (cell, v) => {
         cell.value = v;
-        cell.font = { bold: true, color: { argb: 'FF1A3A6B' }, size: 10, name: 'Calibri' };
+        cell.font = { bold: true, color: { argb: 'FF1A3A6B' }, size: FONT_SZ, name: FONT };
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
         cell.border = ALL_BORDER;
     };
+    // Dado cadastral (texto normal, alinhado à esquerda)
     const setDat = (cell, v) => {
         cell.value = v;
-        cell.font = { size: 10, name: 'Calibri' };
+        cell.font = { bold: false, size: FONT_SZ, name: FONT };
         cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: false };
         cell.border = ALL_BORDER;
     };
+    // Número (bold=false no modelo, centralizado, formato contábil em RS)
     const setNum = (cell, v) => {
         cell.value = toNum(v);
-        cell.font = { bold: true, size: 10, name: 'Calibri' };
-        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        cell.font = { bold: false, size: FONT_SZ, name: FONT };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
         cell.border = ALL_BORDER;
+        if (isRS) cell.numFmt = FMT_CONTABIL;
     };
+    // GAP (bold, cor e fundo verde/vermelho, formato contábil em RS)
     const setGap = (cell, v) => {
         const val = toNum(v);
         cell.value = val;
         const pos = val >= 0;
-        cell.font = { bold: true, color: { argb: pos ? 'FF276221' : 'FF9C0006' }, size: 10, name: 'Calibri' };
+        cell.font = { bold: true, color: { argb: pos ? 'FF276221' : 'FF9C0006' }, size: FONT_SZ, name: FONT };
         cell.fill = pos ? GREEN_FILL : RED_FILL;
-        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
         cell.border = ALL_BORDER;
+        if (isRS) cell.numFmt = FMT_CONTABIL;
     };
+    // Percentual (bold, cor e fundo verde/vermelho, string)
     const setPct = (cell, v, g) => {
         const pos = g == null ? true : g >= 0;
         cell.value = v || '';
-        cell.font = { bold: true, color: { argb: pos ? 'FF276221' : 'FF9C0006' }, size: 10, name: 'Calibri' };
+        cell.font = { bold: true, color: { argb: pos ? 'FF276221' : 'FF9C0006' }, size: FONT_SZ, name: FONT };
         cell.fill = pos ? GREEN_FILL : RED_FILL;
-        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
         cell.border = ALL_BORDER;
     };
 
-    // Campos cadastrais (sem Distrital)
+    // Campos cadastrais R1-R9 (altura default, mescla B:M)
     const cadFields = [
         ['CNPJ', maskCNPJ(p.cnpj)],
         ['Razao Social', info ? (info.nome_fantasia || info.razao_social || p.razao) : p.razao],
@@ -3215,27 +3365,25 @@ async function exportPDVModal(cnpjRaw) {
     ];
     cadFields.forEach(([l, v], i) => {
         const row = ws.getRow(i + 1);
-        row.height = 16;
         setLbl(row.getCell(1), l);
         setDat(row.getCell(2), v);
         ws.mergeCells(i + 1, 2, i + 1, 13);
     });
 
-    // 3 linhas vazias (R10-R12)
-    [10, 11, 12].forEach(r => { ws.getRow(r).height = 10; });
+    // R10: linha vazia de separação (height default)
 
-    // Cabecalho periodos (R13)
-    const r13 = ws.getRow(13); r13.height = 18;
+    // Cabeçalho períodos R11 (height default)
+    const r11 = ws.getRow(11);
     ['Periodo', 'Ano Anterior (' + modeLbl + ')', 'Atual (' + modeLbl + ')', 'GAP (' + modeLbl + ')', 'Crescimento %']
-        .forEach((h, c) => setHdr(r13.getCell(c + 1), h));
+        .forEach((h, c) => setHdr(r11.getCell(c + 1), h));
 
-    // Dados periodos (R14-R16)
+    // Dados períodos R12-R14 (height default)
     [
         ['MAT', p.mat_prev, p.mat_cur, gapMAT, gMAT],
         ['YTD', p.ytd_prev, p.ytd_cur, gapYTD, gYTD],
         ['TRI', p.tri_prev, p.tri_cur, gapTRI, gTRI],
     ].forEach(([lb, ant, cur, gp, g], i) => {
-        const row = ws.getRow(14 + i); row.height = 16;
+        const row = ws.getRow(12 + i);
         setLbl(row.getCell(1), lb);
         setNum(row.getCell(2), ant);
         setNum(row.getCell(3), cur);
@@ -3243,19 +3391,18 @@ async function exportPDVModal(cnpjRaw) {
         setPct(row.getCell(5), fmtPct2(g), g);
     });
 
-    // Linha vazia R17
-    ws.getRow(17).height = 10;
+    // R15: linha vazia de separação (height default)
 
-    // Cabecalho produtos (R18)
-    const r18 = ws.getRow(18); r18.height = 18;
+    // Cabeçalho produtos R16 (height default)
+    const r16 = ws.getRow(16);
     ['Marca', 'MAT Ant.', 'MAT', 'GAP MAT', 'Cresc. MAT %',
         'YTD Ant.', 'YTD', 'GAP YTD', 'Cresc. YTD %',
         'TRI Ant.', 'TRI', 'GAP TRI', 'Cresc. TRI %']
-        .forEach((h, c) => setHdr(r18.getCell(c + 1), h));
+        .forEach((h, c) => setHdr(r16.getCell(c + 1), h));
 
-    // Linhas de produtos (R19+)
+    // Linhas de produtos R17+ (height default)
     prodList.forEach((pr, i) => {
-        const row = ws.getRow(19 + i); row.height = 15;
+        const row = ws.getRow(17 + i);
         const gm = pr.mat_prev > 0 ? (pr.mat_cur - pr.mat_prev) / pr.mat_prev : null;
         const gy = pr.ytd_prev > 0 ? (pr.ytd_cur - pr.ytd_prev) / pr.ytd_prev : null;
         const gt = pr.tri_prev > 0 ? (pr.tri_cur - pr.tri_prev) / pr.tri_prev : null;
