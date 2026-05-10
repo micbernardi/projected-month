@@ -1614,11 +1614,31 @@ function recomputeStickyOffsets() {
         kH = (h >= 20) ? h : (cur.kpi || 32);
     }
     const tH = safeH(tab, 38, cur.tab, 20);
-    const fH = safeH(fil, 46, cur.fb, 20);
+    // v7 — quando o filter-bar global está oculto (aba PDV), gravar 0 para --fb-h
+    // para que --sticky-tbl não inclua a altura do painel oculto.
+    let fH = 0;
+    if (fil && fil.style.display !== 'none' && getComputedStyle(fil).display !== 'none') {
+        const h = fil.offsetHeight;
+        fH = (h >= 20) ? h : (cur.fb || 32);
+    }
     root.style.setProperty('--hdr-h', hH + 'px');
     root.style.setProperty('--kpi-h', kH + 'px');
     root.style.setProperty('--tab-h', tH + 'px');
     root.style.setProperty('--fb-h', fH + 'px');
+    // Grava --pdv-fb-h = altura APENAS da filterbar PDV (sem toolbar),
+    // para que o thead sticky fique colado logo abaixo da filterbar.
+    // (--pdv-extra-h continua incluindo o toolbar para outros usos legados.)
+    var pdvFb = document.querySelector('.pdv-filterbar');
+    var pdvTb = document.querySelector('.pdv-toolbar');
+    var pdvFbH = 0;
+    var pdvExtra = 0;
+    if (pdvFb && getComputedStyle(pdvFb).display !== 'none') {
+        pdvFbH = pdvFb.offsetHeight;
+        pdvExtra += pdvFbH;
+    }
+    if (pdvTb && getComputedStyle(pdvTb).display !== 'none') pdvExtra += pdvTb.offsetHeight + 4;
+    root.style.setProperty('--pdv-fb-h', pdvFbH + 'px');
+    root.style.setProperty('--pdv-extra-h', pdvExtra + 'px');
 }
 
 /* Dispara recomputação após cada render/resize. */
@@ -1698,6 +1718,15 @@ function refreshGlobalMarketFilter(tabName) {
     const cnpjQuickWrap = document.querySelector('.cnpj-quick-wrap');
     if (fbSearchWrap) fbSearchWrap.style.display = isPdv ? 'none' : '';
     if (cnpjQuickWrap) cnpjQuickWrap.style.display = isPdv ? 'none' : '';
+    // Oculta a filterbar superior na aba PDV e recomputa offsets sticky
+    const filterBar = document.getElementById('filterBar');
+    if (filterBar) filterBar.style.display = isPdv ? 'none' : '';
+    requestAnimationFrame(function () {
+        if (typeof recomputeStickyOffsets === 'function') recomputeStickyOffsets();
+        requestAnimationFrame(function () {
+            if (typeof recomputeStickyOffsets === 'function') recomputeStickyOffsets();
+        });
+    });
     /* limpa opções exceto a primeira ("Todos…") */
     while (sel.children.length > 1) sel.removeChild(sel.lastChild);
     sel.firstElementChild.textContent = isPdv ? 'Todas as Marcas' : 'Todos os Mercados';
@@ -1752,7 +1781,7 @@ function exportXLSX() {
             'Cidade': r.cidade,
         };
         obj[lbl + ' ' + pd + ' Anterior'] = d.previous || 0;
-        obj[lbl + ' ' + pd + ' Atual']    = d.current  || 0;
+        obj[lbl + ' ' + pd + ' Atual'] = d.current || 0;
         obj['Crescimento %'] = d.growth != null ? d.growth : '';
         return obj;
     });
@@ -1762,8 +1791,8 @@ function exportXLSX() {
 
     // Descobre índices das colunas numéricas pelo header
     const headers = Object.keys(data[0] || {});
-    const numCols  = [lbl + ' ' + pd + ' Anterior', lbl + ' ' + pd + ' Atual'];
-    const pctCols  = ['Crescimento %'];
+    const numCols = [lbl + ' ' + pd + ' Anterior', lbl + ' ' + pd + ' Atual'];
+    const pctCols = ['Crescimento %'];
 
     // Aplica formato e alinhamento em cada célula de dados
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
@@ -2371,22 +2400,22 @@ function classificarPDVs(pdvs) {
     if (!pdvs || !pdvs.length) return pdvs;
 
     /* Setor dominante: aquele onde a farmacia tem maior venda MAT */
-    var setorDominante = function(p) {
+    var setorDominante = function (p) {
         if (!p.setores || !p.setores.length) return '__geral__';
         if (p.setores.length === 1) return p.setores[0];
         var acc = new Map();
-        (p.products || []).forEach(function(pr) {
+        (p.products || []).forEach(function (pr) {
             var s = pr.setor || p.setores[0];
             acc.set(s, (acc.get(s) || 0) + (pr.mat_cur || 0));
         });
         var best = p.setores[0], bestVal = -1;
-        acc.forEach(function(v, s) { if (v > bestVal) { bestVal = v; best = s; } });
+        acc.forEach(function (v, s) { if (v > bestVal) { bestVal = v; best = s; } });
         return best;
     };
 
     /* Agrupa por setor dominante */
     var porSetor = new Map();
-    pdvs.forEach(function(p) {
+    pdvs.forEach(function (p) {
         var setor = setorDominante(p);
         p._setorClassif = setor;
         if (!porSetor.has(setor)) porSetor.set(setor, []);
@@ -2394,25 +2423,25 @@ function classificarPDVs(pdvs) {
     });
 
     /* Percentil: quantas farmácias do setor vendem MENOS que esta */
-    var percentila = function(arr, val) {
+    var percentila = function (arr, val) {
         if (!arr.length) return 0;
-        return (arr.filter(function(v) { return v < val; }).length / arr.length) * 100;
+        return (arr.filter(function (v) { return v < val; }).length / arr.length) * 100;
     };
 
     /* Classifica cada setor */
-    porSetor.forEach(function(lista) {
-        var volumes = lista.map(function(p) { return p.mat_cur || 0; }).sort(function(a, b) { return a - b; });
-        lista.forEach(function(p) {
+    porSetor.forEach(function (lista) {
+        var volumes = lista.map(function (p) { return p.mat_cur || 0; }).sort(function (a, b) { return a - b; });
+        lista.forEach(function (p) {
             var score = percentila(volumes, p.mat_cur || 0);
-            p.percVolume    = Math.round(score);
+            p.percVolume = Math.round(score);
             p.percPotencial = null;
-            p.scoreClasse   = Math.round(score);
-            p.potencialMkt  = null;
-            p._potMatchDB   = false;
-            if      (score >= 90) p.classe = 'AA';
+            p.scoreClasse = Math.round(score);
+            p.potencialMkt = null;
+            p._potMatchDB = false;
+            if (score >= 90) p.classe = 'AA';
             else if (score >= 70) p.classe = 'A';
             else if (score >= 40) p.classe = 'B';
-            else                  p.classe = 'C';
+            else p.classe = 'C';
         });
     });
 
@@ -2617,9 +2646,9 @@ function renderPDV() {
     // Pré-filtragem pelos filtros do header (distrital/setor/regional/mercado)
     const pdvsGlobal = pdvs.filter(p => {
         if (gDistrital && !matchSector(p.distritais, gDistrital)) return false;
-        if (gRegional  && !matchSector(p.regionais,  gRegional))  return false;
-        if (gSector    && !matchSector(p.setores,    gSector))    return false;
-        if (gMarket    && !matchMarket(p.marcas,     gMarket))    return false;
+        if (gRegional && !matchSector(p.regionais, gRegional)) return false;
+        if (gSector && !matchSector(p.setores, gSector)) return false;
+        if (gMarket && !matchMarket(p.marcas, gMarket)) return false;
         return true;
     });
     const totalPdvs = pdvsGlobal.length;
@@ -2638,31 +2667,39 @@ function renderPDV() {
     };
 
     // v6.11 — Filterbar PRIMEIRO (com a única busca unificada)
+    // Monta selects com valor atual selecionado
+    const optListSel = (s, all, cur) => {
+        const arr = [...s].sort();
+        return `<option value="all"${!cur || cur === 'all' ? ' selected' : ''}>${all}</option>` +
+            arr.map(v => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(v)}</option>`).join('');
+    };
     let html = `
         <div class="pdv-filterbar">
             <label>Brick</label>
-            <select id="pdvFilterBrick">${optList(bricksSet, 'Todos os Bricks')}</select>
+            <select id="pdvFilterBrick">${optListSel(bricksSet, 'Todos os Bricks', f.brick)}</select>
             <label>Cidade</label>
-            <select id="pdvFilterCidade">${optList(citySet, 'Todas as Cidades')}</select>
+            <select id="pdvFilterCidade">${optListSel(citySet, 'Todas as Cidades', f.cidade)}</select>
             <label>Setor</label>
-            <select id="pdvFilterSetor">${optList(secSet, 'Todos os Setores')}</select>
+            <select id="pdvFilterSetor">${optListSel(secSet, 'Todos os Setores', f.setor)}</select>
+            <label>Marca</label>
+            <select id="pdvFilterMarca">${optListSel(marcaSet, 'Todas as Marcas', f.marca)}</select>
             <label>Classe</label>
             <select id="pdvFilterClasse">
-                <option value="all">Todas as Classes</option>
-                <option value="AA">⭐⭐ AA — Estratégica</option>
-                <option value="A">⭐ A — Prioritária</option>
-                <option value="B">B — Desenvolvimento</option>
-                <option value="C">C — Monitoramento</option>
+                <option value="all"${!f.classe || f.classe === 'all' ? ' selected' : ''}>Todas as Classes</option>
+                <option value="AA"${f.classe === 'AA' ? ' selected' : ''}>AA — Estratégica</option>
+                <option value="A"${f.classe === 'A' ? ' selected' : ''}>A — Prioritária</option>
+                <option value="B"${f.classe === 'B' ? ' selected' : ''}>B — Desenvolvimento</option>
+                <option value="C"${f.classe === 'C' ? ' selected' : ''}>C — Monitoramento</option>
             </select>
-            <input type="text" id="pdvFilterSearch" placeholder="🔍 Buscar CNPJ, razão social, cidade, bairro, marca..." value="${escapeHTML(PDV.filter.search)}">
+            <input type="text" id="pdvFilterSearch" placeholder="🔍 Buscar CNPJ, razão social..." value="${escapeHTML(PDV.filter.search)}">
             <span class="pdv-fb-count" id="pdvCount"></span>
         </div>`;
 
     // Banner DEPOIS da filterbar — inclui badges de contexto para filtros do header ativos
     const _ctxBadges = [
         gDistrital ? `<span class="pdv-ctx-badge pdv-ctx-dist" title="Filtro de Distrital ativo">📍 ${escapeHTML(gDistrital)}</span>` : '',
-        gSector    ? `<span class="pdv-ctx-badge pdv-ctx-setor" title="Filtro de Setor ativo">🏢 ${escapeHTML(gSector)}</span>` : '',
-        gRegional  ? `<span class="pdv-ctx-badge pdv-ctx-reg" title="Filtro de Regional ativo">🌐 ${escapeHTML(gRegional)}</span>` : '',
+        gSector ? `<span class="pdv-ctx-badge pdv-ctx-setor" title="Filtro de Setor ativo">🏢 ${escapeHTML(gSector)}</span>` : '',
+        gRegional ? `<span class="pdv-ctx-badge pdv-ctx-reg" title="Filtro de Regional ativo">🌐 ${escapeHTML(gRegional)}</span>` : '',
     ].filter(Boolean).join('');
     html += `
         <div class="pdv-toolbar">
@@ -2857,9 +2894,9 @@ function renderPDV() {
 
             const classeInfo = {
                 AA: { label: 'AA', cls: 'pdv-classe-aa', title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Estratégica` },
-                A:  { label: 'A',  cls: 'pdv-classe-a',  title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Prioritária` },
-                B:  { label: 'B',  cls: 'pdv-classe-b',  title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Desenvolvimento` },
-                C:  { label: 'C',  cls: 'pdv-classe-c',  title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Monitoramento` },
+                A: { label: 'A', cls: 'pdv-classe-a', title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Prioritária` },
+                B: { label: 'B', cls: 'pdv-classe-b', title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Desenvolvimento` },
+                C: { label: 'C', cls: 'pdv-classe-c', title: `Score ${p.scoreClasse}/100 · Vol. percentil ${p.percVolume}% · Potencial percentil ${p.percPotencial}% · Monitoramento` },
             };
             const ci = classeInfo[p.classe] || { label: '—', cls: '', title: 'Sem classificação' };
 
@@ -3082,7 +3119,7 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         const gTRI = localPdv.tri_prev > 0 ? (localPdv.tri_cur - localPdv.tri_prev) / localPdv.tri_prev : null;
         const sub = (g) => g == null ? '<div class="pdv-kpi-sub">—</div>' : `<div class="pdv-kpi-sub ${g < 0 ? 'neg' : ''}">${fmtPct(g)}</div>`;
         const classeLabels = { AA: '⭐⭐ AA · Estratégica', A: '⭐ A · Prioritária', B: 'B · Desenvolvimento', C: 'C · Monitoramento' };
-        const classeCls    = { AA: 'pdv-classe-aa', A: 'pdv-classe-a', B: 'pdv-classe-b', C: 'pdv-classe-c' };
+        const classeCls = { AA: 'pdv-classe-aa', A: 'pdv-classe-a', B: 'pdv-classe-b', C: 'pdv-classe-c' };
         const potLabel = localPdv._potMatchDB === false ? ' (estimado — brick sem match no DB)' : '';
         const setorLabel = localPdv._setorClassif ? ` · Setor de referência: ${localPdv._setorClassif}` : '';
         const classeTooltip = localPdv.classe
@@ -3278,13 +3315,13 @@ async function exportPDVModal(cnpjRaw) {
     const ws = wb.addWorksheet('PDV');
 
     // Larguras — exatamente como na planilha modelo aprovada
-    ws.getColumn(1).width  = 28;  // A  - Marca/Label
-    ws.getColumn(2).width  = 16;  // B  - Ant. período 1
+    ws.getColumn(1).width = 28;  // A  - Marca/Label
+    ws.getColumn(2).width = 16;  // B  - Ant. período 1
     // C e D: largura default do Excel (colunas do meio de cada grupo)
-    ws.getColumn(5).width  = 13;  // E  - Cresc. %
-    ws.getColumn(6).width  = 16;  // F  - Ant. período 2
+    ws.getColumn(5).width = 13;  // E  - Cresc. %
+    ws.getColumn(6).width = 16;  // F  - Ant. período 2
     // G e H: largura default
-    ws.getColumn(9).width  = 13;  // I  - Cresc. %
+    ws.getColumn(9).width = 13;  // I  - Cresc. %
     ws.getColumn(10).width = 16;  // J  - Ant. período 3
     // K e L: largura default
     ws.getColumn(13).width = 13;  // M  - Cresc. %
@@ -3294,7 +3331,7 @@ async function exportPDVModal(cnpjRaw) {
     const FONT_SZ = 11;
     const NAVY_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A3A6B' } };
     const GREEN_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
-    const RED_FILL   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+    const RED_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
     const THIN_B = () => ({ style: 'thin', color: { argb: 'FFD0D7E3' } });
     const ALL_BORDER = { top: THIN_B(), left: THIN_B(), bottom: THIN_B(), right: THIN_B() };
     const FMT_CONTABIL = '_("R$"* #,##0.00_);_("R$"* \\(#,##0.00\\);_("R$"* "-"??_);_(@_)';

@@ -2462,29 +2462,32 @@ td.vneg strong {
    ════════════════════════════════════════════════════════════════ */
 
 .pdv-view {
-    /* v6.7 — padding mais compacto, alinhado com barra sticky densa */
-    padding: 8px 10px 18px;
-    padding-top: calc(var(--sticky-tbl) + 8px);
+    /* v7 — na aba PDV o filter-bar global fica oculto (--fb-h = 0),
+       então --sticky-tbl já reflete apenas hdr+kpi+tab.
+       O padding-top usa --sticky-tbl que agora bate exato com
+       o topo da pdv-filterbar sticky. */
+    padding: 0 10px 18px;
+    padding-top: var(--sticky-tbl);
 }
 
 .pdv-toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     background: linear-gradient(180deg, #1e3a5f 0%, #16304f 100%);
     color: #fff;
-    border-radius: 10px;
-    padding: 12px 16px;
-    margin-bottom: 14px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, .12);
+    border-radius: 0 0 8px 8px;
+    padding: 6px 14px;
+    margin-bottom: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .10);
 }
 
 .pdv-toolbar h3 {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
-    margin: 0 12px 0 0;
-    letter-spacing: .4px;
+    margin: 0 10px 0 0;
+    letter-spacing: .3px;
     text-transform: uppercase;
 }
 
@@ -2533,23 +2536,29 @@ td.vneg strong {
 /* Filtros internos da aba PDV */
 .pdv-filterbar {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;           /* quebra linha se não couber — evita scroll */
     align-items: center;
-    gap: 8px;
-    background: #f3f6fa;
-    border: 1px solid #dde4ec;
-    border-radius: 8px;
-    padding: 8px 12px;
-    margin-bottom: 12px;
+    gap: 4px 8px;
+    border-bottom: 1px solid #dde4ec;
+    padding: 5px 12px;
+    margin-bottom: 0;
+    position: sticky;
+    /* Na aba PDV o filter-bar global fica oculto (display:none),
+       então o offset sticky é apenas header + kpi + tab-rail */
+    top: calc(var(--hdr-h, 60px) + var(--kpi-h, 0px) + var(--tab-h, 38px));
+    z-index: 250;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,.06);
 }
 
 .pdv-filterbar label {
-    font-size: 10.5px;
+    font-size: 9.5px;
     text-transform: uppercase;
-    color: #4a5b78;
+    color: #64748b;
     font-weight: 700;
     letter-spacing: .4px;
-    margin-right: 4px;
+    margin-right: 2px;
+    white-space: nowrap;
 }
 
 .pdv-filterbar select,
@@ -2557,15 +2566,35 @@ td.vneg strong {
     background: #fff;
     border: 1px solid #cdd6e2;
     border-radius: 5px;
-    padding: 5px 8px;
-    font-size: 12px;
+    padding: 3px 24px 3px 8px;
+    font-size: 11px;
     color: #1a2742;
     font-family: 'Inter', system-ui, sans-serif;
-    min-width: 110px;
+    min-width: 130px;
+    max-width: 160px;
+    height: 26px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 7px center;
+    background-size: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
+
+/* select Marca e Classe podem ser um pouco mais largos */
+#pdvFilterMarca  { min-width: 140px; max-width: 180px; }
+#pdvFilterClasse { min-width: 130px; max-width: 160px; }
 
 .pdv-filterbar input[type="text"] {
     min-width: 180px;
+    max-width: 240px;
+    background-image: none;
+    padding: 3px 8px;
+    appearance: auto;
+    -webkit-appearance: auto;
 }
 
 .pdv-filterbar select:focus,
@@ -2580,11 +2609,11 @@ td.vneg strong {
 }
 
 .pdv-filterbar .pdv-fb-count {
-    font-size: 11.5px;
+    font-size: 10.5px;
     color: #2b3a59;
     font-weight: 600;
     white-space: nowrap;
-    margin-left: 6px;
+    margin-left: 4px;
 }
 
 .pdv-filterbar .pdv-fb-count b {
@@ -2596,8 +2625,9 @@ td.vneg strong {
 .pdv-tbl-wrap {
     background: #fff;
     border: 1px solid #dde4ec;
-    border-radius: 8px;
+    border-radius: 0 0 8px 8px;
     overflow: hidden;
+    margin-top: 0;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
 }
 
@@ -3427,9 +3457,12 @@ td.vneg strong {
     min-height: 44px;
 }
 
+/* Na aba PDV o filter-bar global fica oculto (--fb-h vira 0).
+   O thead fica sticky logo abaixo de: header + kpi + tabs + pdv-filterbar.
+   --pdv-fb-h é gravado por recomputeStickyOffsets() após cada render. */
 .pdv-tbl thead th {
     position: sticky;
-    top: var(--sticky-tbl, 164px);
+    top: calc(var(--hdr-h, 60px) + var(--kpi-h, 34px) + var(--tab-h, 28px) + var(--pdv-fb-h, 38px));
     z-index: 200;
     background: #1e3a5f;
     white-space: nowrap;
