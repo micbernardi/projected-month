@@ -870,13 +870,13 @@ function showBrickModal(market, rec) {
         <th class="w-hash">#</th>
         <th class="col-brick">Brick (Número + Nome)</th>
         <th class="col-setor">Setor</th>
-        <th class="r">Supera ${pd} Ant.</th>
-        <th class="r">Supera ${pd} Atual</th>
-        <th class="r">Mercado ${pd} Ant.</th>
-        <th class="r">Mercado ${pd} Atual</th>
-        <th class="r">Share %</th>
-        <th class="r">Evol. Sup</th>
-        <th>Líder do Brick</th>
+        <th class="c th-supera">Supera ${pd} Ant.</th>
+        <th class="c th-supera">Supera ${pd} Atual</th>
+        <th class="c">Mercado ${pd} Ant.</th>
+        <th class="c">Mercado ${pd} Atual</th>
+        <th class="c">Share %</th>
+        <th class="c">Evol. Sup</th>
+        <th class="c">Líder do Brick</th>
     </tr></thead><tbody>`;
 
     if (!bricks.length) {
@@ -908,13 +908,13 @@ function showBrickModal(market, rec) {
                 <td class="w-hash">${i + 1}</td>
                 <td class="col-brick"><code class="brick-code-mono">${b.brick}</code></td>
                 <td class="col-setor">${cleanSectorName(b.sector) || '—'}</td>
-                <td class="r vacc">${fmtValue(b.superaPrev)}</td>
-                <td class="r vacc">${fmtValue(b.superaCur)}</td>
-                <td class="r">${fmtValue(b.totalPrev)}</td>
-                <td class="r">${fmtValue(b.totalCur)}</td>
-                <td class="r"><strong>${b.share.toFixed(1)}%</strong></td>
-                <td class="r ${gCls}">${fmtPct(b.growth)}</td>
-                <td><small>${leaderIsSupera ? '<span class="vpos">✓ SUPERA</span>' : leaderName}</small></td>
+                <td class="c td-supera vacc">${fmtValue(b.superaPrev)}</td>
+                <td class="c td-supera vacc">${fmtValue(b.superaCur)}</td>
+                <td class="c">${fmtValue(b.totalPrev)}</td>
+                <td class="c">${fmtValue(b.totalCur)}</td>
+                <td class="c"><strong>${b.share.toFixed(1)}%</strong></td>
+                <td class="c ${gCls}">${fmtPct(b.growth)}</td>
+                <td class="c"><small>${leaderIsSupera ? '<span class="vpos">✓ SUPERA</span>' : leaderName}</small></td>
             </tr>`;
         });
     }
@@ -3451,7 +3451,17 @@ async function exportPDVModal(cnpjRaw) {
         cell.border = ALL_BORDER;
     };
 
+    // Helper: aplica borda fina em todas as células de uma linha (colunas 1 a 13)
+    const applyRowBorders = (rowNum) => {
+        const row = ws.getRow(rowNum);
+        for (let c = 1; c <= 13; c++) {
+            row.getCell(c).border = ALL_BORDER;
+        }
+    };
+
     // Campos cadastrais R1-R9 (altura default, mescla B:M)
+    // IMPORTANTE: bordas devem ser aplicadas em todas as células ANTES de mesclar,
+    // pois mergeCells preserva apenas a borda da célula superior-esquerda da mesclagem.
     const cadFields = [
         ['CNPJ', maskCNPJ(p.cnpj)],
         ['Razao Social', info ? (info.nome_fantasia || info.razao_social || p.razao) : p.razao],
@@ -3464,18 +3474,28 @@ async function exportPDVModal(cnpjRaw) {
         ['Setor(es)', p.setores.join(', ')],
     ];
     cadFields.forEach(([l, v], i) => {
-        const row = ws.getRow(i + 1);
+        const rowNum = i + 1;
+        const row = ws.getRow(rowNum);
+        // Aplica bordas em todas as 13 colunas ANTES de mesclar
+        for (let c = 1; c <= 13; c++) {
+            row.getCell(c).border = ALL_BORDER;
+        }
         setLbl(row.getCell(1), l);
         setDat(row.getCell(2), v);
-        ws.mergeCells(i + 1, 2, i + 1, 13);
+        ws.mergeCells(rowNum, 2, rowNum, 13);
     });
 
-    // R10: linha vazia de separação (height default)
+    // R10: linha vazia de separação — aplica bordas em todas as colunas
+    applyRowBorders(10);
 
     // Cabeçalho períodos R11 (height default)
     const r11 = ws.getRow(11);
     ['Periodo', 'Ano Anterior (' + modeLbl + ')', 'Atual (' + modeLbl + ')', 'GAP (' + modeLbl + ')', 'Crescimento %']
         .forEach((h, c) => setHdr(r11.getCell(c + 1), h));
+    // Aplica bordas nas colunas F-M que ficam além dos 5 cabeçalhos de período
+    for (let c = 6; c <= 13; c++) {
+        r11.getCell(c).border = ALL_BORDER;
+    }
 
     // Dados períodos R12-R14 (height default)
     [
@@ -3489,9 +3509,14 @@ async function exportPDVModal(cnpjRaw) {
         setNum(row.getCell(3), cur);
         setGap(row.getCell(4), gp);
         setPct(row.getCell(5), fmtPct2(g), g);
+        // Colunas F-M além dos dados de período recebem borda vazia
+        for (let c = 6; c <= 13; c++) {
+            row.getCell(c).border = ALL_BORDER;
+        }
     });
 
-    // R15: linha vazia de separação (height default)
+    // R15: linha vazia de separação — aplica bordas em todas as colunas
+    applyRowBorders(15);
 
     // Cabeçalho produtos R16 (height default)
     const r16 = ws.getRow(16);

@@ -1139,6 +1139,22 @@ body {
     text-align: center
 }
 
+/* Destaque sutil nas colunas de dados da Supera no brickModal */
+.modal-tbl thead th.th-supera {
+    background: #1e3e6e;
+    border-bottom: 2px solid #fbbf24;
+}
+
+.modal-tbl tbody td.td-supera {
+    background: #fffdf0;
+    border-left: 1px solid rgba(251, 191, 36, .15);
+    border-right: 1px solid rgba(251, 191, 36, .15);
+}
+
+.modal-tbl tbody tr:hover td.td-supera {
+    background: #fff8d6;
+}
+
 .modal-tbl tbody tr:hover td {
     background: rgba(30, 64, 175, .05)
 }
