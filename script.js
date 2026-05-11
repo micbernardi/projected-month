@@ -875,7 +875,7 @@ function showBrickModal(market, rec) {
         <th class="r">Mercado ${pd} Ant.</th>
         <th class="r">Mercado ${pd} Atual</th>
         <th class="r">Share %</th>
-        <th class="r">Evolução</th>
+        <th class="r">Evol. Sup</th>
         <th>Líder do Brick</th>
     </tr></thead><tbody>`;
 
