@@ -2992,7 +2992,7 @@ td.vneg strong {
 }
 
 .pdv-prod-tbl thead th.r {
-    text-align: right;
+    text-align: center;
 }
 
 .pdv-prod-tbl tbody td {
@@ -3002,7 +3002,7 @@ td.vneg strong {
 }
 
 .pdv-prod-tbl tbody td.r {
-    text-align: right;
+    text-align: center;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
 }
