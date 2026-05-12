@@ -2713,6 +2713,7 @@ function renderPDV() {
             <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
             <button class="pdv-upload-btn" id="pdvUploadBtn">📁 Carregar/Trocar planilha</button>
             <button class="pdv-clear-btn" id="pdvClearBtn">🗑 Limpar PDVs</button>
+            <button class="pdv-export-btn" id="pdvExportBtn" onclick="exportPDVXLSX()" title="Exportar PDVs filtrados para Excel">⬇ Excel</button>
         </div>`;
 
     // ── Filtros locais da aba PDV (brick / cidade / setor / marca / busca) ──────
@@ -2753,6 +2754,39 @@ function renderPDV() {
         acc.bricks = [...acc._brandBricks].sort();
         return acc;
     };
+
+    /* Reprojecta volumes de um PDV somando apenas os produtos do setor/distrital ativo.
+       Necessário porque aggregatePDVs soma TODOS os setores de um PDV;
+       quando filtramos por distrital/setor, os volumes devem refletir apenas
+       os produtos pertencentes àquele recorte. */
+    const matchProductSector = (prodSetor) => {
+        if (!gSector && !gDistrital) return true;
+        const u = String(prodSetor || '').toUpperCase().trim();
+        const uCode = extractCode(u);
+        if (gSector) {
+            const t = String(gSector).toUpperCase().trim();
+            const tCode = extractCode(t);
+            return (tCode && uCode && tCode === uCode) || u === t || u.includes(t) || t.includes(u);
+        }
+        // Distrital: primeiros 4 dígitos do código do setor devem casar
+        const distCode = extractCode(String(gDistrital)).slice(0, 4);
+        return distCode && uCode && uCode.slice(0, 4) === distCode;
+    };
+    const projectBySector = (p) => {
+        const items = (p.products || []).filter(pr => matchProductSector(pr.setor));
+        if (!items.length) return null;
+        const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0 };
+        const brickSet = new Set();
+        items.forEach(it => {
+            acc.mat_cur  += +it.mat_cur  || 0; acc.mat_prev += +it.mat_prev || 0;
+            acc.ytd_cur  += +it.ytd_cur  || 0; acc.ytd_prev += +it.ytd_prev || 0;
+            acc.tri_cur  += +it.tri_cur  || 0; acc.tri_prev += +it.tri_prev || 0;
+            if (it.brick) brickSet.add(it.brick);
+        });
+        acc.bricks = [...brickSet].sort();
+        return acc;
+    };
+
     let filtered = pdvsGlobal.filter(p => {
         if (f.brick !== 'all' && !p.bricks.includes(f.brick)) return false;
         if (f.cidade !== 'all' && p.cidade !== f.cidade) return false;
@@ -2765,6 +2799,15 @@ function renderPDV() {
         }
         return true;
     });
+
+    /* Reprojecta volumes pelo setor/distrital ativo (antes do filtro de marca,
+       para que a projeção de setor já esteja incorporada nos totais) */
+    if (gSector || gDistrital) {
+        filtered = filtered
+            .map(p => projectBySector(p))
+            .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
+    }
+
     /* v6.0 — substitui cada PDV pela projeção da marca selecionada */
     if (activeBrand) {
         filtered = filtered
@@ -2978,6 +3021,228 @@ function renderPDV() {
     });
 }
 
+/* ════════════════════════════════════════
+   EXPORTAÇÃO PDV → EXCEL  (ExcelJS)
+   Respeita todos os filtros ativos incluindo setor/distrital do header.
+   Quando distrital/setor está ativo, reprojecta volumes de cada PDV
+   somando apenas os produtos daquele recorte (igual à tabela na tela).
+════════════════════════════════════════ */
+async function exportPDVXLSX() {
+    if (typeof ExcelJS === 'undefined') { toast('Biblioteca ExcelJS não carregada.'); return; }
+
+    const mode = (typeof UI !== 'undefined') ? UI.unitMode : 'UN';
+    const pd   = (typeof UI !== 'undefined' && UI.periodMode) ? UI.periodMode : 'MAT';
+    const pdvs = (PDV && PDV.pdvsByValueMode && PDV.pdvsByValueMode[mode]) || [];
+    if (!pdvs.length) { toast('Nenhum dado de PDV carregado.'); return; }
+
+    const f          = PDV.filter || {};
+    const gSector    = (typeof UI !== 'undefined' && UI.sector    && UI.sector    !== 'all') ? UI.sector    : null;
+    const gMarket    = (typeof UI !== 'undefined' && UI.market    && UI.market    !== 'all') ? UI.market    : null;
+    const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
+    const gRegional  = (typeof UI !== 'undefined' && UI.regional  && UI.regional  !== 'all') ? UI.regional  : null;
+
+    const _ec = s => { const m = String(s||'').match(/(\d{4,6})/); return m ? m[1].padEnd(6,'0').slice(0,6) : ''; };
+    const _matchSect = (arr, target) => {
+        if (!target) return true;
+        const t = String(target).toUpperCase().trim(), tCode = _ec(t);
+        return arr.some(s => { const u = String(s).toUpperCase().trim(), uCode = _ec(u);
+            return (tCode && uCode && tCode === uCode) || u === t || u.includes(t) || t.includes(u); });
+    };
+    const _matchMkt = (arr, target) => {
+        if (!target) return true;
+        const t = String(target).toUpperCase().trim();
+        return arr.some(m => { const u = String(m).toUpperCase().trim();
+            return u === t || u.replace(/\s*\(.*?\)\s*$/,'').trim() === t.replace(/\s*\(.*?\)\s*$/,'').trim(); });
+    };
+    const _matchProdSect = (prodSetor) => {
+        if (!gSector && !gDistrital) return true;
+        const u = String(prodSetor||'').toUpperCase().trim(), uCode = _ec(u);
+        if (gSector) {
+            const t = String(gSector).toUpperCase().trim(), tCode = _ec(t);
+            return (tCode && uCode && tCode === uCode) || u === t || u.includes(t) || t.includes(u);
+        }
+        const distCode = _ec(String(gDistrital)).slice(0,4);
+        return distCode && uCode && uCode.slice(0,4) === distCode;
+    };
+    const _matchProdMkt = (prodMarca, target) => {
+        if (!target) return false;
+        const a = String(prodMarca||'').toUpperCase().trim(), t = String(target).toUpperCase().trim();
+        return a === t || a.replace(/\s*\(.*?\)\s*$/,'').trim() === t.replace(/\s*\(.*?\)\s*$/,'').trim();
+    };
+    const _projectSect = (p) => {
+        const items = (p.products||[]).filter(pr => _matchProdSect(pr.setor));
+        if (!items.length) return null;
+        const acc = { ...p, mat_cur:0, mat_prev:0, ytd_cur:0, ytd_prev:0, tri_cur:0, tri_prev:0 };
+        const bs = new Set();
+        items.forEach(it => {
+            acc.mat_cur  += +it.mat_cur  || 0; acc.mat_prev += +it.mat_prev || 0;
+            acc.ytd_cur  += +it.ytd_cur  || 0; acc.ytd_prev += +it.ytd_prev || 0;
+            acc.tri_cur  += +it.tri_cur  || 0; acc.tri_prev += +it.tri_prev || 0;
+            if (it.brick) bs.add(it.brick);
+        });
+        acc.bricks = [...bs].sort();
+        return acc;
+    };
+    const _projectMkt = (p, brand) => {
+        const items = (p.products||[]).filter(pr => _matchProdMkt(pr.marca, brand));
+        if (!items.length) return null;
+        const acc = { ...p, mat_cur:0, mat_prev:0, ytd_cur:0, ytd_prev:0, tri_cur:0, tri_prev:0 };
+        const bs = new Set();
+        items.forEach(it => {
+            acc.mat_cur  += +it.mat_cur  || 0; acc.mat_prev += +it.mat_prev || 0;
+            acc.ytd_cur  += +it.ytd_cur  || 0; acc.ytd_prev += +it.ytd_prev || 0;
+            acc.tri_cur  += +it.tri_cur  || 0; acc.tri_prev += +it.tri_prev || 0;
+            if (it.brick) bs.add(it.brick);
+        });
+        acc.bricks = [...bs].sort();
+        return acc;
+    };
+    const norm2 = s => String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+
+    let filtered = pdvs.filter(p => {
+        if (gDistrital && !_matchSect(p.distritais, gDistrital)) return false;
+        if (gRegional  && !_matchSect(p.regionais,  gRegional))  return false;
+        if (gSector    && !_matchSect(p.setores,    gSector))    return false;
+        if (gMarket    && !_matchMkt(p.marcas,      gMarket))    return false;
+        if (f.brick  && f.brick  !== 'all' && !p.bricks.includes(f.brick))   return false;
+        if (f.cidade && f.cidade !== 'all' && p.cidade !== f.cidade)         return false;
+        if (f.setor  && f.setor  !== 'all' && !p.setores.includes(f.setor))  return false;
+        if (f.marca  && f.marca  !== 'all' && !p.marcas.includes(f.marca))   return false;
+        if (f.classe && f.classe !== 'all' && p.classe !== f.classe)         return false;
+        if (f.search) {
+            const blob = norm2([p.cnpj, p.razao, p.cidade, p.bairro, (p.bricks||[]).join(' '), p.uf].join(' '));
+            if (!blob.includes(norm2(f.search))) return false;
+        }
+        return true;
+    });
+
+    // Reprojecta volumes pelo setor/distrital ativo
+    if (gSector || gDistrital) {
+        filtered = filtered.map(p => _projectSect(p)).filter(p => p && (p.mat_cur||p.mat_prev||p.ytd_cur||p.ytd_prev||p.tri_cur||p.tri_prev));
+    }
+    // Reprojecta pela marca ativa
+    const activeBrandXL = (f.marca && f.marca !== 'all') ? f.marca : (gMarket || null);
+    if (activeBrandXL) {
+        filtered = filtered.map(p => _projectMkt(p, activeBrandXL)).filter(p => p && (p.mat_cur||p.mat_prev||p.ytd_cur||p.ytd_prev||p.tri_cur||p.tri_prev));
+    }
+    if (!filtered.length) { toast('Nenhuma farmácia encontrada com os filtros atuais.'); return; }
+
+    const periodOrder = pd === 'MAT' ? ['MAT','YTD','TRI'] : pd === 'YTD' ? ['YTD','MAT','TRI'] : ['TRI','MAT','YTD'];
+    const COL = {};
+    periodOrder.forEach((p2, pi) => {
+        const base = 7 + pi * 4, key = p2.toLowerCase();
+        COL[key+'_prev'] = base; COL[key+'_cur'] = base+1; COL[key+'_gap'] = base+2; COL[key+'_cresc'] = base+3;
+    });
+    const TOTAL_COLS = 18;
+    const FIXED_HDRS = ['Classe','CNPJ','Razão Social','Cidade','UF','Brick'];
+    const PERIOD_HDRS = {
+        MAT: ['MAT Ano Ant.','MAT','GAP MAT','Cresc. MAT'],
+        YTD: ['YTD Ano Ant.','YTD','GAP YTD','Cresc. YTD'],
+        TRI: ['TRI Ano Ant.','TRI','GAP TRI','Cresc. TRI'],
+    };
+    const allHdrs = [...FIXED_HDRS, ...periodOrder.flatMap(p2 => PERIOD_HDRS[p2])];
+
+    const activeFilters = [
+        activeBrandXL ? `Marca: ${activeBrandXL}` : '',
+        f.brick  && f.brick  !== 'all' ? `Brick: ${f.brick}`   : '',
+        f.cidade && f.cidade !== 'all' ? `Cidade: ${f.cidade}` : '',
+        f.setor  && f.setor  !== 'all' ? `Setor: ${f.setor}`   : '',
+        f.classe && f.classe !== 'all' ? `Classe: ${f.classe}` : '',
+        gDistrital ? `Distrital: ${gDistrital}` : '',
+        gSector    ? `Setor: ${gSector}`         : '',
+    ].filter(Boolean).join(' | ') || 'Todos os setores';
+    const ctxText = ` Período: ${pd}   |   Base: ${mode === 'RS' ? 'R$' : 'Unidades'}   |   Registros: ${filtered.length}   |   Filtros: ${activeFilters}`;
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Supera Farma';
+    const sheetRaw  = activeBrandXL ? `Marca ${activeBrandXL}` : `PDVs ${pd} ${mode}`;
+    const sheetName = sheetRaw.replace(/[:\\/?*\[\]]/g,'').slice(0,31);
+    const ws        = wb.addWorksheet(sheetName);
+    [8.83,20.83,36.83,22.83,5.83,47.83,11.75,4.0,8.0,9.41,12.5,4.75,8.75,13.75,11.16,3.41,7.41,8.83]
+        .forEach((w,i) => { ws.getColumn(i+1).width = w; });
+
+    const isRS       = mode === 'RS';
+    const ACCOUNTING = '_("R$"* #,##0.00_);_("R$"* \\(#,##0.00\\);_("R$"* "-"??_);_(@_)';
+    const HDR_FILL   = { type:'pattern', pattern:'solid', fgColor:{argb:'FF002060'} };
+    const HDR_FONT   = { bold:true, size:12, color:{argb:'FFFFFFFF'}, name:'Aptos Narrow' };
+    const CENTER     = { horizontal:'center', vertical:'middle' };
+    const LEFT       = { horizontal:'left',   vertical:'middle' };
+    const THIN       = { right:{style:'thin', color:{argb:'FFE2E8F0'}} };
+
+    const styleFor = (val, isPercent) => {
+        const numFmt = isPercent ? '0.0%' : (isRS ? ACCOUNTING : 'General');
+        if (val > 0) return { font:{bold:true,size:11,name:'Aptos Narrow',color:{argb:'FF006100'}}, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFC6EFCE'}}, numFmt };
+        if (val < 0) return { font:{bold:true,size:11,name:'Aptos Narrow',color:{argb:'FF9C0006'}}, fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFFC7CE'}}, numFmt };
+        return { font:{bold:true,size:11,name:'Aptos Narrow'}, numFmt };
+    };
+
+    ws.getRow(1).height = 18;
+    const ctxCell = ws.getCell(1,1);
+    ctxCell.value = ctxText;
+    ctxCell.font  = { bold:true, size:12, name:'Aptos Narrow' };
+    ws.mergeCells(1,1,1,TOTAL_COLS);
+
+    ws.getRow(2).height = 22;
+    allHdrs.forEach((h,i) => {
+        const cell = ws.getCell(2,i+1);
+        cell.value = h; cell.fill = HDR_FILL; cell.font = HDR_FONT;
+        cell.alignment = (i>=6) ? CENTER : LEFT;
+        cell.border = { bottom:{style:'medium',color:{argb:'FF3B82F6'}}, right:{style:'thin',color:{argb:'FF2A4A73'}} };
+    });
+
+    filtered.forEach((p, idx) => {
+        const xlRow = idx+3;
+        const row   = ws.getRow(xlRow);
+        ['classe','cnpj','razao','cidade','uf','bricks'].forEach((k,i) => {
+            const cell = row.getCell(i+1);
+            cell.value = k==='cnpj' ? maskCNPJ(p.cnpj) : k==='bricks' ? (p.bricks||[]).join(', ') : (p[k]||'');
+            cell.font = {size:11,name:'Aptos Narrow'}; cell.alignment = LEFT; cell.border = THIN;
+        });
+        periodOrder.forEach(p2 => {
+            const key = p2.toLowerCase();
+            const prevVal = +(p[key+'_prev']||0), curVal = +(p[key+'_cur']||0);
+            const gapVal  = curVal - prevVal;
+            const crescVal = prevVal !== 0 ? curVal/prevVal-1 : null;
+
+            const cPrev = row.getCell(COL[key+'_prev']);
+            cPrev.value = prevVal; cPrev.font={size:11,name:'Aptos Narrow'}; cPrev.alignment=CENTER; cPrev.border=THIN;
+            if (isRS) cPrev.numFmt = ACCOUNTING;
+
+            const cCur = row.getCell(COL[key+'_cur']);
+            cCur.value = curVal; cCur.font={size:11,name:'Aptos Narrow'}; cCur.alignment=CENTER; cCur.border=THIN;
+            if (isRS) cCur.numFmt = ACCOUNTING;
+
+            const gapS = styleFor(gapVal, false);
+            const cGap = row.getCell(COL[key+'_gap']);
+            cGap.value = gapVal; cGap.font = gapS.font; if (gapS.fill) cGap.fill = gapS.fill;
+            cGap.numFmt = isRS ? ACCOUNTING : 'General'; cGap.alignment=CENTER; cGap.border=THIN;
+
+            const cCrsc = row.getCell(COL[key+'_cresc']);
+            if (crescVal !== null) {
+                const crS = styleFor(crescVal, true);
+                cCrsc.value = crescVal; cCrsc.font = crS.font; if (crS.fill) cCrsc.fill = crS.fill;
+                cCrsc.numFmt = '0.0%';
+            } else {
+                cCrsc.value = ''; cCrsc.font = {bold:true,size:11,name:'Aptos Narrow'}; cCrsc.numFmt='0.0%';
+            }
+            cCrsc.alignment=CENTER; cCrsc.border=THIN;
+        });
+    });
+
+    ws.views = [{ state:'frozen', ySplit:2, xSplit:0 }];
+
+    const modeLabel = mode==='RS' ? 'RS' : 'UN';
+    const date      = new Date().toISOString().slice(0,10);
+    const fileName  = `PDVs_${pd}_${modeLabel}_${date}.xlsx`;
+    const buffer    = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href=url; a.download=fileName; document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast(`✅ ${filtered.length} farmácias exportadas — ${fileName}`);
+}
+
 /* ----- Modal de detalhes da farmácia ----- */
 async function openPDVModal(cnpjRaw) {
     const cnpj = onlyDigits(cnpjRaw);
@@ -3111,38 +3376,8 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
     const mode = UI.unitMode;
     const modeLbl = mode === 'RS' ? 'R$' : 'Un.';
 
-    // KPIs (vendas locais)
-    let kpisHTML = '';
-    if (localPdv) {
-        const gMAT = localPdv.mat_prev > 0 ? (localPdv.mat_cur - localPdv.mat_prev) / localPdv.mat_prev : null;
-        const gYTD = localPdv.ytd_prev > 0 ? (localPdv.ytd_cur - localPdv.ytd_prev) / localPdv.ytd_prev : null;
-        const gTRI = localPdv.tri_prev > 0 ? (localPdv.tri_cur - localPdv.tri_prev) / localPdv.tri_prev : null;
-        const sub = (g) => g == null ? '<div class="pdv-kpi-sub">—</div>' : `<div class="pdv-kpi-sub ${g < 0 ? 'neg' : ''}">${fmtPct(g)}</div>`;
-        const classeLabels = { AA: '⭐⭐ AA · Estratégica', A: '⭐ A · Prioritária', B: 'B · Desenvolvimento', C: 'C · Monitoramento' };
-        const classeCls = { AA: 'pdv-classe-aa', A: 'pdv-classe-a', B: 'pdv-classe-b', C: 'pdv-classe-c' };
-        const potLabel = localPdv._potMatchDB === false ? ' (estimado — brick sem match no DB)' : '';
-        const setorLabel = localPdv._setorClassif ? ` · Setor de referência: ${localPdv._setorClassif}` : '';
-        const classeTooltip = localPdv.classe
-            ? `Score ${localPdv.scoreClasse}/100 · Volume percentil ${localPdv.percVolume}% no setor · Potencial percentil ${localPdv.percPotencial}%${potLabel}${setorLabel}`
-            : 'Classificação não disponível (carregue a planilha DDD para habilitar o potencial de mercado)';
-        kpisHTML = `
-            <div class="pdv-kpis pdv-kpis-tight">
-                <div class="pdv-kpi pdv-kpi-classe" style="min-width:110px">
-                    <div class="pdv-kpi-lbl">Classificação</div>
-                    <div class="pdv-kpi-val">
-                        <span class="pdv-classe-badge ${classeCls[localPdv.classe] || ''}" title="${classeTooltip}" style="font-size:15px;padding:3px 12px;">
-                            ${localPdv.classe || '—'}
-                        </span>
-                    </div>
-                    <div class="pdv-kpi-sub" title="${classeTooltip}">${localPdv.classe ? classeLabels[localPdv.classe] : '—'}</div>
-                </div>
-                <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">MAT (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(localPdv.mat_cur)}</div>${sub(gMAT)}</div>
-                <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">YTD (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(localPdv.ytd_cur)}</div>${sub(gYTD)}</div>
-                <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">TRI (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(localPdv.tri_cur)}</div>${sub(gTRI)}</div>
-            </div>`;
-    } else {
-        kpisHTML = `<div style="background:#fef3c7;color:#92400e;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:12px;font-weight:600;">⚠ Esta farmácia não consta na sua planilha IQVIA carregada (sem dados de venda).</div>`;
-    }
+    // KPIs — será reconstruído dentro do bloco venHTML com filtro de setor aplicado
+    let kpisHTML = localPdv ? '' : `<div style="background:#fef3c7;color:#92400e;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:12px;font-weight:600;">⚠ Esta farmácia não consta na sua planilha IQVIA carregada (sem dados de venda).</div>`;
 
     // Card cadastro Receita (layout compacto)
     let cadHTML = '';
@@ -3197,9 +3432,94 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         const curK = period + '_cur';
         const prevK = period + '_prev';
 
-        // Lista produtos agrupados por marca, dentro do brick principal
+        // ── Filtro de setor/distrital ativo no header ─────────────────────────
+        // Se o usuário selecionou um setor ou distrital específico, mostra apenas
+        // os produtos que pertencem àquele setor neste PDV.
+        const gSector    = (typeof UI !== 'undefined' && UI.sector    && UI.sector    !== 'all') ? UI.sector    : null;
+        const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
+
+        const extractCode = s => { const m = String(s||'').match(/(\d{4,6})/); return m ? m[1].padEnd(6,'0').slice(0,6) : ''; };
+        const matchesSectorFilter = (prodSetor) => {
+            if (!prodSetor) return true;
+            if (gSector) {
+                const t = String(gSector).toUpperCase().trim(), tCode = extractCode(t);
+                const u = String(prodSetor).toUpperCase().trim(), uCode = extractCode(u);
+                if (tCode && uCode && tCode === uCode) return true;
+                if (u === t || u.includes(t) || t.includes(u)) return true;
+                return false;
+            }
+            if (gDistrital) {
+                // Distrital = primeiros 4 dígitos + "00"; setor pertence à distrital
+                // se os primeiros 4 dígitos do setor == primeiros 4 dígitos da distrital
+                const distCode = extractCode(gDistrital).slice(0, 4);
+                const sectCode = extractCode(prodSetor).slice(0, 4);
+                return distCode && sectCode && distCode === sectCode;
+            }
+            return true;
+        };
+
+        const activeFilter = gSector || gDistrital;
+        const activeFilterLabel = gSector
+            ? gSector.replace(/^\d+\s*-\s*/, '').trim()
+            : gDistrital ? gDistrital.replace(/^\d+\s*-\s*/, '').trim() : null;
+
+        // Filtra produtos pelo setor ativo
+        const filteredProducts = activeFilter
+            ? localPdv.products.filter(pr => matchesSectorFilter(pr.setor))
+            : localPdv.products;
+
+        // Recalcula KPIs totais com base nos produtos filtrados
+        let kpiData = localPdv; // fallback: usa o PDV inteiro
+        if (activeFilter && filteredProducts.length > 0) {
+            const acc = { mat_cur:0, mat_prev:0, ytd_cur:0, ytd_prev:0, tri_cur:0, tri_prev:0 };
+            filteredProducts.forEach(pr => {
+                acc.mat_cur  += pr.mat_cur  || 0; acc.mat_prev += pr.mat_prev || 0;
+                acc.ytd_cur  += pr.ytd_cur  || 0; acc.ytd_prev += pr.ytd_prev || 0;
+                acc.tri_cur  += pr.tri_cur  || 0; acc.tri_prev += pr.tri_prev || 0;
+            });
+            kpiData = { ...localPdv, ...acc };
+        }
+
+        // Reconstrói os KPIs com os valores filtrados
+        const gMAT2 = kpiData.mat_prev > 0 ? (kpiData.mat_cur - kpiData.mat_prev) / kpiData.mat_prev : null;
+        const gYTD2 = kpiData.ytd_prev > 0 ? (kpiData.ytd_cur - kpiData.ytd_prev) / kpiData.ytd_prev : null;
+        const gTRI2 = kpiData.tri_prev > 0 ? (kpiData.tri_cur - kpiData.tri_prev) / kpiData.tri_prev : null;
+        const sub2 = (g) => g == null ? '<div class="pdv-kpi-sub">—</div>' : `<div class="pdv-kpi-sub ${g < 0 ? 'neg' : ''}">${fmtPct(g)}</div>`;
+        const classeLabels = { AA: '⭐⭐ AA · Estratégica', A: '⭐ A · Prioritária', B: 'B · Desenvolvimento', C: 'C · Monitoramento' };
+        const classeCls = { AA: 'pdv-classe-aa', A: 'pdv-classe-a', B: 'pdv-classe-b', C: 'pdv-classe-c' };
+        const potLabel = localPdv._potMatchDB === false ? ' (estimado — brick sem match no DB)' : '';
+        const setorLabel = localPdv._setorClassif ? ` · Setor de referência: ${localPdv._setorClassif}` : '';
+        const classeTooltip = localPdv.classe
+            ? `Score ${localPdv.scoreClasse}/100 · Volume percentil ${localPdv.percVolume}% no setor · Potencial percentil ${localPdv.percPotencial}%${potLabel}${setorLabel}`
+            : 'Classificação não disponível';
+
+        const filterBadge = activeFilterLabel
+            ? `<span style="display:inline-block;margin-left:8px;padding:1px 8px;background:#1d4ed8;color:#fff;font-size:9.5px;font-weight:700;border-radius:10px;letter-spacing:.3px;vertical-align:middle;" title="Exibindo apenas produtos do setor/distrital ativo">📍 ${escapeHTML(activeFilterLabel)}</span>`
+            : '';
+        const filterNote = activeFilter && filteredProducts.length === 0
+            ? `<div style="background:#fef3c7;color:#92400e;padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:12px;">⚠ Nenhum produto desta farmácia pertence ao setor/distrital selecionado.</div>` : '';
+        const filterInfo = activeFilter && filteredProducts.length > 0
+            ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;padding:6px 10px;border-radius:6px;margin-bottom:8px;font-size:11px;font-weight:600;">🔍 Exibindo <b>${filteredProducts.length}</b> de ${localPdv.products.length} produto(s) — filtrado por <b>${escapeHTML(activeFilterLabel || activeFilter)}</b>. Os KPIs refletem apenas este recorte.</div>` : '';
+
+        kpisHTML = `
+            <div class="pdv-kpis pdv-kpis-tight">
+                <div class="pdv-kpi pdv-kpi-classe" style="min-width:110px">
+                    <div class="pdv-kpi-lbl">Classificação</div>
+                    <div class="pdv-kpi-val">
+                        <span class="pdv-classe-badge ${classeCls[localPdv.classe] || ''}" title="${classeTooltip}" style="font-size:15px;padding:3px 12px;">
+                            ${localPdv.classe || '—'}
+                        </span>
+                    </div>
+                    <div class="pdv-kpi-sub" title="${classeTooltip}">${localPdv.classe ? classeLabels[localPdv.classe] : '—'}</div>
+                </div>
+                <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">MAT (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(kpiData.mat_cur)}</div>${sub2(gMAT2)}</div>
+                <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">YTD (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(kpiData.ytd_cur)}</div>${sub2(gYTD2)}</div>
+                <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">TRI (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(kpiData.tri_cur)}</div>${sub2(gTRI2)}</div>
+            </div>`;
+
+        // Lista produtos agrupados por marca, usando APENAS os produtos filtrados
         const prodMap = new Map();
-        localPdv.products.forEach(p => {
+        filteredProducts.forEach(p => {
             const k = p.marca + '||' + p.brick;
             const cur = prodMap.get(k) || { marca: p.marca, brick: p.brick, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0 };
             cur.mat_cur += p.mat_cur; cur.mat_prev += p.mat_prev;
@@ -3266,12 +3586,13 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         venHTML = `
             <div class="pdv-card">
                 <div class="pdv-card-h">
-                    <span class="pdv-card-h-ico">📊</span> Vendas IQVIA — ${modeLbl}
+                    <span class="pdv-card-h-ico">📊</span> Vendas IQVIA — ${modeLbl}${filterBadge}
                     <button class="pdv-action-btn" style="margin-left:auto;background:#0f4ea3;color:#fff;border-color:#0f4ea3;" data-act="export-pdv" data-val="${cnpj}">⬇ Exportar Excel</button>
                 </div>
+                ${filterNote}${filterInfo}
                 <div class="pdv-row"><span class="pdv-k">Bricks</span><span class="pdv-v">${localPdv.bricks.map(b => `<code>${escapeHTML(b)}</code>`).join('<br>')}</span></div>
                 <div class="pdv-row"><span class="pdv-k">Setor(es)</span><span class="pdv-v"><small>${localPdv.setores.map(s => escapeHTML(s)).join('<br>') || '—'}</small></span></div>
-                <div class="pdv-row"><span class="pdv-k">Marcas</span><span class="pdv-v"><small>${localPdv.marcas.length} marca(s) com venda</small></span></div>
+                <div class="pdv-row"><span class="pdv-k">Marcas</span><span class="pdv-v"><small>${filteredProducts.length > 0 ? [...new Set(filteredProducts.map(p => p.marca))].length : 0} marca(s)${activeFilter ? ' no filtro ativo' : ' com venda'}</small></span></div>
                 <div style="margin-top:10px;border-top:1px dashed #e0e7f1;padding-top:8px;" id="pdvProdWrap">
                     <div style="font-size:10.5px;color:#6b7a99;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Produtos vendidos por essa farmácia</div>
                     ${prodTbl}
@@ -3345,11 +3666,25 @@ async function exportPDVModal(cnpjRaw) {
     ].filter(Boolean).join(' - ')
         : (p.bairro ? p.bairro + ' - ' + p.cidade + ' / ' + p.uf : p.cidade + ' / ' + p.uf);
 
-    // Produtos
+    // Produtos — filtra pelo setor/distrital ativo (igual ao modal de visualização)
     const periodUpper = (UI && UI.periodMode) || 'MAT';
     const curK = periodUpper.toLowerCase() + '_cur';
+    const _gSector2    = (typeof UI !== 'undefined' && UI.sector    && UI.sector    !== 'all') ? UI.sector    : null;
+    const _gDistrital2 = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
+    const _extractCode2 = s => { const m = String(s||'').match(/(\d{4,6})/); return m ? m[1].padEnd(6,'0').slice(0,6) : ''; };
+    const _matchesSector2 = (prodSetor) => {
+        if (!_gSector2 && !_gDistrital2) return true;
+        if (_gSector2) {
+            const t = String(_gSector2).toUpperCase().trim(), tCode = _extractCode2(t);
+            const u = String(prodSetor||'').toUpperCase().trim(), uCode = _extractCode2(u);
+            return (tCode && uCode && tCode === uCode) || u === t || u.includes(t) || t.includes(u);
+        }
+        const distCode = _extractCode2(_gDistrital2).slice(0,4);
+        const sectCode = _extractCode2(prodSetor||'').slice(0,4);
+        return distCode && sectCode && distCode === sectCode;
+    };
     const prodMap = new Map();
-    p.products.forEach(pr => {
+    p.products.filter(pr => _matchesSector2(pr.setor)).forEach(pr => {
         const k = pr.marca + '||' + pr.brick;
         const c = prodMap.get(k) || {
             marca: pr.marca, brick: pr.brick,
