@@ -480,26 +480,19 @@ function getFilteredRows(extraSector) {
         - CRESCER    → Supera crescendo > 20% vs período anterior
         - ACOMPANHAR → Supera caindo < -10%
         - OPORTUNIDADE → caso contrário                                ===== */
-/* v6.0 — Recomendação por brick: share relativo + gap múltiplo + tendência do líder
-   ────────────────────────────────────────────────────────────────────────────────
-   ACOMPANHAR = share muito baixo (< 10%) E gap muito grande (> 3× Supera) — ambos juntos.
-   Qualquer um dos dois que não se confirme → OPORTUNIDADE (há ângulo de ataque).
+/* v7.0 — Recomendação por brick: critério único baseado em gap
+   ────────────────────────────────────────────────────────────────
+   Critério simples e direto: apenas o gap para a posição acima decide.
+   Remove barreira de share — volume em unidades naturalmente menor
+   não deve penalizar mercados com gap alcançável.
 
    Árvore de decisão:
-     • Supera sem venda                                    → ENTRAR
-     • Posição 1ª                                          → LÍDER
-     • Posição 2ª                                          → CRESCER
-     • Posição 3ª/4ª, gap ≤ 3× Supera                    → OPORTUNIDADE
-     • Posição 3ª/4ª, gap > 3× Supera                    → ACOMPANHAR
-     • Posição 5ª+, share ≥ 10% OU gap ≤ 3× Supera       → OPORTUNIDADE
-     • Posição 5ª+, share < 10% E gap > 3× Supera         → ACOMPANHAR
-
-   Parâmetros:
-     pos         : posição Supera no ranking do brick
-     gapLider    : gap absoluto para o 1º colocado
-     gapProximo  : gap absoluto para a posição imediatamente acima
-     liderGrowth : crescimento do líder (null se sem histórico)
-     shareBrick  : share % da Supera naquele brick
+     • Supera sem venda                              → ENTRAR
+     • Posição 1ª                                    → LÍDER
+     • Posição 2ª                                    → CRESCER
+     • Supera entrando (superaPrev = 0)              → OPORTUNIDADE
+     • gap p/ próxima posição ≤ 3× venda Supera      → OPORTUNIDADE
+     • gap p/ próxima posição > 3× venda Supera      → ACOMPANHAR
 */
 function calcRecBrick(superaCur, superaPrev, concMax, growth, pos, gapLider, liderGrowth, shareBrick, gapProximo) {
     if (!superaCur || superaCur <= 0) return 'ENTRAR';
@@ -507,26 +500,14 @@ function calcRecBrick(superaCur, superaPrev, concMax, growth, pos, gapLider, lid
     if (pos === 2) return 'CRESCER';
 
     // Supera entrando no brick (sem histórico anterior) → sempre OPORTUNIDADE
-    // Está ganhando presença, independente da posição atual
     if (!superaPrev || superaPrev <= 0) return 'OPORTUNIDADE';
 
-    // Gap de referência:
-    //   pos 3ª/4ª → gap para o líder (precisa alcançar o 1º)
-    //   pos 5ª+   → gap para a posição imediatamente acima (subir um degrau de cada vez)
-    const gapRef = (pos <= 4) ? (gapLider || 0) : (gapProximo || gapLider || 0);
+    // Gap para a posição imediatamente acima (subir um degrau de cada vez)
+    // Fallback para gapLider caso gapProximo não esteja disponível
+    const gapRef = (gapProximo != null && gapProximo > 0) ? gapProximo : (gapLider || 0);
     const alcancavel = gapRef <= superaCur * 3;  // gap ≤ 3× venda Supera
-    const shareOk = (shareBrick || 0) >= 10; // share ≥ 10%
 
-    if (pos === 3 || pos === 4) {
-        return alcancavel ? 'OPORTUNIDADE' : 'ACOMPANHAR';
-    }
-
-    // pos 5ª+: basta UMA condição favorável → OPORTUNIDADE
-    if (pos >= 5) {
-        return (shareOk || alcancavel) ? 'OPORTUNIDADE' : 'ACOMPANHAR';
-    }
-
-    return 'ACOMPANHAR';
+    return alcancavel ? 'OPORTUNIDADE' : 'ACOMPANHAR';
 }
 
 function recColorVar(rec) {
@@ -790,7 +771,7 @@ function renderResumo() {
         const isExpanded = UI.expandedRows.has(rowId);
 
         // Toggle de exclusão de concorrentes (ex: DURATESTON no ATESTO)
-        const mktExcl  = MARKET_BRICK_EXCLUSIONS[normU(m.market)] || MARKET_BRICK_EXCLUSIONS[m.market];
+        const mktExcl = MARKET_BRICK_EXCLUSIONS[normU(m.market)] || MARKET_BRICK_EXCLUSIONS[m.market];
         const exclActive = mktExcl && !UI.marketExclusions[normU(m.market)];
         const toggleBtn = mktExcl ? ` <button
             class="excl-toggle-btn ${exclActive ? 'excl-on' : 'excl-off'}"
@@ -799,9 +780,9 @@ function renderResumo() {
                 ? 'Clique para incluir: ' + [...mktExcl].join(', ')
                 : 'Clique para excluir: ' + [...mktExcl].join(', ')}"
         >${exclActive
-            ? '⊘ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
-            : '＋ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
-        }</button>` : '';
+                ? '⊘ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
+                : '＋ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
+            }</button>` : '';
 
         html += `<tr class="mkt-row" id="row_${rowId}">
             <td class="expand-cell"><button class="expand-btn" onclick="toggleExpand('${rowId}')">${isExpanded ? '−' : '+'}</button></td>
@@ -972,7 +953,7 @@ function showBrickModal(market, rec) {
     };
     // Badge de exclusão visível no título quando há produtos excluídos
     const exclBadge = excl && excl.size
-        ? ` <span class="excl-badge" title="Concorrentes excluídos desta visão: ${[...excl].join(', ')}">⚠ excl. ${[...excl].map(p => p.replace(/\s*\([^)]+\)/,'')).join(', ')}</span>`
+        ? ` <span class="excl-badge" title="Concorrentes excluídos desta visão: ${[...excl].join(', ')}">⚠ excl. ${[...excl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')}</span>`
         : '';
     $('brickModalTitle').innerHTML = `<span class="mmodal-mkt">${market}</span>
         <span class="mmodal-sep">—</span>
@@ -1029,7 +1010,7 @@ function showBrickModal(market, rec) {
                     const multRounded = multRaw != null ? Math.round(multRaw * 10) / 10 : null;
                     const mult = multRounded == null ? '∞'
                         : Number.isInteger(multRounded) ? String(multRounded)
-                        : multRounded.toFixed(1);
+                            : multRounded.toFixed(1);
                     const nomeAcima = acima.name.replace(/\s*\([^)]+\)/, '');
                     gapProxCls = gp <= b.superaCur * 3 ? 'vpos' : 'vneg';
                     gapProxLabel = `+${fmtValue(gp)} <span style="font-size:.7em;opacity:.7">(${mult}×) p/ ${nomeAcima}</span>`;
