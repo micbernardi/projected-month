@@ -3669,6 +3669,152 @@ td.pdv-growth-neg {
     box-shadow: 0 1px 2px rgba(5,150,105,.3);
 }
 
+/* ════════════════════════════════════════
+   MULTI-SELECT DROPDOWN — PDV Filterbar
+════════════════════════════════════════ */
+.pdv-ms-wrap {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.pdv-ms-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #f8fafc;
+    border: 1px solid var(--navy4);
+    border-radius: var(--r);
+    padding: 2px 8px 2px 7px;
+    font-size: 10.5px;
+    font-family: inherit;
+    color: var(--top-txt);
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: 110px;
+    max-width: 180px;
+    line-height: 1.5;
+    transition: border-color .15s, background .15s;
+    text-align: left;
+}
+
+.pdv-ms-btn:hover, .pdv-ms-btn:focus {
+    border-color: var(--top-accent);
+    background: #fff;
+    outline: none;
+}
+
+.pdv-ms-btn.pdv-ms-active {
+    border-color: var(--top-accent);
+    background: #eff6ff;
+    color: var(--top-accent);
+    font-weight: 600;
+}
+
+.pdv-ms-lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.pdv-ms-arrow { font-size: 9px; opacity: .6; flex-shrink: 0; }
+
+.pdv-ms-panel {
+    position: absolute;
+    top: calc(100% + 3px);
+    left: 0;
+    z-index: 600;
+    background: #fff;
+    border: 1px solid var(--navy4);
+    border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.13);
+    min-width: 220px;
+    max-width: 300px;
+    overflow: hidden;
+}
+
+.pdv-ms-search-wrap {
+    padding: 6px 8px 4px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.pdv-ms-search {
+    width: 100%;
+    border: 1px solid var(--navy4);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    outline: none;
+    background: #f8fafc;
+}
+
+.pdv-ms-search:focus { border-color: var(--top-accent); background: #fff; }
+
+.pdv-ms-list {
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 2px 0;
+}
+
+.pdv-ms-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
+    font-size: 11px;
+    color: var(--top-txt);
+    cursor: pointer;
+    transition: background .1s;
+    user-select: none;
+}
+
+.pdv-ms-item:hover { background: #f0f6ff; }
+.pdv-ms-item.checked { color: var(--top-accent); font-weight: 600; }
+.pdv-ms-item input[type=checkbox] { accent-color: var(--top-accent); flex-shrink: 0; }
+.pdv-ms-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pdv-ms-all {
+    border-bottom: 1px solid #f1f5f9;
+    font-weight: 600;
+    color: var(--top-txt2);
+    font-size: 10.5px;
+    padding: 5px 10px;
+    background: #fafbfd;
+}
+
+.pdv-ms-clear {
+    display: block;
+    width: 100%;
+    border: none;
+    border-top: 1px solid #f1f5f9;
+    background: #fff8f8;
+    color: #b91c1c;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 5px 10px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: background .1s;
+}
+
+.pdv-ms-clear:hover { background: #fee2e2; }
+
+.pdv-ms-apply {
+    display: block;
+    width: 100%;
+    border: none;
+    border-top: 1px solid #e0eaff;
+    background: var(--top-accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 7px 10px;
+    cursor: pointer;
+    text-align: center;
+    font-family: inherit;
+    transition: background .1s;
+    letter-spacing: .2px;
+}
+
+.pdv-ms-apply:hover { background: #1536a8; }
+
 /* Painel de info do PDV mais limpo */
 .pdv-toolbar {
     flex-wrap: wrap;

@@ -422,6 +422,20 @@ function applyHierarchy() {
     DB.markets = [...new Set(rows.map(r => r.market))].sort();
 }
 
+/* Retorna DB.rows filtrado pelo setor ativo, excluindo mercados sem venda
+   Supera quando há recorte de distrital ou setor ativo. Isso impede que
+   mercados de outras linhas apareçam ao filtrar por GD/distrital. */
+function getFilteredRows(extraSector) {
+    let rows = DB.rows;
+    const sec = extraSector || (UI.sector !== 'all' ? UI.sector : null);
+    if (sec) rows = rows.filter(r => r.sector === sec);
+    if ((UI.distrital && UI.distrital !== 'all') || sec) {
+        const superaMkts = new Set(rows.filter(r => r.role === 'SUPERA').map(r => r.market));
+        rows = rows.filter(r => superaMkts.has(r.market));
+    }
+    return rows;
+}
+
 /* ===== RECOMENDAÇÃO POR BRICK (Supera × Mercado)
         Regra alinhada ao layout do usuário:
         - ENTRAR     → Supera = 0 no brick
@@ -571,8 +585,7 @@ function renderResumo() {
     const pd = UI.periodMode;
     const searchStr = norm(UI.search);
 
-    const fRows = DB.rows.filter(r => {
-        if (UI.sector !== 'all' && r.sector !== UI.sector) return false;
+    const fRows = getFilteredRows().filter(r => {
         if (UI.market !== 'all' && r.market !== UI.market) return false;
         if (searchStr) {
             const blob = norm(r.market + ' ' + r.cidade + ' ' + r.brickName + ' ' + r.product);
@@ -845,11 +858,7 @@ function toggleExpand(rowId) {
 /* ===== MODAL DE BRICKS POR RECOMENDAÇÃO (print 2 do usuário) ===== */
 function showBrickModal(market, rec) {
     const pd = UI.periodMode;
-    // Se um setor está ativo, filtra os bricks apenas daquele setor
-    let rows = DB.rows.filter(r => r.market === market);
-    if (UI.sector !== 'all') {
-        rows = rows.filter(r => r.sector === UI.sector);
-    }
+    let rows = getFilteredRows().filter(r => r.market === market);
     const bricks = aggBricksOfMarket(rows, pd).filter(b => b.rec === rec);
     bricks.sort((a, b) => (b.superaCur - a.superaCur) || a.brick.localeCompare(b.brick));
     // Indica no título se está filtrado por setor
@@ -927,7 +936,7 @@ function showBrickModal(market, rec) {
 /* ===== MODAL DE "VER" — detalhe do mercado (print 3) ===== */
 function showVerModal(market) {
     const pd = UI.periodMode;
-    const rows = DB.rows.filter(r => r.market === market);
+    const rows = getFilteredRows().filter(r => r.market === market);
     const mktEntry = MARKETS_BRANDS_MAP[normU(market)] || { supera: [], concorrentes: [] };
 
     // Agrega por produto
@@ -1214,8 +1223,7 @@ function renderBrick() {
     const pd = UI.periodMode;
     const searchStr = norm(UI.search);
 
-    const fRows = DB.rows.filter(r => {
-        if (UI.sector !== 'all' && r.sector !== UI.sector) return false;
+    const fRows = getFilteredRows().filter(r => {
         if (UI.market !== 'all' && r.market !== UI.market) return false;
         if (searchStr) {
             const blob = norm(r.market + ' ' + r.cidade + ' ' + r.brickName + ' ' + r.product);
@@ -2058,7 +2066,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function renderOport() {
     const el = $('tab-oport'); if (!el) return;
     const pd = UI.periodMode;
-    const mkts = aggMarkets(DB.rows, pd);
+    const mkts = aggMarkets(getFilteredRows(), pd);
     // Critério: mercados grandes com share < 50% e volume significativo
     const medianCur = median(mkts.map(m => m.current));
     const oport = mkts.filter(m => m.current >= medianCur && m.share < 50 && m.share > 5).sort((a, b) => (b.current - a.current));
@@ -2085,7 +2093,7 @@ function renderOport() {
 function renderEntrar() {
     const el = $('tab-entrar'); if (!el) return;
     const pd = UI.periodMode;
-    const mkts = aggMarkets(DB.rows, pd);
+    const mkts = aggMarkets(getFilteredRows(), pd);
     const entrar = [];
     mkts.forEach(m => m.recs['ENTRAR'].forEach(b => entrar.push({ market: m.market, brick: b })));
     entrar.sort((a, b) => b.brick.totalCur - a.brick.totalCur);
@@ -2111,7 +2119,7 @@ function renderEntrar() {
 function renderGraficos() {
     const el = $('tab-graficos'); if (!el) return;
     const pd = UI.periodMode;
-    const mkts = aggMarkets(DB.rows, pd).sort((a, b) => b.current - a.current);
+    const mkts = aggMarkets(getFilteredRows(), pd).sort((a, b) => b.current - a.current);
     const top = mkts.slice(0, 15);
     const max = Math.max(...top.map(m => m.current), 1);
 
@@ -2182,7 +2190,7 @@ const PDV = {
     cnpjCache: {},                         // cache local de respostas BrasilAPI
     sortKey: 'mat_cur',
     sortDir: 'desc',
-    filter: { brick: 'all', cidade: 'all', setor: 'all', marca: 'all', classe: 'all', search: '' }
+    filter: { brick: [], cidade: [], setor: [], marca: [], classe: 'all', search: '' }
 };
 
 /* ----- Helpers ----- */
@@ -2539,7 +2547,7 @@ function clearPDVData() {
     PDV.rowsByValueMode = { UN: [], RS: [] };
     PDV.pdvsByValueMode = { UN: [], RS: [] };
     try { localStorage.removeItem('SUPERA_PDV_DATA_v1'); } catch (e) { }
-    PDV.filter = { brick: 'all', cidade: 'all', setor: 'all', marca: 'all', search: '' };
+    PDV.filter = { brick: [], cidade: [], setor: [], marca: [], classe: 'all', search: '' };
     toast('Base de PDVs limpa.');
     renderPDV();
 }
@@ -2600,10 +2608,10 @@ function renderPDV() {
     const totalUN = (PDV.pdvsByValueMode.UN || []).length;
     const totalRS = (PDV.pdvsByValueMode.RS || []).length;
     const periodLblHeader = (typeof UI !== 'undefined' && UI.periodMode) ? UI.periodMode : 'MAT';
-    /* v6.0 — detecta antecipadamente a marca filtrada para mostrar no badge da toolbar */
+    /* v6.0 — detecta antecipadamente as marcas filtradas para mostrar no badge da toolbar */
     const _gMkt = (typeof UI !== 'undefined' && UI.market && UI.market !== 'all') ? UI.market : null;
-    const _localMkt = (PDV.filter && PDV.filter.marca && PDV.filter.marca !== 'all') ? PDV.filter.marca : null;
-    const _activeBrandHdr = _localMkt || _gMkt;
+    const _localMkts = (PDV.filter && PDV.filter.marca && PDV.filter.marca.length) ? PDV.filter.marca : null;
+    const _activeBrandHdr = _localMkts ? (_localMkts.length === 1 ? _localMkts[0] : `${_localMkts.length} marcas`) : _gMkt;
 
     // ── Filtros globais do header (distrital / setor / regional) ──────────────
     // Aplicados PRIMEIRO sobre o universo completo de PDVs do modo atual.
@@ -2666,23 +2674,48 @@ function renderPDV() {
         return `<option value="all">${all}</option>` + arr.map(v => `<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`).join('');
     };
 
-    // v6.11 — Filterbar PRIMEIRO (com a única busca unificada)
-    // Monta selects com valor atual selecionado
-    const optListSel = (s, all, cur) => {
-        const arr = [...s].sort();
-        return `<option value="all"${!cur || cur === 'all' ? ' selected' : ''}>${all}</option>` +
-            arr.map(v => `<option value="${escapeHTML(v)}"${v === cur ? ' selected' : ''}>${escapeHTML(v)}</option>`).join('');
+    // ── Helper: monta opções com estado multi-select ──────────────────────────
+    // f.brick, f.cidade, f.setor, f.marca são arrays; [] = tudo selecionado
+    const isAll = (arr) => !arr || !arr.length;
+    const isSelected = (arr, v) => isAll(arr) || arr.includes(v);
+    const labelFor = (key) => {
+        const arr = f[key] || [];
+        if (isAll(arr)) return { txt: key === 'brick' ? 'Todos os Bricks' : key === 'cidade' ? 'Todas as Cidades' : key === 'setor' ? 'Todos os Setores' : 'Todas as Marcas', active: false };
+        if (arr.length === 1) return { txt: arr[0].length > 22 ? arr[0].slice(0, 22) + '…' : arr[0], active: true };
+        return { txt: `${arr.length} selecionados`, active: true };
     };
+    const buildMultiOpts = (set, key) => {
+        const arr = [...set].sort();
+        const cur = f[key] || [];
+        return arr.map(v => {
+            const checked = isAll(cur) || cur.includes(v);
+            return `<label class="pdv-ms-item${checked ? ' checked' : ''}"><input type="checkbox" value="${escapeHTML(v)}"${checked ? ' checked' : ''}><span>${escapeHTML(v)}</span></label>`;
+        }).join('');
+    };
+
+    const mkDropdown = (id, key, set, allLabel) => {
+        const lbl = labelFor(key);
+        return `
+        <div class="pdv-ms-wrap" id="${id}Wrap">
+            <button class="pdv-ms-btn${lbl.active ? ' pdv-ms-active' : ''}" id="${id}Btn" type="button">
+                <span class="pdv-ms-lbl">${escapeHTML(lbl.txt)}</span>
+                <span class="pdv-ms-arrow">▾</span>
+            </button>
+            <div class="pdv-ms-panel" id="${id}Panel" style="display:none">
+                <div class="pdv-ms-search-wrap"><input class="pdv-ms-search" placeholder="🔍 Buscar..." autocomplete="off"></div>
+                <label class="pdv-ms-item pdv-ms-all"><input type="checkbox" value="__all__"${isAll(f[key]) ? ' checked' : ''}><span>${allLabel}</span></label>
+                <div class="pdv-ms-list">${buildMultiOpts(set, key)}</div>
+                ${lbl.active ? `<button class="pdv-ms-clear" data-key="${key}">✕ Limpar seleção</button>` : ''}
+            </div>
+        </div>`;
+    };
+
     let html = `
         <div class="pdv-filterbar">
-            <label>Brick</label>
-            <select id="pdvFilterBrick">${optListSel(bricksSet, 'Todos os Bricks', f.brick)}</select>
-            <label>Cidade</label>
-            <select id="pdvFilterCidade">${optListSel(citySet, 'Todas as Cidades', f.cidade)}</select>
-            <label>Setor</label>
-            <select id="pdvFilterSetor">${optListSel(secSet, 'Todos os Setores', f.setor)}</select>
-            <label>Marca</label>
-            <select id="pdvFilterMarca">${optListSel(marcaSet, 'Todas as Marcas', f.marca)}</select>
+            <label>Brick</label>${mkDropdown('pdvFilterBrick','brick',bricksSet,'Todos os Bricks')}
+            <label>Cidade</label>${mkDropdown('pdvFilterCidade','cidade',citySet,'Todas as Cidades')}
+            <label>Setor</label>${mkDropdown('pdvFilterSetor','setor',secSet,'Todos os Setores')}
+            <label>Marca</label>${mkDropdown('pdvFilterMarca','marca',marcaSet,'Todas as Marcas')}
             <label>Classe</label>
             <select id="pdvFilterClasse">
                 <option value="all"${!f.classe || f.classe === 'all' ? ' selected' : ''}>Todas as Classes</option>
@@ -2717,43 +2750,35 @@ function renderPDV() {
         </div>`;
 
     // ── Filtros locais da aba PDV (brick / cidade / setor / marca / busca) ──────
-    // Aplicados sobre pdvsGlobal (já pré-filtrado pelos filtros do header).
-    /* v6.0 — quando o usuário escolhe uma marca específica (filtro local OU global),
-       a tabela passa a mostrar os valores DAQUELA marca em cada PDV (e não os totais).
-       activeBrand recebe a marca a ser destacada (preserva sufixo "(SP0)"). */
-    const activeBrand = (f.marca && f.marca !== 'all') ? f.marca : (gMarket || null);
-    const matchProductBrand = (prodMarca, target) => {
-        if (!target) return false;
+    // activeBrands: array de marcas selecionadas (vazio = todas)
+    // Quando há marcas selecionadas, reprojecta volumes somando só essas marcas.
+    const activeBrands = (f.marca && f.marca.length) ? f.marca : (gMarket ? [gMarket] : []);
+    const matchProductBrand = (prodMarca, brandsArr) => {
+        if (!brandsArr || !brandsArr.length) return true;
         const a = String(prodMarca || '').toUpperCase().trim();
-        const t = String(target).toUpperCase().trim();
         const aBase = a.replace(/\s*\(.*?\)\s*$/, '').trim();
-        const tBase = t.replace(/\s*\(.*?\)\s*$/, '').trim();
-        return a === t || aBase === tBase;
+        return brandsArr.some(target => {
+            const t = String(target).toUpperCase().trim();
+            const tBase = t.replace(/\s*\(.*?\)\s*$/, '').trim();
+            return a === t || aBase === tBase;
+        });
     };
-    /* Calcula os valores específicos da marca para um PDV */
-    const projectByBrand = (p, brand) => {
-        const items = (p.products || []).filter(pr => matchProductBrand(pr.marca, brand));
+    /* Reprojecta volumes de um PDV somando apenas as marcas do array */
+    const projectByBrands = (p, brandsArr) => {
+        const items = (p.products || []).filter(pr => matchProductBrand(pr.marca, brandsArr));
         if (!items.length) return null;
-        const acc = {
-            ...p,
-            mat_cur: 0, mat_prev: 0,
-            ytd_cur: 0, ytd_prev: 0,
-            tri_cur: 0, tri_prev: 0,
-            _brandView: brand,
-            _brandBricks: new Set()
-        };
+        const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0, _brandView: brandsArr.join(', '), _brandBricks: new Set() };
         items.forEach(it => {
-            acc.mat_cur += +it.mat_cur || 0;
-            acc.mat_prev += +it.mat_prev || 0;
-            acc.ytd_cur += +it.ytd_cur || 0;
-            acc.ytd_prev += +it.ytd_prev || 0;
-            acc.tri_cur += +it.tri_cur || 0;
-            acc.tri_prev += +it.tri_prev || 0;
+            acc.mat_cur  += +it.mat_cur  || 0; acc.mat_prev += +it.mat_prev || 0;
+            acc.ytd_cur  += +it.ytd_cur  || 0; acc.ytd_prev += +it.ytd_prev || 0;
+            acc.tri_cur  += +it.tri_cur  || 0; acc.tri_prev += +it.tri_prev || 0;
             if (it.brick) acc._brandBricks.add(it.brick);
         });
         acc.bricks = [...acc._brandBricks].sort();
         return acc;
     };
+    // Mantém compatibilidade com chamadas que ainda passam string única
+    const projectByBrand = (p, brand) => projectByBrands(p, [brand]);
 
     /* Reprojecta volumes de um PDV somando apenas os produtos do setor/distrital ativo.
        Necessário porque aggregatePDVs soma TODOS os setores de um PDV;
@@ -2788,11 +2813,11 @@ function renderPDV() {
     };
 
     let filtered = pdvsGlobal.filter(p => {
-        if (f.brick !== 'all' && !p.bricks.includes(f.brick)) return false;
-        if (f.cidade !== 'all' && p.cidade !== f.cidade) return false;
-        if (f.setor !== 'all' && !p.setores.includes(f.setor)) return false;
-        if (f.marca !== 'all' && !p.marcas.includes(f.marca)) return false;
-        if (f.classe !== 'all' && p.classe !== f.classe) return false;
+        if (f.brick  && f.brick.length  && !f.brick.some(v  => p.bricks.includes(v)))    return false;
+        if (f.cidade && f.cidade.length && !f.cidade.includes(p.cidade))                  return false;
+        if (f.setor  && f.setor.length  && !f.setor.some(v  => p.setores.includes(v)))   return false;
+        if (f.marca  && f.marca.length  && !f.marca.some(v  => p.marcas.includes(v)))    return false;
+        if (f.classe && f.classe !== 'all' && p.classe !== f.classe) return false;
         if (f.search) {
             const blob = norm([p.cnpj, p.razao, p.cidade, p.bairro, p.bricks.join(' '), p.uf].join(' '));
             if (!blob.includes(norm(f.search))) return false;
@@ -2808,10 +2833,10 @@ function renderPDV() {
             .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
     }
 
-    /* v6.0 — substitui cada PDV pela projeção da marca selecionada */
-    if (activeBrand) {
+    /* v6.0 — substitui cada PDV pela projeção das marcas selecionadas */
+    if (activeBrands.length) {
         filtered = filtered
-            .map(p => projectByBrand(p, activeBrand))
+            .map(p => projectByBrands(p, activeBrands))
             .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
     }
 
@@ -2957,12 +2982,147 @@ function renderPDV() {
     el.innerHTML = html;
 
     // Listeners
-    const setSel = (id, key) => { const s = $(id); if (s) { s.value = PDV.filter[key]; s.onchange = () => { PDV.filter[key] = s.value; renderPDV(); }; } };
-    setSel('pdvFilterBrick', 'brick');
-    setSel('pdvFilterCidade', 'cidade');
-    setSel('pdvFilterSetor', 'setor');
-    setSel('pdvFilterMarca', 'marca');
+    const setSel = (id, key) => { const s = $(id); if (s) { s.value = (f[key] && f[key] !== 'all') ? f[key] : 'all'; s.onchange = () => { PDV.filter[key] = s.value; renderPDV(); }; } };
     setSel('pdvFilterClasse', 'classe');
+
+    // Multi-select dropdowns (Brick, Cidade, Setor, Marca)
+    // IMPORTANTE: renderPDV() só é chamado ao FECHAR o painel, nunca a cada checkbox.
+    // Isso evita que o DOM seja recriado enquanto o usuário ainda está selecionando.
+    const wireMultiSelect = (id, key) => {
+        const wrap  = document.getElementById(id + 'Wrap');
+        const btn   = document.getElementById(id + 'Btn');
+        const panel = document.getElementById(id + 'Panel');
+        if (!wrap || !btn || !panel) return;
+
+        // Aplica o filtro e fecha o painel
+        const applyAndClose = () => {
+            const allCb   = panel.querySelector('input[value="__all__"]');
+            const itemCbs = [...panel.querySelectorAll('.pdv-ms-list input[type=checkbox]')];
+            const visible = itemCbs.filter(c => c.closest('.pdv-ms-item') && c.closest('.pdv-ms-item').style.display !== 'none');
+            const selected = itemCbs.filter(c => c.checked).map(c => c.value);
+            PDV.filter[key] = (selected.length === 0 || selected.length === itemCbs.length) ? [] : selected;
+            panel.style.display = 'none';
+            renderPDV();
+        };
+
+        // Botão "Aplicar" no rodapé do painel — confirma seleção
+        let applyBtn = panel.querySelector('.pdv-ms-apply');
+        if (!applyBtn) {
+            applyBtn = document.createElement('button');
+            applyBtn.className = 'pdv-ms-apply';
+            applyBtn.textContent = '✓ Aplicar';
+            panel.appendChild(applyBtn);
+        }
+        applyBtn.onclick = (e) => { e.stopPropagation(); applyAndClose(); };
+
+        // Toggle panel (abre/fecha)
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            const isOpen = panel.style.display !== 'none';
+            // Fechar outros painéis aplicando seus filtros primeiro
+            document.querySelectorAll('.pdv-ms-panel:not([style*="display: none"])').forEach(p => {
+                if (p !== panel) {
+                    const otherWrap = p.closest('.pdv-ms-wrap');
+                    if (otherWrap) {
+                        const otherKey = otherWrap.id.replace('Wrap','').replace('pdvFilter','').toLowerCase();
+                        const keyMap = { brick:'brick', cidade:'cidade', setor:'setor', marca:'marca' };
+                        const k = keyMap[otherKey];
+                        if (k) {
+                            const itemCbs = [...p.querySelectorAll('.pdv-ms-list input[type=checkbox]')];
+                            const sel = itemCbs.filter(c => c.checked).map(c => c.value);
+                            PDV.filter[k] = (sel.length === 0 || sel.length === itemCbs.length) ? [] : sel;
+                        }
+                    }
+                    p.style.display = 'none';
+                }
+            });
+            if (isOpen) {
+                applyAndClose();
+            } else {
+                panel.style.display = 'block';
+                const si = panel.querySelector('.pdv-ms-search');
+                if (si) { si.value = ''; si.focus(); }
+                // Garantir que todos os items visíveis
+                panel.querySelectorAll('.pdv-ms-list .pdv-ms-item').forEach(l => { l.style.display = ''; });
+            }
+        };
+
+        // Busca dentro do painel (sem renderPDV — só filtra visualmente a lista)
+        const searchInput = panel.querySelector('.pdv-ms-search');
+        if (searchInput) {
+            searchInput.oninput = () => {
+                const q = searchInput.value.toLowerCase();
+                panel.querySelectorAll('.pdv-ms-list .pdv-ms-item').forEach(lbl => {
+                    lbl.style.display = lbl.textContent.toLowerCase().includes(q) ? '' : 'none';
+                });
+            };
+            // Enter aplica
+            searchInput.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); applyAndClose(); } };
+        }
+
+        // Checkbox change — apenas atualiza visual, SEM renderPDV
+        panel.addEventListener('change', (e) => {
+            const cb = e.target;
+            if (cb.type !== 'checkbox') return;
+            const allCb   = panel.querySelector('input[value="__all__"]');
+            const itemCbs = [...panel.querySelectorAll('.pdv-ms-list input[type=checkbox]')];
+
+            if (cb.value === '__all__') {
+                // Marcar/desmarcar tudo visualmente
+                itemCbs.forEach(c => { c.checked = cb.checked; c.closest('.pdv-ms-item').classList.toggle('checked', cb.checked); });
+            } else {
+                cb.closest('.pdv-ms-item').classList.toggle('checked', cb.checked);
+                const anyChecked = itemCbs.some(c => c.checked);
+                const allChecked = itemCbs.every(c => c.checked);
+                if (allCb) allCb.checked = allChecked;
+                if (allCb) allCb.closest('.pdv-ms-item').classList.toggle('checked', allChecked);
+            }
+        });
+
+        // Clear button — limpa e aplica imediatamente
+        const clearBtn = panel.querySelector('.pdv-ms-clear');
+        if (clearBtn) clearBtn.onclick = (e) => {
+            e.stopPropagation();
+            const allCb   = panel.querySelector('input[value="__all__"]');
+            const itemCbs = [...panel.querySelectorAll('.pdv-ms-list input[type=checkbox]')];
+            itemCbs.forEach(c => { c.checked = true; c.closest('.pdv-ms-item').classList.add('checked'); });
+            if (allCb) { allCb.checked = true; allCb.closest('.pdv-ms-item').classList.add('checked'); }
+            PDV.filter[key] = [];
+            panel.style.display = 'none';
+            renderPDV();
+        };
+    };
+
+    wireMultiSelect('pdvFilterBrick',  'brick');
+    wireMultiSelect('pdvFilterCidade', 'cidade');
+    wireMultiSelect('pdvFilterSetor',  'setor');
+    wireMultiSelect('pdvFilterMarca',  'marca');
+
+    // Fechar painel ao clicar fora — aplica o filtro antes de fechar
+    const _pdvOutsideClose = (e) => {
+        if (e.target.closest('.pdv-ms-wrap')) return;
+        let changed = false;
+        document.querySelectorAll('.pdv-ms-panel').forEach(panel => {
+            if (panel.style.display === 'none') return;
+            const wrap = panel.closest('.pdv-ms-wrap');
+            if (!wrap) return;
+            const keyRaw = wrap.id.replace('Wrap','').replace('pdvFilter','').toLowerCase();
+            const keyMap = { brick:'brick', cidade:'cidade', setor:'setor', marca:'marca' };
+            const k = keyMap[keyRaw];
+            if (k) {
+                const itemCbs = [...panel.querySelectorAll('.pdv-ms-list input[type=checkbox]')];
+                const sel = itemCbs.filter(c => c.checked).map(c => c.value);
+                PDV.filter[k] = (sel.length === 0 || sel.length === itemCbs.length) ? [] : sel;
+                changed = true;
+            }
+            panel.style.display = 'none';
+        });
+        if (changed) renderPDV();
+    };
+    // Remove listener antigo se existir e adiciona novo
+    document.removeEventListener('click', window._pdvOutsideClose);
+    window._pdvOutsideClose = _pdvOutsideClose;
+    document.addEventListener('click', _pdvOutsideClose);
     const sEl = $('pdvFilterSearch');
     if (sEl) {
         /* v6.11 — Corrige bug de digitação: ao re-renderizar, o input é destruído
@@ -3104,10 +3264,10 @@ async function exportPDVXLSX() {
         if (gRegional  && !_matchSect(p.regionais,  gRegional))  return false;
         if (gSector    && !_matchSect(p.setores,    gSector))    return false;
         if (gMarket    && !_matchMkt(p.marcas,      gMarket))    return false;
-        if (f.brick  && f.brick  !== 'all' && !p.bricks.includes(f.brick))   return false;
-        if (f.cidade && f.cidade !== 'all' && p.cidade !== f.cidade)         return false;
-        if (f.setor  && f.setor  !== 'all' && !p.setores.includes(f.setor))  return false;
-        if (f.marca  && f.marca  !== 'all' && !p.marcas.includes(f.marca))   return false;
+        if (f.brick  && f.brick.length  && !f.brick.some(v  => p.bricks.includes(v)))   return false;
+        if (f.cidade && f.cidade.length && !f.cidade.includes(p.cidade))                 return false;
+        if (f.setor  && f.setor.length  && !f.setor.some(v  => p.setores.includes(v)))  return false;
+        if (f.marca  && f.marca.length  && !f.marca.some(v  => p.marcas.includes(v)))   return false;
         if (f.classe && f.classe !== 'all' && p.classe !== f.classe)         return false;
         if (f.search) {
             const blob = norm2([p.cnpj, p.razao, p.cidade, p.bairro, (p.bricks||[]).join(' '), p.uf].join(' '));
@@ -3120,10 +3280,22 @@ async function exportPDVXLSX() {
     if (gSector || gDistrital) {
         filtered = filtered.map(p => _projectSect(p)).filter(p => p && (p.mat_cur||p.mat_prev||p.ytd_cur||p.ytd_prev||p.tri_cur||p.tri_prev));
     }
-    // Reprojecta pela marca ativa
-    const activeBrandXL = (f.marca && f.marca !== 'all') ? f.marca : (gMarket || null);
-    if (activeBrandXL) {
-        filtered = filtered.map(p => _projectMkt(p, activeBrandXL)).filter(p => p && (p.mat_cur||p.mat_prev||p.ytd_cur||p.ytd_prev||p.tri_cur||p.tri_prev));
+    // Reprojecta pela(s) marca(s) ativa(s) — suporta múltiplas
+    const activeBrandsXL = (f.marca && f.marca.length) ? f.marca : (gMarket ? [gMarket] : []);
+    if (activeBrandsXL.length) {
+        filtered = filtered.map(p => {
+            const items = (p.products||[]).filter(pr => {
+                const a = String(pr.marca||'').toUpperCase().trim();
+                const aBase = a.replace(/\s*\(.*?\)\s*$/,'').trim();
+                return activeBrandsXL.some(t => { const tb = String(t).toUpperCase().trim().replace(/\s*\(.*?\)\s*$/,'').trim(); return a === String(t).toUpperCase().trim() || aBase === tb; });
+            });
+            if (!items.length) return null;
+            const acc = { ...p, mat_cur:0, mat_prev:0, ytd_cur:0, ytd_prev:0, tri_cur:0, tri_prev:0 };
+            const bs = new Set();
+            items.forEach(it => { acc.mat_cur+=+it.mat_cur||0; acc.mat_prev+=+it.mat_prev||0; acc.ytd_cur+=+it.ytd_cur||0; acc.ytd_prev+=+it.ytd_prev||0; acc.tri_cur+=+it.tri_cur||0; acc.tri_prev+=+it.tri_prev||0; if (it.brick) bs.add(it.brick); });
+            acc.bricks = [...bs].sort();
+            return acc;
+        }).filter(p => p && (p.mat_cur||p.mat_prev||p.ytd_cur||p.ytd_prev||p.tri_cur||p.tri_prev));
     }
     if (!filtered.length) { toast('Nenhuma farmácia encontrada com os filtros atuais.'); return; }
 
@@ -3142,11 +3314,12 @@ async function exportPDVXLSX() {
     };
     const allHdrs = [...FIXED_HDRS, ...periodOrder.flatMap(p2 => PERIOD_HDRS[p2])];
 
+    const _fmtArr = (arr) => arr && arr.length ? arr.join(', ') : null;
     const activeFilters = [
-        activeBrandXL ? `Marca: ${activeBrandXL}` : '',
-        f.brick  && f.brick  !== 'all' ? `Brick: ${f.brick}`   : '',
-        f.cidade && f.cidade !== 'all' ? `Cidade: ${f.cidade}` : '',
-        f.setor  && f.setor  !== 'all' ? `Setor: ${f.setor}`   : '',
+        activeBrandXL ? `Marca: ${activeBrandXL}` : (_fmtArr(f.marca) ? `Marcas: ${_fmtArr(f.marca)}` : ''),
+        _fmtArr(f.brick)  ? `Brick: ${_fmtArr(f.brick)}`   : '',
+        _fmtArr(f.cidade) ? `Cidade: ${_fmtArr(f.cidade)}` : '',
+        _fmtArr(f.setor)  ? `Setor: ${_fmtArr(f.setor)}`   : '',
         f.classe && f.classe !== 'all' ? `Classe: ${f.classe}` : '',
         gDistrital ? `Distrital: ${gDistrital}` : '',
         gSector    ? `Setor: ${gSector}`         : '',
@@ -3433,8 +3606,6 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         const prevK = period + '_prev';
 
         // ── Filtro de setor/distrital ativo no header ─────────────────────────
-        // Se o usuário selecionou um setor ou distrital específico, mostra apenas
-        // os produtos que pertencem àquele setor neste PDV.
         const gSector    = (typeof UI !== 'undefined' && UI.sector    && UI.sector    !== 'all') ? UI.sector    : null;
         const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
 
@@ -3449,8 +3620,6 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
                 return false;
             }
             if (gDistrital) {
-                // Distrital = primeiros 4 dígitos + "00"; setor pertence à distrital
-                // se os primeiros 4 dígitos do setor == primeiros 4 dígitos da distrital
                 const distCode = extractCode(gDistrital).slice(0, 4);
                 const sectCode = extractCode(prodSetor).slice(0, 4);
                 return distCode && sectCode && distCode === sectCode;
@@ -3458,14 +3627,33 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
             return true;
         };
 
-        const activeFilter = gSector || gDistrital;
-        const activeFilterLabel = gSector
-            ? gSector.replace(/^\d+\s*-\s*/, '').trim()
-            : gDistrital ? gDistrital.replace(/^\d+\s*-\s*/, '').trim() : null;
+        // ── Filtro de marca(s) ativa(s) no filterbar ──────────────────────────
+        const activeMarcas = (typeof PDV !== 'undefined' && PDV.filter && PDV.filter.marca && PDV.filter.marca.length)
+            ? PDV.filter.marca : [];
+        const matchesBrandFilter = (prodMarca) => {
+            if (!activeMarcas.length) return true;
+            const a = String(prodMarca||'').toUpperCase().trim();
+            const aBase = a.replace(/\s*\(.*?\)\s*$/,'').trim();
+            return activeMarcas.some(t => {
+                const tb = String(t).toUpperCase().trim();
+                const tbBase = tb.replace(/\s*\(.*?\)\s*$/,'').trim();
+                return a === tb || aBase === tbBase;
+            });
+        };
 
-        // Filtra produtos pelo setor ativo
+        const activeSectorFilter = gSector || gDistrital;
+        const activeBrandFilter  = activeMarcas.length > 0;
+        const activeFilter       = activeSectorFilter || activeBrandFilter;
+
+        const activeFilterLabel = activeSectorFilter
+            ? (gSector || gDistrital).replace(/^\d+\s*-\s*/, '').trim()
+            : activeBrandFilter
+                ? (activeMarcas.length === 1 ? activeMarcas[0] : `${activeMarcas.length} marcas`)
+                : null;
+
+        // Filtra produtos aplicando setor E marca simultaneamente
         const filteredProducts = activeFilter
-            ? localPdv.products.filter(pr => matchesSectorFilter(pr.setor))
+            ? localPdv.products.filter(pr => matchesSectorFilter(pr.setor) && matchesBrandFilter(pr.marca))
             : localPdv.products;
 
         // Recalcula KPIs totais com base nos produtos filtrados
@@ -3666,11 +3854,12 @@ async function exportPDVModal(cnpjRaw) {
     ].filter(Boolean).join(' - ')
         : (p.bairro ? p.bairro + ' - ' + p.cidade + ' / ' + p.uf : p.cidade + ' / ' + p.uf);
 
-    // Produtos — filtra pelo setor/distrital ativo (igual ao modal de visualização)
+    // Produtos — filtra pelo setor/distrital ativo E pelas marcas selecionadas
     const periodUpper = (UI && UI.periodMode) || 'MAT';
     const curK = periodUpper.toLowerCase() + '_cur';
     const _gSector2    = (typeof UI !== 'undefined' && UI.sector    && UI.sector    !== 'all') ? UI.sector    : null;
     const _gDistrital2 = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
+    const _activeMarcas2 = (typeof PDV !== 'undefined' && PDV.filter && PDV.filter.marca && PDV.filter.marca.length) ? PDV.filter.marca : [];
     const _extractCode2 = s => { const m = String(s||'').match(/(\d{4,6})/); return m ? m[1].padEnd(6,'0').slice(0,6) : ''; };
     const _matchesSector2 = (prodSetor) => {
         if (!_gSector2 && !_gDistrital2) return true;
@@ -3683,8 +3872,14 @@ async function exportPDVModal(cnpjRaw) {
         const sectCode = _extractCode2(prodSetor||'').slice(0,4);
         return distCode && sectCode && distCode === sectCode;
     };
+    const _matchesBrand2 = (prodMarca) => {
+        if (!_activeMarcas2.length) return true;
+        const a = String(prodMarca||'').toUpperCase().trim();
+        const aBase = a.replace(/\s*\(.*?\)\s*$/,'').trim();
+        return _activeMarcas2.some(t => { const tb = String(t).toUpperCase().trim().replace(/\s*\(.*?\)\s*$/,'').trim(); return a === String(t).toUpperCase().trim() || aBase === tb; });
+    };
     const prodMap = new Map();
-    p.products.filter(pr => _matchesSector2(pr.setor)).forEach(pr => {
+    p.products.filter(pr => _matchesSector2(pr.setor) && _matchesBrand2(pr.marca)).forEach(pr => {
         const k = pr.marca + '||' + pr.brick;
         const c = prodMap.get(k) || {
             marca: pr.marca, brick: pr.brick,
