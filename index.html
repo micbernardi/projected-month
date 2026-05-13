@@ -307,12 +307,21 @@
                     <div class="proj-ctrl-sep"></div>
                     <div class="proj-ctrl-group" style="gap:4px">
                         <span style="font-size:.9rem">🎯</span>
-                        <label class="proj-ctrl-label">Meta de Crescimento (%)</label>
-                        <input type="number" id="proj-filterTarget" value="14.2" step="0.1" min="0" style="width:68px">
+                        <label class="proj-ctrl-label">Meta (%)</label>
+                        <input type="number" id="proj-filterTarget" value="14.2" step="0.1" min="0" style="width:62px">
+                    </div>
+                    <div class="proj-ctrl-sep"></div>
+                    <div class="proj-ctrl-group" style="gap:4px" title="Padrão: meta = base × (1+X%). Ajustada: PDVs/bricks em queda recebem 50% da meta.">
+                        <span style="font-size:.9rem">⚙️</span>
+                        <label class="proj-ctrl-label">Tipo de Meta</label>
+                        <select id="proj-filterMetaType">
+                            <option value="padrao">Padrão</option>
+                            <option value="ajustada">Ajustada por Performance</option>
+                        </select>
                     </div>
                     <div style="margin-left:auto;display:flex;gap:6px">
                         <button class="hdr-clear-btn" id="proj-btnChangeFiles">↑ Trocar</button>
-                        <button class="hdr-send-btn" id="proj-btnExportCSV" disabled>⬇ CSV</button>
+                        <button class="hdr-send-btn" id="proj-btnExportCSV" disabled>⬇ Excel</button>
                     </div>
                 </div>
                 <!-- CARDS -->
@@ -323,6 +332,24 @@
                     <div class="proj-card" id="proj-card-pct-wrap" style="--proj-card-top:#2d9d5f"><div class="proj-card-icon">⚡</div><div class="proj-card-label" id="proj-lbl-pct">Evolução %</div><div class="proj-card-value" id="proj-card-pct">—</div></div>
                     <div class="proj-card" style="--proj-card-top:#e17055"><div class="proj-card-icon">🎯</div><div class="proj-card-label" id="proj-lbl-target">Meta Total</div><div class="proj-card-value proj-val-pos" id="proj-card-target">—</div></div>
                     <div class="proj-card" id="proj-card-gap-wrap" style="--proj-card-top:#d63031"><div class="proj-card-icon">⚠️</div><div class="proj-card-label" id="proj-lbl-gap">Faltam p/ Meta</div><div class="proj-card-value" id="proj-card-gap">—</div></div>
+                </div>
+                <!-- v6.16: apenas TOOLBAR (tabs + busca) fica no bloco fixo.
+                     O cabeçalho de colunas (NOME, TIPO, MAI/2025...) foi movido para
+                     junto da tabela principal abaixo, com sticky local. -->
+                <div class="proj-thead-wrap" id="proj-theadWrap">
+                    <div class="proj-table-toolbar" id="proj-tableToolbar">
+                        <div class="proj-table-toolbar-left">
+                            <div class="proj-tab-btns" id="proj-tabBtns">
+                                <button class="proj-tab-btn active" data-tab="all">Todos</button>
+                                <button class="proj-tab-btn" data-tab="pdv">PDVs <span id="proj-cnt-pdv" style="opacity:.7"></span></button>
+                                <button class="proj-tab-btn" data-tab="cidade">Cidades <span id="proj-cnt-cidade" style="opacity:.7"></span></button>
+                                <button class="proj-tab-btn" data-tab="marca">Marcas <span id="proj-cnt-marca" style="opacity:.7"></span></button>
+                                <button class="proj-tab-btn" data-tab="brick" id="proj-tab-brick-btn" style="display:none">Bricks <span id="proj-cnt-brick" style="opacity:.7"></span></button>
+                            </div>
+                            <input class="proj-search-box" id="proj-searchBox" placeholder="Buscar...">
+                        </div>
+                        <span class="proj-table-info" id="proj-tableInfo"></span>
+                    </div>
                 </div>
             </div>
 
@@ -340,27 +367,15 @@
                 </div>
 
                 <!-- TABLE -->
+                <!-- v6.16: cabeçalho de colunas vive AQUI, junto da tabela.
+                     Ele tem position: sticky e gruda no topo apenas quando a
+                     tabela principal entra na viewport. -->
                 <div class="proj-table-section">
-                    <div class="proj-table-toolbar" id="proj-tableToolbar">
-                        <div class="proj-table-toolbar-left">
-                            <div class="proj-tab-btns" id="proj-tabBtns">
-                                <button class="proj-tab-btn active" data-tab="all">Todos</button>
-                                <button class="proj-tab-btn" data-tab="pdv">PDVs <span id="proj-cnt-pdv" style="opacity:.7"></span></button>
-                                <button class="proj-tab-btn" data-tab="cidade">Cidades <span id="proj-cnt-cidade" style="opacity:.7"></span></button>
-                                <button class="proj-tab-btn" data-tab="marca">Marcas <span id="proj-cnt-marca" style="opacity:.7"></span></button>
-                                <button class="proj-tab-btn" data-tab="brick" id="proj-tab-brick-btn" style="display:none">Bricks <span id="proj-cnt-brick" style="opacity:.7"></span></button>
-                            </div>
-                            <input class="proj-search-box" id="proj-searchBox" placeholder="Buscar...">
-                        </div>
-                        <span class="proj-table-info" id="proj-tableInfo"></span>
-                    </div>
-                    <!-- cabeçalho fixo -->
-                    <div class="proj-thead-wrap" id="proj-theadWrap">
+                    <div class="proj-colhead-sticky" id="proj-colHeadSticky">
                         <table class="proj-thead-table" id="proj-theadTable">
                             <thead id="proj-mainThead"></thead>
                         </table>
                     </div>
-                    <!-- corpo com scroll -->
                     <div class="proj-tbl-outer" id="proj-tblOuter">
                         <table class="proj-main-table" id="proj-mainTable">
                             <thead id="proj-mainTheadHidden"></thead>

@@ -4387,26 +4387,26 @@ const PROJ = {
     STORAGE_KEY: 'proj_dashboard_v4'
 };
 
-/* ── abrir / fechar view ───────────────── */
+/* ── abrir / fechar view ───────────────────── */
 function projUpdateStickyOffsets() {
-    const hdr      = document.getElementById('mainHeader');
-    const backBar  = document.querySelector('.proj-back-bar');
-    const sticky   = document.getElementById('proj-stickyHeader');
-    const pv       = document.getElementById('projecaoView');
-    const mainEl   = document.getElementById('proj-main');
+    const hdr     = document.getElementById('mainHeader');
+    const backBar = document.querySelector('.proj-back-bar');
+    const sticky  = document.getElementById('proj-stickyHeader');
+    const pv      = document.getElementById('projecaoView');
+    const mainEl  = document.getElementById('proj-main');
     if (!hdr) return;
-    const hdrH     = hdr.offsetHeight;
-    const backBarH = backBar ? backBar.offsetHeight : 34;
-    const stickyH  = sticky  ? sticky.offsetHeight  : 0;
-    const totalFixed = hdrH + backBarH + stickyH;
-    // #projecaoView começa logo abaixo de header+back-bar (fixos pelo CSS)
-    if (pv) pv.style.paddingTop = (hdrH + backBarH + stickyH) + 'px';
-    // padding-top do conteúdo rolável dentro do proj-main
+    const hdrH    = hdr.offsetHeight;
+    const backH   = backBar ? backBar.offsetHeight : 34;
+    const stickyH = sticky  ? sticky.offsetHeight  : 0;
+    const total   = hdrH + backH + stickyH;
+    if (pv)     pv.style.paddingTop = total + 'px';
     if (mainEl) mainEl.style.paddingTop = '16px';
-    // CSS vars para sticky intermediários (toolbar e thead)
-    document.documentElement.style.setProperty('--proj-toolbar-top', totalFixed + 'px');
-    document.documentElement.style.setProperty('--proj-thead-top',   (totalFixed + 44) + 'px');
+    /* v6.16 — publica a altura do bloco fixo como variável CSS para que o
+       cabeçalho de colunas sticky (.proj-colhead-sticky) grude exatamente abaixo
+       desse bloco quando a tabela principal entra na viewport. */
+    document.documentElement.style.setProperty('--proj-sticky-top', total + 'px');
 }
+
 function openProjecaoView() {
     document.getElementById('uploadView').style.display   = 'none';
     document.getElementById('dashView').style.display     = 'none';
@@ -4602,6 +4602,8 @@ function projSetupSlots() {
 
     document.querySelectorAll('#proj-tabBtns .proj-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            // v6.15 — recalcula offset após troca de aba (o bloco fixo pode mudar de altura)
+            requestAnimationFrame(() => projUpdateStickyOffsets());
             PROJ.currentTab = btn.dataset.tab;
             PROJ.currentPage = 1;
             document.querySelectorAll('#proj-tabBtns .proj-tab-btn').forEach(b => b.classList.remove('active'));
@@ -4613,7 +4615,7 @@ function projSetupSlots() {
         });
     });
 
-    ['proj-filterType','proj-filterBase','proj-filterComp'].forEach(id => {
+    ['proj-filterType','proj-filterBase','proj-filterComp','proj-filterMetaType'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', () => {
             // sync tab buttons with filterType
@@ -4751,15 +4753,23 @@ function projInitDash() {
     projRerender();
     // dois rAF para garantir que o sticky-header foi pintado antes de medir
     requestAnimationFrame(() => requestAnimationFrame(() => projUpdateStickyOffsets()));
+    // v6.15 — garante que mudanças de viewport (resize / zoom) recalculem o offset
+    if (!window._projResizeBound) {
+        window._projResizeBound = true;
+        window.addEventListener('resize', () => {
+            if (typeof projUpdateStickyOffsets === 'function') projUpdateStickyOffsets();
+        });
+    }
 }
 
 /* ── rerender ─────────────────────────── */
 function projRerender() {
     const typeFilter = (document.getElementById('proj-filterType') || {}).value || 'all';
-    const base   = (document.getElementById('proj-filterBase') || {}).value || '';
-    const comp   = (document.getElementById('proj-filterComp') || {}).value || '';
-    const target = parseFloat((document.getElementById('proj-filterTarget') || {}).value) || 0;
-    const search = ((document.getElementById('proj-searchBox') || {}).value || '').toLowerCase();
+    const base       = (document.getElementById('proj-filterBase') || {}).value || '';
+    const comp       = (document.getElementById('proj-filterComp') || {}).value || '';
+    const target     = parseFloat((document.getElementById('proj-filterTarget') || {}).value) || 0;
+    const metaType   = (document.getElementById('proj-filterMetaType') || {}).value || 'padrao';
+    const search     = ((document.getElementById('proj-searchBox') || {}).value || '').toLowerCase();
     const bL = projPeriodLabel(base), cL = projPeriodLabel(comp);
 
     const hf = document.getElementById('proj-header-file');
@@ -4769,21 +4779,87 @@ function projRerender() {
         .filter(r => typeFilter === 'all' || r.type === typeFilter)
         .map(r => {
             const b = r.vals[base]||0, c = r.vals[comp]||0;
-            const varBRL  = c - b;
-            const varPct  = b ? ((c/b) - 1) : null;
-            const targetVal = b * (1 + target/100);
-            const gap     = c - targetVal;
-            return {...r, b, c, varBRL, varPct, targetVal, gap, status: c >= targetVal ? 'acima' : 'abaixo'};
+            const varBRL = c - b;
+            const varPct = b ? ((c/b) - 1) : null;
+
+            // v6.17: Cálculo inicial da meta padrão (base para compensação)
+            const metaPctPadrao = target / 100;
+            let metaPct = metaPctPadrao;
+            let isReduzida = false;
+
+            if (metaType === 'ajustada') {
+                const emQueda = varPct !== null && varPct < 0;
+                const tipoReduzido = r.type === 'pdv' || r.type === 'brick';
+                if (emQueda && tipoReduzido) {
+                    metaPct = metaPctPadrao * 0.5;
+                    isReduzida = true;
+                }
+            }
+
+            return { ...r, b, c, varBRL, varPct, metaPctPadrao, metaPct, isReduzida };
         });
 
-    // KPI cards (soma total dos filtrados)
-    const totB = computed.reduce((s,r)=>s+r.b,0);
-    const totC = computed.reduce((s,r)=>s+r.c,0);
-    const totVar = totC - totB;
-    const totPct = totB ? ((totC/totB) - 1) : null;
-    const totTgt = computed.reduce((s,r)=>s+r.targetVal,0);
-    const totGap = totC - totTgt;
+    // v6.17: Lógica de Compensação (quem está bem paga a conta de quem está mal)
+    if (metaType === 'ajustada') {
+        let totalFolga = 0;
+        let totalBasePositivos = 0;
 
+        computed.forEach(r => {
+            if (r.isReduzida) {
+                // Quanto de meta "sumiu" nesta linha por causa do alívio?
+                totalFolga += r.b * (r.metaPctPadrao - r.metaPct);
+            } else if (r.varPct !== null && r.varPct >= 0) {
+                // Somamos a base de quem está positivo para ratear a folga proporcionalmente
+                totalBasePositivos += r.b;
+            }
+        });
+
+        // Se houver folga para distribuir e gente positiva para pagar:
+        if (totalFolga > 0 && totalBasePositivos > 0) {
+            const fatorCompensacao = totalFolga / totalBasePositivos;
+            computed.forEach(r => {
+                if (!r.isReduzida && r.varPct !== null && r.varPct >= 0) {
+                    // Aumentamos a meta dos positivos proporcionalmente à sua base
+                    r.metaPct += fatorCompensacao;
+                    r.isCompensada = true;
+                }
+            });
+        }
+    }
+
+    // Finaliza cálculos de targetVal, gap e status
+    const finalComputed = computed.map(r => {
+        const targetVal = r.b * (1 + r.metaPct);
+        const gap = r.c - targetVal;
+        return { ...r, targetVal, gap, status: r.c >= targetVal ? 'acima' : 'abaixo' };
+    });
+
+    // KPI cards (soma total dos filtrados)
+    const totB = finalComputed.reduce((s,r)=>s+r.b,0);
+    const totC = finalComputed.reduce((s,r)=>s+r.c,0);
+    const totVar = totC - totB;
+    const totPct = totB ? (totC/totB - 1) : 0;
+    const totTarget = finalComputed.reduce((s,r)=>s+r.targetVal,0);
+    const totGap = totC - totTarget;
+
+    projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap);
+
+    projBuildRankings(finalComputed);
+
+    const tableRows = finalComputed.filter(r => {
+        if (PROJ.currentTab !== 'all' && r.type !== PROJ.currentTab) return false;
+        if (search && !r.name.toLowerCase().includes(search)) return false;
+        return true;
+    }).sort((a,b) => b.varBRL - a.varBRL);
+
+    PROJ.filteredRows = tableRows;
+    projBuildTable(tableRows, bL, cL);
+}
+
+function projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap) {
+    const bL = projPeriodLabel((document.getElementById('proj-filterBase')||{}).value);
+    const cL = projPeriodLabel((document.getElementById('proj-filterComp')||{}).value);
+    
     const setTxt = (id, v)  => { const el=document.getElementById(id); if(el) el.textContent=v; };
     const setCls = (id, c)  => { const el=document.getElementById(id); if(el) el.className='proj-card-value '+c; };
     const setTop = (id, c)  => { const el=document.getElementById(id); if(el) el.style.setProperty('--proj-card-top', c); };
@@ -4800,22 +4876,11 @@ function projRerender() {
     setCls('proj-card-pct', totPct!=null&&totPct>=0 ? 'proj-card-value proj-val-pos' : 'proj-card-value proj-val-neg');
     setTop('proj-card-pct-wrap', totPct!=null&&totPct>=0 ? 'var(--grn,#059669)' : 'var(--red,#dc2626)');
 
-    setTxt('proj-lbl-target', 'Meta Total ('+cL+')'); setTxt('proj-card-target', projFmtBRL(totTgt));
+    setTxt('proj-lbl-target', 'Meta Total ('+cL+')'); setTxt('proj-card-target', projFmtBRL(totTarget));
     setTxt('proj-lbl-gap', totGap >= 0 ? 'Acima da Meta' : 'Faltam p/ Meta');
     setTxt('proj-card-gap', (totGap>=0?'↑ ':'↓ ') + projFmtBRL(Math.abs(totGap)));
     setCls('proj-card-gap', totGap>=0 ? 'proj-card-value proj-val-pos' : 'proj-card-value proj-val-neg');
     setTop('proj-card-gap-wrap', totGap>=0 ? 'var(--grn,#059669)' : 'var(--red,#dc2626)');
-
-    projBuildRankings(computed);
-
-    const tableRows = computed.filter(r => {
-        if (PROJ.currentTab !== 'all' && r.type !== PROJ.currentTab) return false;
-        if (search && !r.name.toLowerCase().includes(search)) return false;
-        return true;
-    }).sort((a,b) => b.varBRL - a.varBRL);
-
-    PROJ.filteredRows = tableRows;
-    projBuildTable(tableRows, bL, cL);
 }
 
 /* ── rankings ─────────────────────────── */
@@ -4857,43 +4922,96 @@ function projBuildRankCard(title, rows, isTop) {
 }
 
 /* ── tabela principal ──────────────────── */
+/* sort state */
+PROJ.sortKey = 'varBRL';
+PROJ.sortDir = 'desc';
+
+function projSortRows(rows) {
+    const k = PROJ.sortKey;
+    const dir = PROJ.sortDir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+        let av, bv;
+        switch(k) {
+            case 'name':    av = a.name;       bv = b.name;       return dir * av.localeCompare(bv, 'pt-BR'); 
+            case 'type':    av = a.type;       bv = b.type;       return dir * av.localeCompare(bv, 'pt-BR');
+            case 'b':       av = a.b;          bv = b.b;          break;
+            case 'c':       av = a.c;          bv = b.c;          break;
+            case 'varBRL':  av = a.varBRL;     bv = b.varBRL;     break;
+            case 'varPct':  av = a.varPct??-Infinity; bv = b.varPct??-Infinity; break;
+            case 'target':  av = a.targetVal;  bv = b.targetVal;  break;
+            case 'gap':     av = a.gap;        bv = b.gap;        break;
+            default:        av = a.varBRL;     bv = b.varBRL;
+        }
+        return dir * (av - bv);
+    });
+}
+
 function projBuildTable(rows, bL, cL) {
     const total = rows.length;
     const totalPages = Math.ceil(total / PROJ.PAGE_SIZE) || 1;
     if (PROJ.currentPage > totalPages) PROJ.currentPage = totalPages;
-    const slice = rows.slice((PROJ.currentPage-1)*PROJ.PAGE_SIZE, PROJ.currentPage*PROJ.PAGE_SIZE);
+
+    const sorted = projSortRows(rows);
+    PROJ.filteredRows = sorted;
+    const slice = sorted.slice((PROJ.currentPage-1)*PROJ.PAGE_SIZE, PROJ.currentPage*PROJ.PAGE_SIZE);
 
     const thead       = document.getElementById('proj-mainThead');
     const theadHidden = document.getElementById('proj-mainTheadHidden');
     const tbody       = document.getElementById('proj-mainTbody');
     const info        = document.getElementById('proj-tableInfo');
-    if (!thead || !tbody) return;
+    if (!tbody) return;
 
-    // larguras fixas por coluna (px) — mantém alinhamento header ↔ body
     const COLS = [
-        { label: 'Nome',    align: 'left',  w: 240 },
-        { label: 'Tipo',    align: 'right', w: 100 },
-        { label: bL,        align: 'right', w: 110 },
-        { label: cL,        align: 'right', w: 110 },
-        { label: 'Var. BRL',align: 'right', w: 110 },
-        { label: 'Evol. %', align: 'right', w: 80  },
-        { label: 'Meta BRL',align: 'right', w: 110 },
-        { label: 'GAP',     align: 'right', w: 110 },
-        { label: 'Status',  align: 'right', w: 80  },
+        { key:'name',   label:'Nome',    align:'left',  w:240 },
+        { key:'type',   label:'Tipo',    align:'right', w:100 },
+        { key:'b',      label:bL,        align:'right', w:110 },
+        { key:'c',      label:cL,        align:'right', w:110 },
+        { key:'varBRL', label:'Var. BRL',align:'right', w:110 },
+        { key:'varPct', label:'Evol. %', align:'right', w:80  },
+        { key:'target', label:'Meta BRL',align:'right', w:110 },
+        { key:'gap',    label:'GAP',     align:'right', w:110 },
+        { key:'status', label:'Status',  align:'right', w:80, noSort:true },
     ];
 
     const colgroup = COLS.map(c => `<col style="width:${c.w}px;min-width:${c.w}px">`).join('');
-    const thHTML   = COLS.map(c => `<th style="text-align:${c.align}">${c.label}</th>`).join('');
 
-    // cabeçalho visível (tabela separada)
-    thead.innerHTML = `<tr>${thHTML}</tr>`;
+    const thHTML = COLS.map(c => {
+        const sortCls = !c.noSort && c.key === PROJ.sortKey
+            ? (PROJ.sortDir === 'asc' ? ' class="sort-asc"' : ' class="sort-desc"') : '';
+        const inner = c.noSort
+            ? c.label
+            : `<span class="proj-th-sort">${c.label}</span>`;
+        const dataKey = c.noSort ? '' : ` data-col="${c.key}"`;
+        return `<th${sortCls}${dataKey} style="text-align:${c.align}">${inner}</th>`;
+    }).join('');
+
+    // thead visível (sticky fora do table-section)
     const theadTable = document.getElementById('proj-theadTable');
-    if (theadTable) theadTable.innerHTML = `<colgroup>${colgroup}</colgroup><thead id="proj-mainThead"><tr>${thHTML}</tr></thead>`;
+    if (theadTable) {
+        theadTable.innerHTML = `<colgroup>${colgroup}</colgroup><thead id="proj-mainThead"><tr>${thHTML}</tr></thead>`;
+        // wire sort clicks
+        theadTable.querySelectorAll('th[data-col]').forEach(th => {
+            th.style.cursor = 'pointer';
+            th.addEventListener('click', () => {
+                const col = th.getAttribute('data-col');
+                if (PROJ.sortKey === col) {
+                    PROJ.sortDir = PROJ.sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    PROJ.sortKey = col;
+                    PROJ.sortDir = 'desc';
+                }
+                PROJ.currentPage = 1;
+                projBuildTable(rows, bL, cL);
+            });
+        });
+    }
 
-    // cabeçalho invisível na tabela do corpo (para alinhar colunas)
-    if (theadHidden) theadHidden.innerHTML = `<tr>${COLS.map(c=>`<th style="text-align:${c.align};visibility:hidden">${c.label}</th>`).join('')}</tr>`;
+    // thead invisível no body (alinhamento de colunas)
+    if (theadHidden) {
+        theadHidden.innerHTML = `<tr>${COLS.map(c=>`<th style="visibility:hidden;padding:7px 12px;font-size:.58rem">${c.label}</th>`).join('')}</tr>`;
+    }
 
-    // injeta colgroup na tabela do corpo
+    // colgroup no body
     const mainTable = document.getElementById('proj-mainTable');
     if (mainTable) {
         let cg = mainTable.querySelector('colgroup');
@@ -4902,6 +5020,7 @@ function projBuildTable(rows, bL, cL) {
     }
 
     const typeLabel = {pdv:'PDV/Farmácia', cidade:'Cidade', marca:'Marca', brick:'Brick'};
+    const metaType  = (document.getElementById('proj-filterMetaType')||{}).value || 'padrao';
     tbody.innerHTML = slice.map(r => {
         const vc = r.varBRL >= 0 ? 'proj-val-pos' : 'proj-val-neg';
         const pc = (r.varPct != null && r.varPct >= 0) ? 'proj-val-pos' : 'proj-val-neg';
@@ -4909,6 +5028,15 @@ function projBuildTable(rows, bL, cL) {
         const badge = r.status === 'acima'
             ? '<span class="proj-badge-pos">Acima</span>'
             : '<span class="proj-badge-neg">Abaixo</span>';
+        // indicador de meta alterada (reduzida ou compensada)
+        let metaCell = `<td>${projFmtBRL(r.targetVal)}</td>`;
+        if (metaType === 'ajustada') {
+            if (r.isReduzida) {
+                metaCell = `<td title="Meta reduzida: ${(r.metaPct*100).toFixed(1)}% (item em queda)"><span style="color:var(--txt3,#94a3b8);font-size:.65rem">↓${(r.metaPct*100).toFixed(1)}% </span>${projFmtBRL(r.targetVal)}</td>`;
+            } else if (r.isCompensada) {
+                metaCell = `<td title="Meta compensada: ${(r.metaPct*100).toFixed(1)}% (paga a conta dos negativos)"><span style="color:var(--txt3,#94a3b8);font-size:.65rem">↑${(r.metaPct*100).toFixed(1)}% </span>${projFmtBRL(r.targetVal)}</td>`;
+            }
+        }
         return `<tr>
             <td title="${r.name}">${r.name}</td>
             <td style="color:var(--txt3,#94a3b8);text-align:right">${typeLabel[r.type]||r.type}</td>
@@ -4916,7 +5044,7 @@ function projBuildTable(rows, bL, cL) {
             <td>${projFmtBRL(r.c)}</td>
             <td class="${vc}">${projFmtBRL(r.varBRL)}</td>
             <td class="${pc}">${projFmtPct(r.varPct)}</td>
-            <td>${projFmtBRL(r.targetVal)}</td>
+            ${metaCell}
             <td class="${gc}">${projFmtBRL(r.gap)}</td>
             <td>${badge}</td>
         </tr>`;
@@ -4925,12 +5053,15 @@ function projBuildTable(rows, bL, cL) {
     if (info) info.textContent = total.toLocaleString('pt-BR') + ' registros · pág ' + PROJ.currentPage + '/' + totalPages;
     projBuildPagination(totalPages, bL, cL);
 
-    // sincroniza scroll horizontal do header com o do body
+    // sincroniza scroll horizontal header ↔ body
     const tblOuter  = document.getElementById('proj-tblOuter');
     const theadWrap = document.getElementById('proj-theadWrap');
     if (tblOuter && theadWrap) {
         tblOuter.onscroll = () => { theadWrap.scrollLeft = tblOuter.scrollLeft; };
     }
+
+    // recalcula offsets após render (thead agora tem altura real)
+    requestAnimationFrame(() => projUpdateStickyOffsets());
 }
 
 function projBuildPagination(total, bL, cL) {
@@ -4963,23 +5094,171 @@ function projBuildPagination(total, bL, cL) {
 }
 
 /* ── CSV export ────────────────────────── */
-function projExportCSV() {
-    if (!PROJ.filteredRows.length) return;
+async function projExportCSV() {
+    if (!PROJ.filteredRows.length) { toast('Nenhum dado para exportar.'); return; }
+
+    // garante ExcelJS disponível
+    if (typeof ExcelJS === 'undefined') {
+        await new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+            s.onload = res; s.onerror = () => rej(new Error('Falha ao carregar ExcelJS'));
+            document.head.appendChild(s);
+        });
+    }
+
     const b  = (document.getElementById('proj-filterBase')||{}).value||'';
     const c  = (document.getElementById('proj-filterComp')||{}).value||'';
     const bL = projPeriodLabel(b), cL = projPeriodLabel(c);
-    const lines = [['Nome','Tipo',bL,cL,'Var BRL','Evol %','Meta BRL','GAP','Status'].join(';')];
-    PROJ.filteredRows.forEach(r => lines.push([
-        '"'+r.name.replace(/"/g,'""')+'"', r.type,
-        projFmtBRL(r.b), projFmtBRL(r.c), projFmtBRL(r.varBRL),
-        projFmtPct(r.varPct), projFmtBRL(r.targetVal), projFmtBRL(r.gap), r.status
-    ].join(';')));
-    const blob = new Blob(['\uFEFF'+lines.join('\n')], {type:'text/csv;charset=utf-8'});
+    const metaType = (document.getElementById('proj-filterMetaType')||{}).value||'padrao';
+    const target   = parseFloat((document.getElementById('proj-filterTarget')||{}).value)||0;
+    const typeLabel = {pdv:'PDV/Farmácia', cidade:'Cidade', marca:'Marca', brick:'Brick'};
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Supera Farma';
+    wb.created = new Date();
+
+    const ws = wb.addWorksheet('Resultado Projetado', {
+        views: [{ state:'frozen', ySplit:1 }]
+    });
+
+    // ── Colunas ──────────────────────────────────────────────
+    ws.columns = [
+        { header:'Nome',     key:'nome',    width:40 },
+        { header:'Tipo',     key:'tipo',    width:14 },
+        { header:bL,         key:'base',    width:18 },
+        { header:cL,         key:'comp',    width:18 },
+        { header:'Var. BRL', key:'varBRL',  width:18 },
+        { header:'Evol. %',  key:'varPct',  width:12 },
+        { header:'Meta BRL', key:'metaBRL', width:18 },
+        { header:'GAP',      key:'gap',     width:18 },
+        { header:'Meta %',   key:'metaPct', width:10 },
+        { header:'Status',   key:'status',  width:10 },
+    ];
+
+    // ── Cabeçalho: fundo azul escuro, fonte branca negrito ───
+    const HDR_FILL = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF1E3A5F' } };
+    const HDR_FONT = { name:'Calibri', bold:true, color:{ argb:'FFFFFFFF' }, size:10 };
+    const HDR_ALIGN = { vertical:'middle', horizontal:'center', wrapText:false };
+    const HDR_BORDER = {
+        bottom:{ style:'medium', color:{ argb:'FF3B82F6' } }
+    };
+    ws.getRow(1).height = 22;
+    ws.getRow(1).eachCell(cell => {
+        cell.fill      = HDR_FILL;
+        cell.font      = HDR_FONT;
+        cell.alignment = HDR_ALIGN;
+        cell.border    = HDR_BORDER;
+    });
+
+    // ── Paletas de cor para colunas com valor pos/neg ────────
+    const POS_FILL = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFD1FAE5' } }; // verde claro
+    const POS_FONT = { name:'Calibri', bold:true, color:{ argb:'FF065F46' }, size:10 }; // verde escuro
+    const NEG_FILL = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFFEE2E2' } }; // vermelho claro
+    const NEG_FONT = { name:'Calibri', bold:true, color:{ argb:'FF991B1B' }, size:10 }; // vermelho escuro
+    const NEU_FONT = { name:'Calibri', size:10 };
+    const NUM_FMT  = '#,##0.00';
+    const PCT_FMT  = '+0.0%;-0.0%;0.0%';
+
+    // colunas que recebem formatação condicional pos/neg
+    const COLOR_COLS = new Set(['varBRL','varPct','gap']);
+
+    // ── Linhas de dados ──────────────────────────────────────
+    PROJ.filteredRows.forEach((r, i) => {
+        const rowData = {
+            nome:    r.name,
+            tipo:    typeLabel[r.type] || r.type,
+            base:    r.b,
+            comp:    r.c,
+            varBRL:  r.varBRL,
+            varPct:  r.varPct != null ? r.varPct : '',
+            metaBRL: r.targetVal,
+            gap:     r.gap,
+            metaPct: r.metaPct != null ? r.metaPct : (target/100),
+            status:  r.status === 'acima' ? 'Acima' : 'Abaixo',
+        };
+        const row = ws.addRow(rowData);
+        row.height = 18;
+
+        // zebra suave nas linhas pares
+        const rowFill = i % 2 === 1
+            ? { type:'pattern', pattern:'solid', fgColor:{ argb:'FFF8FAFC' } }
+            : null;
+
+        row.eachCell({ includeEmpty:true }, (cell, colNum) => {
+            const key = ws.columns[colNum-1].key;
+            const isNum = ['base','comp','varBRL','metaBRL','gap'].includes(key);
+            const isPct = ['varPct','metaPct'].includes(key);
+
+            cell.font = NEU_FONT;
+            cell.alignment = { vertical:'middle', horizontal: isNum||isPct ? 'right' : 'left' };
+            if (rowFill) cell.fill = rowFill;
+
+            if (isNum && cell.value !== '' && cell.value != null) cell.numFmt = NUM_FMT;
+            if (isPct && cell.value !== '' && cell.value != null) cell.numFmt = PCT_FMT;
+
+            // formatação condicional pos/neg
+            if (COLOR_COLS.has(key) && typeof cell.value === 'number') {
+                if (cell.value >= 0) {
+                    cell.fill = POS_FILL;
+                    cell.font = POS_FONT;
+                } else {
+                    cell.fill = NEG_FILL;
+                    cell.font = NEG_FONT;
+                }
+            }
+
+            // status badge
+            if (key === 'status') {
+                if (cell.value === 'Acima') {
+                    cell.fill = POS_FILL;
+                    cell.font = { ...POS_FONT, bold:false };
+                } else {
+                    cell.fill = NEG_FILL;
+                    cell.font = { ...NEG_FONT, bold:false };
+                }
+                cell.alignment = { vertical:'middle', horizontal:'center' };
+            }
+        });
+    });
+
+    // ── Linha de totais ──────────────────────────────────────
+    const totB   = PROJ.filteredRows.reduce((s,r)=>s+r.b,0);
+    const totC   = PROJ.filteredRows.reduce((s,r)=>s+r.c,0);
+    const totVar = totC - totB;
+    const totPct = totB ? (totC/totB)-1 : null;
+    const totMeta= PROJ.filteredRows.reduce((s,r)=>s+r.targetVal,0);
+    const totGap = totC - totMeta;
+
+    const totRow = ws.addRow({
+        nome:'TOTAL', tipo:'', base:totB, comp:totC,
+        varBRL:totVar, varPct:totPct||'', metaBRL:totMeta,
+        gap:totGap, metaPct:'', status:''
+    });
+    totRow.height = 20;
+    const TOT_BASE = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF1E3A5F' } };
+    totRow.eachCell({ includeEmpty:true }, (cell, colNum) => {
+        const key = ws.columns[colNum-1].key;
+        cell.font      = { name:'Calibri', bold:true, color:{ argb:'FFFFFFFF' }, size:10 };
+        cell.fill      = TOT_BASE;
+        cell.alignment = { vertical:'middle', horizontal:['base','comp','varBRL','metaBRL','gap'].includes(key)?'right':'left' };
+        if (['base','comp','varBRL','metaBRL','gap'].includes(key) && typeof cell.value==='number') cell.numFmt = NUM_FMT;
+        if (key==='varPct' && typeof cell.value==='number') cell.numFmt = PCT_FMT;
+    });
+
+    // ── Freeze + auto-filter ─────────────────────────────────
+    ws.autoFilter = { from:'A1', to:{ row:1, column:ws.columns.length } };
+
+    // ── Download ─────────────────────────────────────────────
+    const buf  = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'projecao_export.csv';
+    const period = bL && cL ? `_${bL.replace('/','')}_${cL.replace('/','')}`  : '';
+    a.download = `projecao_resultado${period}.xlsx`;
     a.click();
-    toast('CSV exportado!');
+    URL.revokeObjectURL(a.href);
+    toast('✓ Excel exportado!');
 }
 
 /* ── bootstrap ─────────────────────────── */
