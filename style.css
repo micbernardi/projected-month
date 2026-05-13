@@ -1187,17 +1187,17 @@ body {
 .modal-tbl {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12.5px;
+    font-size: 12px;
 }
 
 .modal-tbl thead th {
     background: var(--navy);
     color: #e2eaf6;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .5px;
-    padding: 9px 10px;
+    letter-spacing: .4px;
+    padding: 8px 7px;
     text-align: left;
     white-space: nowrap;
     position: sticky;
@@ -1214,9 +1214,9 @@ body {
 }
 
 .modal-tbl tbody td {
-    padding: 8px 10px;
+    padding: 7px 7px;
     border-bottom: 1px solid var(--brd);
-    vertical-align: middle
+    vertical-align: middle;
 }
 
 .modal-tbl tbody td.r {
@@ -2141,24 +2141,29 @@ body {
 }
 
 /* Modal de bricks: colunas compactas para caber leader + gap na tela */
+.modal-xl {
+    max-width: min(1560px, 97vw);
+}
+
 .modal-tbl .col-brick {
-    width: 28%;
-    min-width: 220px
+    width: 22%;
+    min-width: 180px;
 }
 
 .modal-tbl .col-setor {
-    width: 16%;
-    min-width: 120px
+    width: 13%;
+    min-width: 100px;
 }
 
 .modal-tbl tbody tr td {
-    padding: 5px 8px;
-    line-height: 1.2
+    padding: 5px 6px;
+    line-height: 1.2;
 }
 
 .modal-tbl thead th {
-    font-size: 10px;
-    padding: 8px 8px;
+    font-size: 9.5px;
+    padding: 8px 6px;
+    white-space: nowrap;
 }
 
 .modal-tbl tbody td.col-brick code {
