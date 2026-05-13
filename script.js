@@ -9,6 +9,20 @@
    marcas Supera e concorrentes daquele mercado.                      */
 const MARKETS_BRANDS_MAP = { "ALEVO": { "supera": ["ALEVO (SP0)"], "concorrentes": ["LEVOXIN (AS2)", "LIVEPAX (A4H)", "TAMIRAM (EUF)", "TAVOK (EUF)"] }, "ALONG-C": { "supera": ["ALONG-C (SP0)"], "concorrentes": ["COLFLEX CURCUMA (MF+)", "CONDRES LONGBIO (EMS)", "CURC (MF+)", "MOTORE (A4H)"] }, "ALPES XL": { "supera": ["ALPES XL (SP0)"], "concorrentes": ["BUP XL (EUF)", "BUPIUM (EMS)", "BUPIUM XL (EMS)", "WELLBUTRIN XL (GSK)", "ZETRON XL (LIB)"] }, "AMYTRIL": { "supera": ["AMYTRIL (SP0)"], "concorrentes": ["ANAFRANIL (SDZ)", "ANAFRANIL SR (SDZ)", "CLO (B3H)", "IMIPRA (CT6)", "MITRIP (MYL)", "PAMELOR (CLR)"] }, "ANDES": { "supera": ["ANDES (SP0)"], "concorrentes": ["DELLER (A4H)", "DESDUO (TNT)", "DESVE (EUF)", "ELIFORE (PFZ)", "IMENSE (EMS)", "PRISTIQ (PFZ)"] }, "APICE": { "supera": ["APICE (SP0)"], "concorrentes": ["DORENE (A4H)", "INSIT (AS2)", "LIMIAR (EUF)", "LYRICA (VI/)"] }, "ASEA": { "supera": ["ASEA (SP0)"], "concorrentes": ["BENICAR (DCS)", "OLMECOR (TNT)", "OLMETEC (PFZ)"] }, "ASEA HCT": { "supera": ["ASEA HCT (SP0)"], "concorrentes": ["BENICAR HCT (DCS)", "HOLMES H (EUF)"] }, "ATEROMA": { "supera": ["ATEROMA (SP0)"], "concorrentes": ["CITALOR (VI/)", "LIPITOR (VI/)", "VAST (EUF)"] }, "ATESTO": { "supera": ["ATESTO (SP0)"], "concorrentes": ["DAEM (EUF)", "DURATESTON (A3N)", "HORMUS (EUF)", "NEBIDO (GRT)", "UND TESTOSTERON MG (EUF)"] }, "ATIP": { "supera": ["ATIP (SP0)"], "concorrentes": ["QUET (EUF)", "QUETIPIN (CT6)", "QUETROS (A4H)", "SEROQUEL IR (MA8)"] }, "ATIP XR": { "supera": ["ATIP XR (SP0)"], "concorrentes": ["QUEPSIA LP (EUF)", "QUET XR (EUF)", "SEROQUEL XRO (MA8)"] }, "AVAL": { "supera": ["AVAL (SP0)"], "concorrentes": ["BRASART (EMS)", "BRAVAN (A4H)", "DIOVAN (FQM)"] }, "AZOD": { "supera": ["AZOD (SP0)"], "concorrentes": ["DONAREN (AS2)", "LOREDON (TNT)", "MOTRAZ (EUF)", "SONIC (EUF)"] }, "BARIAT XR": { "supera": ["BARIAT XR (SP0)"], "concorrentes": ["BARIATRON (A4I)", "BARISTAR (CLR)", "QUELATUS BARI (EUF)"] }, "BARIAT XR CALCIO": { "supera": ["BARIAT XR CALCIO (SP0)"], "concorrentes": ["CALDE MDK (MJA)", "MOBILITY OSCAL (O/P)", "MOBILITY OSCAL D (O/P)", "OSTEONUTRI (A3N)"] }, "BENZETACIL": { "supera": ["BENZETACIL (SP0)", "BIOFLAC (SP0)"], "concorrentes": [] }, "BIQUIZ": { "supera": ["BIQUIZ (SP0)", "CARLIT (SP0)"], "concorrentes": ["AIPRI (MF+)", "ARISTAB (A4H)", "TOARIP (TNT)", "CARBOLITIUM (EUF)", "CARBOLITIUM CR (EUF)"] }, "CIBEX": { "supera": ["CIBEX (SP0)"], "concorrentes": ["CELEBRA (VI/)", "COQUES (EUF)", "DUCOX (EUF)", "FOXIS (A4H)"] }, "COD": { "supera": ["COD (SP0)"], "concorrentes": ["CODEIN (CT6)", "NOVOTRAM (MF+)", "TRAMADON (CT6)", "TRAMAL (GRT)", "TRAMAL RETARD (GRT)"] }, "COD PAR": { "supera": ["COD PAR (SP0)"], "concorrentes": ["ALGICOD (EUF)", "PACO (EUF)", "TYLEX (CLR)"] }, "DBRIZ": { "supera": ["DBRIZ (SP0)"], "concorrentes": ["IRUXOL (ABD)", "KOLLAGENASE C/CLOR (CT6)"] }, "DBRIZ GINO": { "supera": ["DBRIZ GINO (SP0)"], "concorrentes": ["GINO KOLLAGENASE (CT6)", "GYNO-IRUXOL (ABD)", "KOLPOCERVIX (ZY-)"] }, "DBRIZ UNO": { "supera": ["DBRIZ UNO (SP0)"], "concorrentes": ["IRUXOL MONO (ABD)", "KOLLAGENASE (CT6)"] }, "DEKSA": { "supera": ["DEKSA (SP0)"], "concorrentes": ["JUNEVE (TAK)", "LIND (EUF)", "LISDEV (EUF)", "LISVENX (TNT)", "LYBERDIA (EMS)", "LYSDEXA (LIB)", "VENVANSE (TAK)"] }, "DELA COLIN": { "supera": ["DELA COLIN (SP0)", "DENYL (SP0)"], "concorrentes": ["FEMIBION (PGH)", "MEGA MATER (U.Q)", "NEUTROFER FOLATO D (EMS)", "OFOLATO D FER (MF+)", "OFOLATO FER (MF+)", "CITTA (EUF)", "MAXAPRAN (A4H)", "PROCIMAX (LIB)"] }, "DHIVAS": { "supera": ["DHIVAS (SP0)"], "concorrentes": ["DAFLON 1000 (SVR)", "DAFLON 1000 FLEX (SVR)", "DIOSMIN (A4H)", "PERIVASC (EUF)", "VENAFLON (TTB)"] }, "DIOLESS": { "supera": ["DIOLESS (SP0)"], "concorrentes": ["FEMINA (A4H)", "MERCILON (ORG)", "MINIAN (LIB)", "PRIMERA (EUF)"] }, "DIUPRESS": { "supera": ["DIUPRESS (SP0)"], "concorrentes": ["CLOR.AMILO+HCT MG (EMS)", "CLORANA (S.A)", "DIURIX (TTB)", "INDAPAMIDA MG (EMS)", "INDAPAMIDA MG (EUF)", "INDAPAMIDA MG (GM2)", "INDAPAMIDA MG (GOB)", "INDAPAMIDA MG (PZ8)", "INDAPAMIDA MG (TNT)", "INDAPEN SR (TNT)", "NATRILIX SR (SVR)"] }, "DUOFLAM": { "supera": ["DUOFLAM (SP0)"], "concorrentes": ["BETATRINTA (EUF)", "DIPROSPAN (MF+)", "PERMESE (EUF)"] }, "FIBRINASE 15G": { "supera": ["FIBRINASE (SP0)"], "concorrentes": ["IRUXOL MONO (ABD)", "KOLLAGENASE C/CLOR (CT6)", "IRUXOL (ABD)", "KOLLAGENASE (CT6)"] }, "FILINAR": { "supera": ["FILINAR (SP0)"], "concorrentes": ["BRONDILAT (A4H)", "MELYSSE (A4H)"] }, "FLUXENE": { "supera": ["FLUXENE (SP0)"], "concorrentes": ["DAFORIN (EMS)", "PROZAC 20 (LLY)", "VEROTINA (LIB)"] }, "GAZIA": { "supera": ["GAZIA (SP0)"], "concorrentes": ["ADIPEPT (A4H)", "DIVENA (A4H)", "INILOK (AS2)", "PRAZY (LR8)", "RESTITUE (EMS)"] }, "HELLEVA": { "supera": ["HELLEVA (SP0)"], "concorrentes": ["VIAGRA (VI/)"] }, "HEZO": { "supera": ["HEZO (SP0)"], "concorrentes": ["EZONIA (EUF)", "PRYSMA (EUF)", "STILNOX CR (S.A)"] }, "HIXIZINE": { "supera": ["HIXIZINE (SP0)", "IBANUNO (SP0)"], "concorrentes": ["FENERGAN (O/P)", "PERGO (EUF)", "POLARAMINE (HCH)", "AFRAT (CT6)", "OSTEOBAN (A4H)", "RISEDROSS (EMS)"] }, "KETALGI": { "supera": ["KETALGI (SP0)"], "concorrentes": ["ETOD (CT6)", "ETODOLACO MG (AH/)", "ETODOLACO MG (GM2)", "FLANCOX (AS2)"] }, "LANICO COMP": { "supera": ["LANICO (SP0)"], "concorrentes": ["ATAK CLAV (EUF)", "CLAVULIN BD (GSK)", "NOVAMOX (A4H)", "SINOT CLAV (EUF)"] }, "LANICO SUSP": { "supera": ["LANICO (SP0)"], "concorrentes": ["ATAK CLAV (EUF)", "CLAVULIN BD (GSK)", "NOVAMOX (A4H)", "SINOT CLAV (EUF)"] }, "LONGFLEX": { "supera": ["LONGFLEX (SP0)"], "concorrentes": ["COLFLEX HIALU (MF+)", "FORTICE (EUF)", "MOTILEX HA (AS2)"] }, "MINERGI": { "supera": ["MINERGI (SP0)"], "concorrentes": ["PISA (EUF)", "QUERA LP (CT6)"] }, "MULTI BI": { "supera": ["MULTI-BI (SP0)"], "concorrentes": ["20 BI (EUF)", "BIOTTA 25BI (MJA)", "PROBIATOP (FQM)", "PROBID (AS2)", "PROLIVE (A4H)"] }, "MULTI BI FIBRAS": { "supera": ["MULTI-BI FIBRAS (SP0)"], "concorrentes": ["20 BI FIBRAS (EUF)", "PROHN (A4H)", "PROHN FIBRAS (A4H)", "SIMBIOFLORA (FQM)", "SIMBIOFLORA MULTI (FQM)"] }, "MULTI-BI GOTAS": { "supera": ["MULTI-BI (SP0)"], "concorrentes": ["COLIDIS (A4H)", "CULTURELLE (CLR)", "FLORIPA (EUF)", "KOLLIS (EMS)"] }, "NAZZO": { "supera": ["NAZZO (SP0)"], "concorrentes": ["MARESIS FLEX (FQM)", "NARIDRIN ALTO VOLU (EMS)", "NASOAR (MYL)", "RINOSORO (MF+)"] }, "NAZZO H": { "supera": ["NAZZO H (SP0)"], "concorrentes": ["MAXIDRATE (LIB)", "PENETRO (MLB)", "SINUSEC (BS2)", "SINUSTRAT (BS2)"] }, "NAZZO HIALUJET": { "supera": ["NAZZO HIALUJET (SP0)"], "concorrentes": ["MARESIS (FQM)", "RINOSORO (MF+)", "SALSEP JET (LIB)", "SORINE (A4H)"] }, "NAZZO INF": { "supera": ["NAZZO INFANTIL (SP0)"], "concorrentes": ["MARESIS FLEX (FQM)", "NASOAR (MYL)", "RESPIR KIDS (U.Q)", "RINOSORO (MF+)"] }, "NAZZO NEBULIZE": { "supera": ["NAZZO NEBULIZE (SP0)"], "concorrentes": ["ATROVENT (B.I)", "PULMICORT (FQM)"] }, "NAZZO OTO": { "supera": ["NAZZO OTO (SP0)"], "concorrentes": ["ACERATUM (CLR)", "CERUMIN (NVR)", "OTODRAT (AEE)"] }, "NAZZO XT": { "supera": ["NAZZO XT (SP0)", "NEUMOSIN (SP0)"], "concorrentes": ["NASOAR (MYL)", "RINOSORO (MF+)", "AVALOX (BYP)", "PRAIVA (EUF)"] }, "NIMEGON": { "supera": ["NIMEGON (SP0)"], "concorrentes": ["GALVUS (FQM)", "JANUVIA (MSD)", "NESINA (HYQ)", "SITGLU (B3H)", "SUGANON (EUF)"] }, "NIMEGON MET": { "supera": ["NIMEGON MET (SP0)"], "concorrentes": ["GALVUS MET (FQM)", "JANUMET (MSD)", "JANUMET XR (MSD)", "NESINA MET (HYQ)", "SITGLU MET (B3H)"] }, "OKOTICO": { "supera": ["OKOTICO (SP0)"], "concorrentes": ["LEPONEX (VI/)", "PINAZAN (CT6)"] }, "PEN VE ORAL": { "supera": ["PEN-VE-ORAL (SP0)"], "concorrentes": [] }, "PERCOF": { "supera": ["PERCOF (SP0)"], "concorrentes": ["ANTUX (A4H)", "NOTUSS TSS (A4H)", "VIBRAL (ABD)"] }, "PHOSFOENEMA": { "supera": ["PHOSFOENEMA (SP0)"], "concorrentes": ["L-ENEMA (NAU)"] }, "PROMIM": { "supera": ["PROMIM (SP0)"], "concorrentes": ["ANTROFI (EUF)", "COLPOTROFINE (TRM)", "COLTRIENO (MYL)"] }, "PROS": { "supera": ["PROS (SP0)"], "concorrentes": ["DOXAPROST (U.Q)", "DUOMO (EUF)"] }, "PROS HP": { "supera": ["PROS HP (SP0)"], "concorrentes": ["DUOMO HP (EUF)", "HOMINUS (EUF)"] }, "RENOVI B": { "supera": ["RENOVI B (SP0)"], "concorrentes": ["BETRAT (MYL)", "CITOBE (EUF)", "CITONEURIN 5000 (PGH)", "CRONOBE COMPLEX (BS2)", "NEO B (EUF)", "NEVRIX (AEE)"] }, "RENOVI B PLUS": { "supera": ["RENOVI B PLUS (SP0)"], "concorrentes": ["CRONOBE COMPLEX (BS2)", "DEXA-CITONEURI NFF (PGH)", "DEXADOR (AEE)"] }, "RISPERIDON": { "supera": ["RISPERIDON (SP0)"], "concorrentes": ["RISS (EUF)", "VIVERDAL (U.Q)", "ZARGUS (A4H)"] }, "RISPERIDON SOL": { "supera": ["RISPERIDON (SP0)"], "concorrentes": ["PERLID (PZ8)", "RISPERDAL (CLR)", "RISPERIDONA MG (EMS)", "RISPERIDONA MG (GM2)", "RISPERIDONA MG (NQA)", "RISPERIDONA MG (PZ8)"] }, "ROXETIN": { "supera": ["ROXETIN (SP0)"], "concorrentes": ["AROPAX (GSK)", "MORATUS (A4H)", "PONDERA (EUF)"] }, "ROXETIN XR": { "supera": ["ROXETIN XR (SP0)"], "concorrentes": ["PAXIL CR (GSK)", "PONDERA XR (EUF)", "SINCRO XR (EUF)"] }, "SENES": { "supera": ["SENES (SP0)"], "concorrentes": ["DON (EUF)", "DONILA (A4H)", "EPEZ (TNT)"] }, "SIMECO PLUS": { "supera": ["SIMECO PLUS (SP0)"], "concorrentes": ["GASTROBION (HTZ)", "GASTROGEL (MDQ)", "MAGNAZIA (CM5)", "MYLANTA PLUS (KVU)", "PEPSOGEL (LR8)", "STOMALIV STC (GOB)"] }, "SOPI": { "supera": ["SOPI (SP0)"], "concorrentes": ["FERTISOP (MYL)", "FOLIA SOP (GRO)", "OFOLATO SOP (MF+)"] }, "SOPI H": { "supera": ["SOPI H (SP0)"], "concorrentes": ["ANDRACTIV (B4I)", "VITERGAN ZINCO PL (MJA)", "VITERGAN ZINCO PLD (MJA)", "ANSITEC (LIB)", "APRAZ (MF+)", "DIAZEPAM NQ (MB9)", "FRISIUM (MA8)", "FRONTAL (VI/)", "LEXOTAN (MA8)", "SOMALIUM (A4H)"] }, "TAM": { "supera": ["TAM (SP0)"], "concorrentes": ["ANTARA (EUF)", "ETIRA (A4H)", "KEPPRA (UCB)"] }, "TAM SOL": { "supera": ["TAM (SP0)"], "concorrentes": ["ANTARA (EUF)", "ETIRA (A4H)", "KEPPRA (UCB)", "SPARK (EUF)"] }, "TAM XR": { "supera": ["TAM XR (SP0)"], "concorrentes": ["ANTARA XR (EUF)", "KEPPRA XR (UCB)", "SPARK XR (EUF)"] }, "TRIPLOA": { "supera": ["TRIPLOA (SP0)"], "concorrentes": ["ALGIE (EUF)", "ARTROSIL (A4H)", "BICERTO (EUF)", "BI-PROFENID (S.A)"] }, "TROL": { "supera": ["TROL (SP0)"], "concorrentes": ["GESICO RETARD (EUF)", "TRAMADON (CT6)", "TRAMAL RETARD (GRT)", "TRAUM RETARD (A4H)"] }, "TROL PAR": { "supera": ["TROL PAR (SP0)"], "concorrentes": ["ATRACE (EUF)", "GESICO DUO (EUF)", "PARATRAM (A5U)", "REVANGE (A4H)"] }, "TYNNA": { "supera": ["TYNNA (SP0)"], "concorrentes": ["ALEKTOS (HYQ)", "HISBILA (EUF)", "NAIRE (EUF)"] }, "ULTROX": { "supera": ["ULTROX (SP0)"], "concorrentes": ["CETROLAC SL (U.Q)", "SYMDULOR SL (A5U)", "TORAGESIC (EMS)", "TORMIV SL (A4H)", "TOTTI SL (A4H)"] }, "VAGICAND": { "supera": ["VAGICAND (SP0)"], "concorrentes": [] }, "VALASKI": { "supera": ["VALASKI (SP0)"], "concorrentes": ["DENPRYX (FQM)", "HERPSTAL (UKT)", "VALTREX (GSK)", "VILAXY (EUF)"] }, "VITA COLIN": { "supera": ["VITA COLIN (SP0)"], "concorrentes": ["DAYVIT KIDS (A4H)", "FERROVITAN COLINA (EUF)", "NEUTROFER POLI (EMS)", "NEUTROFER PREV (EMS)", "PURAVIT IMUNE (MYL)", "ZIRVIT KIDS (AEE)", "ZIRVIT KIDS MAX (AEE)"] }, "VIVAMENT": { "supera": ["VIVAMENT (SP0)"], "concorrentes": ["COGMAX (EUF)", "COGMAX FOS (EUF)", "COGNI MAIS (FQM)", "COGNICX (U.Q)", "LOGNIS (AS2)", "QUELATUS MIND (EUF)"] }, "VIVOSSO": { "supera": ["VIVOSSO (SP0)"], "concorrentes": ["CALDE (MJA)", "CALDE MAX (MJA)", "CALTRATE D NF (HE4)", "MOBILITY OSCAL (O/P)", "MOBILITY OSCAL D (O/P)", "OS-CAL D (O/P)", "OSSOTRAT-D (CLR)", "OSTEONUTRI (A3N)", "PROSSO (EUF)"] }, "VIVOSSO PRO": { "supera": ["VIVOSSO PRO (SP0)"], "concorrentes": ["ADDERA CAL (MF+)", "CALDE K2 (MJA)", "CALDE MDK (MJA)", "FIXARE (EMS)", "OS-CAL D (O/P)", "PROSSO (EUF)", "PROSSO D+KM (EUF)"] }, "VORXE": { "supera": ["VORXE (SP0)"], "concorrentes": ["BRINTELLIX (LUN)", "EVORTIA (MF+)", "VOEXTOR (LIB)", "VOGNUS (EMS)", "VURTUOSO (LUN)"] }, "ZOUP SL": { "supera": ["ZOUP SL (SP0)"], "concorrentes": ["LUNE SL (MF+)", "PATZ SL (EMS)", "RIPOSO SL (EUF)", "TURNO SL (EUF)"] } };
 
+/* ===== EXCLUSÕES DE CONCORRENTES POR MERCADO =====
+   Concorrentes listados aqui são ignorados no ranking de bricks e nos badges
+   do Resumo Geral, mas mantidos no modal "Ver" (visão completa).
+   Formato: { 'MERCADO': Set(['PRODUTO (LAB)', ...]) }
+================================================================== */
+const MARKET_BRICK_EXCLUSIONS = {
+    'ATESTO': new Set(['DURATESTON (A3N)'])
+};
+
+function getExclusionsForMarket(market) {
+    return MARKET_BRICK_EXCLUSIONS[normU(market)] || MARKET_BRICK_EXCLUSIONS[market] || null;
+}
+
+
 /* Lookup rápido normalizado: nome do produto (upper, sem acento) → 'SUPERA' | 'CONCORRENTE' */
 const PRODUCT_ROLE = (() => {
     const map = new Map();
@@ -131,8 +145,31 @@ let UI = {
     sortDir: 'desc',
     /* v3.9 — ordenação da tabela Detalhe por Brick (sort por coluna). */
     brickSortKey: 'totalCur',
-    brickSortDir: 'desc'
+    brickSortDir: 'desc',
+    /* Exclusões temporárias de concorrentes por mercado (toggle pelo usuário) */
+    marketExclusions: {}   // { 'ATESTO': true/false, ... }
 };
+
+/* Alterna exclusão de concorrente em um mercado e re-renderiza o Resumo */
+function toggleMarketExclusion(market) {
+    const key = normU(market);
+    // Se não existe na configuração base, não há o que toglar
+    const base = MARKET_BRICK_EXCLUSIONS[key] || MARKET_BRICK_EXCLUSIONS[market];
+    if (!base) return;
+    // false = excluído ativo (padrão), true = incluído (toggle ligado)
+    UI.marketExclusions[key] = !UI.marketExclusions[key];
+    renderResumo();
+}
+
+/* Retorna exclusões efetivas considerando o toggle do usuário */
+function getEffectiveExclusions(market) {
+    const key = normU(market);
+    const base = MARKET_BRICK_EXCLUSIONS[key] || MARKET_BRICK_EXCLUSIONS[market];
+    if (!base) return null;
+    // Se o usuário ativou o toggle (incluir tudo), retorna null (sem exclusão)
+    if (UI.marketExclusions[key]) return null;
+    return base;
+}
 
 /* ===== HELPERS ===== */
 const $ = id => document.getElementById(id);
@@ -470,17 +507,26 @@ function calcRecBrick(superaCur, superaPrev, concMax, growth, pos, gapLider, lid
     if (pos === 2) return 'CRESCER';
 
     // Supera entrando no brick (sem histórico anterior) → sempre OPORTUNIDADE
+    // Está ganhando presença, independente da posição atual
     if (!superaPrev || superaPrev <= 0) return 'OPORTUNIDADE';
 
-    // Gap de referência: sempre a posição imediatamente acima
-    // (objetivo imediato é subir um degrau, não necessariamente alcançar o líder)
-    const gapRef     = (gapProximo != null && gapProximo > 0) ? gapProximo : (gapLider || 0);
+    // Gap de referência:
+    //   pos 3ª/4ª → gap para o líder (precisa alcançar o 1º)
+    //   pos 5ª+   → gap para a posição imediatamente acima (subir um degrau de cada vez)
+    const gapRef = (pos <= 4) ? (gapLider || 0) : (gapProximo || gapLider || 0);
     const alcancavel = gapRef <= superaCur * 3;  // gap ≤ 3× venda Supera
-    const shareOk    = (shareBrick || 0) >= 10;  // share ≥ 10%
+    const shareOk = (shareBrick || 0) >= 10; // share ≥ 10%
 
-    // Regra unificada pos ≥ 3: basta UMA condição favorável → OPORTUNIDADE
-    // Ambas desfavoráveis (share < 10% E gap > 3×) → ACOMPANHAR
-    return (shareOk || alcancavel) ? 'OPORTUNIDADE' : 'ACOMPANHAR';
+    if (pos === 3 || pos === 4) {
+        return alcancavel ? 'OPORTUNIDADE' : 'ACOMPANHAR';
+    }
+
+    // pos 5ª+: basta UMA condição favorável → OPORTUNIDADE
+    if (pos >= 5) {
+        return (shareOk || alcancavel) ? 'OPORTUNIDADE' : 'ACOMPANHAR';
+    }
+
+    return 'ACOMPANHAR';
 }
 
 function recColorVar(rec) {
@@ -495,7 +541,9 @@ function recColorVar(rec) {
 
 /* ===== AGREGAÇÃO POR BRICK DENTRO DE UM MERCADO =====
         Cada brick vira um "ponto" no qual decidimos a recomendação. */
-function aggBricksOfMarket(rows, pd) {
+function aggBricksOfMarket(rows, pd, excludeProducts) {
+    // excludeProducts: Set opcional de nomes de produtos a ignorar no ranking/totalCur
+    const excl = excludeProducts || null;
     const map = new Map();
     rows.forEach(r => {
         const k = (r.brickName || '—') + '||' + (r.cidade || '');
@@ -513,16 +561,20 @@ function aggBricksOfMarket(rows, pd) {
         const b = map.get(k);
         const d = r.data[pd];
         b.rows.push(r);
-        b.totalCur += d.current || 0;
-        b.totalPrev += d.previous || 0;
         if (r.role === 'SUPERA') {
             b.superaCur += d.current || 0;
             b.superaPrev += d.previous || 0;
+            b.totalCur += d.current || 0;
+            b.totalPrev += d.previous || 0;
         } else {
+            // Se o produto está na lista de exclusão, não entra no ranking nem no total
+            if (excl && excl.has(r.product)) return;
             const c = b.concorrentes.get(r.product) || { cur: 0, prev: 0 };
             c.cur += d.current || 0;
             c.prev += d.previous || 0;
             b.concorrentes.set(r.product, c);
+            b.totalCur += d.current || 0;
+            b.totalPrev += d.previous || 0;
         }
     });
 
@@ -558,7 +610,10 @@ function aggMarkets(rows, pd) {
 
     const out = [];
     byMkt.forEach((rs, market) => {
-        const bricks = aggBricksOfMarket(rs, pd);
+        const excl = (typeof getEffectiveExclusions === 'function')
+            ? getEffectiveExclusions(market)
+            : getExclusionsForMarket(market);
+        const bricks = aggBricksOfMarket(rs, pd, excl);
         const current = bricks.reduce((s, b) => s + b.totalCur, 0);
         const previous = bricks.reduce((s, b) => s + b.totalPrev, 0);
         const supera = bricks.reduce((s, b) => s + b.superaCur, 0);
@@ -734,9 +789,23 @@ function renderResumo() {
         const rowId = 'mkt_' + norm(m.market).replace(/\s+/g, '_');
         const isExpanded = UI.expandedRows.has(rowId);
 
+        // Toggle de exclusão de concorrentes (ex: DURATESTON no ATESTO)
+        const mktExcl  = MARKET_BRICK_EXCLUSIONS[normU(m.market)] || MARKET_BRICK_EXCLUSIONS[m.market];
+        const exclActive = mktExcl && !UI.marketExclusions[normU(m.market)];
+        const toggleBtn = mktExcl ? ` <button
+            class="excl-toggle-btn ${exclActive ? 'excl-on' : 'excl-off'}"
+            onclick="toggleMarketExclusion('${escStr(m.market)}')"
+            title="${exclActive
+                ? 'Clique para incluir: ' + [...mktExcl].join(', ')
+                : 'Clique para excluir: ' + [...mktExcl].join(', ')}"
+        >${exclActive
+            ? '⊘ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
+            : '＋ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
+        }</button>` : '';
+
         html += `<tr class="mkt-row" id="row_${rowId}">
             <td class="expand-cell"><button class="expand-btn" onclick="toggleExpand('${rowId}')">${isExpanded ? '−' : '+'}</button></td>
-            <td><div class="mkt-name">${m.market}</div></td>
+            <td><div class="mkt-name">${m.market}${toggleBtn}</div></td>
             <td><div class="mkt-supera-name">${m.superaLabel}</div></td>
             <td class="c"><span class="bricks-count">${m.bricksCount}</span></td>
             <td class="r">${fmtValue(m.current)}</td>
@@ -889,9 +958,9 @@ function toggleExpand(rowId) {
 function showBrickModal(market, rec) {
     const pd = UI.periodMode;
     let rows = getFilteredRows().filter(r => r.market === market);
-    const bricks = aggBricksOfMarket(rows, pd).filter(b => b.rec === rec);
+    const excl = getEffectiveExclusions(market);
+    const bricks = aggBricksOfMarket(rows, pd, excl).filter(b => b.rec === rec);
     bricks.sort((a, b) => (b.superaCur - a.superaCur) || a.brick.localeCompare(b.brick));
-    // Indica no título se está filtrado por setor
     const sectorLabel = UI.sector !== 'all' ? ` · ${cleanSectorName(UI.sector)}` : '';
 
     const titleMap = {
@@ -901,9 +970,13 @@ function showBrickModal(market, rec) {
         'ACOMPANHAR': 'ACOMPANHAR DE PERTO',
         'ENTRAR': 'ENTRAR NO MERCADO'
     };
+    // Badge de exclusão visível no título quando há produtos excluídos
+    const exclBadge = excl && excl.size
+        ? ` <span class="excl-badge" title="Concorrentes excluídos desta visão: ${[...excl].join(', ')}">⚠ excl. ${[...excl].map(p => p.replace(/\s*\([^)]+\)/,'')).join(', ')}</span>`
+        : '';
     $('brickModalTitle').innerHTML = `<span class="mmodal-mkt">${market}</span>
         <span class="mmodal-sep">—</span>
-        <span class="mmodal-rec ${recPillCls(rec)}">${titleMap[rec]} (${bricks.length} bricks)</span>${sectorLabel ? `<span class="mmodal-sub">${sectorLabel}</span>` : ''}`;
+        <span class="mmodal-rec ${recPillCls(rec)}">${titleMap[rec]} (${bricks.length} bricks)</span>${sectorLabel ? `<span class="mmodal-sub">${sectorLabel}</span>` : ''}${exclBadge}`;
 
     let html = `<table class="modal-tbl"><thead><tr>
         <th class="w-hash">#</th>
@@ -952,7 +1025,11 @@ function showBrickModal(market, rec) {
                 const acima = rk.ranking[rk.posSupera - 2];
                 if (acima) {
                     const gp = Math.max(0, acima.cur - b.superaCur + 1);
-                    const mult = b.superaCur > 0 ? (gp / b.superaCur).toFixed(1) : '∞';
+                    const multRaw = b.superaCur > 0 ? gp / b.superaCur : null;
+                    const multRounded = multRaw != null ? Math.round(multRaw * 10) / 10 : null;
+                    const mult = multRounded == null ? '∞'
+                        : Number.isInteger(multRounded) ? String(multRounded)
+                        : multRounded.toFixed(1);
                     const nomeAcima = acima.name.replace(/\s*\([^)]+\)/, '');
                     gapProxCls = gp <= b.superaCur * 3 ? 'vpos' : 'vneg';
                     gapProxLabel = `+${fmtValue(gp)} <span style="font-size:.7em;opacity:.7">(${mult}×) p/ ${nomeAcima}</span>`;
@@ -1287,7 +1364,10 @@ function renderBrick() {
 
     const lines = [];
     byMkt.forEach((rs, market) => {
-        const bricks = aggBricksOfMarket(rs, pd);
+        const excl = (typeof getEffectiveExclusions === 'function')
+            ? getEffectiveExclusions(market)
+            : getExclusionsForMarket(market);
+        const bricks = aggBricksOfMarket(rs, pd, excl);
         bricks.forEach(b => {
             if (UI.rec !== 'all' && b.rec !== UI.rec) return;
             const rk = brickRanking(b);
