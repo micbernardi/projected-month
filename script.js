@@ -4367,3 +4367,622 @@ async function detectFileKind(file) {
 }
 
 
+
+/* PROJ_MODULE_PLACEHOLDER */
+
+/* ════════════════════════════════════════
+   RESULTADO PROJETADO — MÓDULO INLINE v3
+   • Qualquer planilha é opcional — o dashboard exibe o que tiver
+   • Bricks adicionados como 4ª dimensão
+   • Toolbar da tabela congela abaixo dos totais (sticky no CSS)
+════════════════════════════════════════ */
+
+const PROJ = {
+    appData: null,
+    allRows: [],
+    filteredRows: [],
+    currentTab: 'all',
+    currentPage: 1,
+    PAGE_SIZE: 50,
+    STORAGE_KEY: 'proj_dashboard_v4'
+};
+
+/* ── abrir / fechar view ───────────────── */
+function projUpdateStickyOffsets() {
+    const hdr      = document.getElementById('mainHeader');
+    const backBar  = document.querySelector('.proj-back-bar');
+    const sticky   = document.getElementById('proj-stickyHeader');
+    const pv       = document.getElementById('projecaoView');
+    const mainEl   = document.getElementById('proj-main');
+    if (!hdr) return;
+    const hdrH     = hdr.offsetHeight;
+    const backBarH = backBar ? backBar.offsetHeight : 34;
+    const stickyH  = sticky  ? sticky.offsetHeight  : 0;
+    const totalFixed = hdrH + backBarH + stickyH;
+    // #projecaoView começa logo abaixo de header+back-bar (fixos pelo CSS)
+    if (pv) pv.style.paddingTop = (hdrH + backBarH + stickyH) + 'px';
+    // padding-top do conteúdo rolável dentro do proj-main
+    if (mainEl) mainEl.style.paddingTop = '16px';
+    // CSS vars para sticky intermediários (toolbar e thead)
+    document.documentElement.style.setProperty('--proj-toolbar-top', totalFixed + 'px');
+    document.documentElement.style.setProperty('--proj-thead-top',   (totalFixed + 44) + 'px');
+}
+function openProjecaoView() {
+    document.getElementById('uploadView').style.display   = 'none';
+    document.getElementById('dashView').style.display     = 'none';
+    document.getElementById('kpiStrip').style.display     = 'none';
+    const pv = document.getElementById('projecaoView');
+    pv.style.display = 'block';
+    window.scrollTo(0, 0);
+    try {
+        const saved = localStorage.getItem(PROJ.STORAGE_KEY);
+        if (saved) {
+            const d = JSON.parse(saved);
+            if (d && d.data && d.periods && d.periods.length) {
+                PROJ.appData = d;
+                projInitDash();
+                return;
+            }
+        }
+    } catch(e) {}
+}
+
+function closeProjecaoView() {
+    document.getElementById('projecaoView').style.display = 'none';
+    const hasData = DB.rows && DB.rows.length > 0;
+    document.getElementById('uploadView').style.display  = hasData ? 'none' : 'block';
+    document.getElementById('dashView').style.display    = hasData ? 'block' : 'none';
+    document.getElementById('kpiStrip').style.display    = hasData ? 'flex' : 'none';
+}
+
+/* ── helpers ──────────────────────────── */
+function projFmtBRL(n) {
+    if (n == null) return '—';
+    return 'R$ ' + Math.abs(n).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function projFmtPct(n) {
+    if (n == null) return '—';
+    return (n >= 0 ? '+' : '') + (n * 100).toFixed(1) + '%';
+}
+function projPeriodLabel(p) {
+    if (!p) return '';
+    const s = String(p);
+    if (s.length === 6) {
+        const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const m = parseInt(s.slice(4,6),10) - 1;
+        return (months[m] || s.slice(4)) + '/' + s.slice(0,4);
+    }
+    return s;
+}
+
+/* ── detector de tipo de planilha ─────── */
+function projDetectType(headers) {
+    const h = headers.map(x => String(x||'').toLowerCase().trim());
+    const first = h[0] || '';
+    if (/^pdv|farmac/.test(first)) return 'pdv';
+    if (/^cidade|munic/.test(first)) return 'cidade';
+    if (/^marca/.test(first)) return 'marca';
+    if (/^brick/.test(first)) return 'brick';
+    // fallback pelo slot ativo (passado como hint)
+    return null;
+}
+
+/* ── parse XLSX → {name: {period: value}} ─ */
+function projParseXLSX(file, typeHint) {
+    return new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+                const out = {};
+                let detectedType = typeHint;
+                for (const sn of wb.SheetNames) {
+                    const ws = wb.Sheets[sn];
+                    const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+                    if (raw.length < 2) continue;
+                    // detecta linha de cabeçalho
+                    let hIdx = 0;
+                    for (let i = 0; i < Math.min(5, raw.length); i++) {
+                        const r = raw[i].map(c => String(c||'').toLowerCase());
+                        if (r.some(c => c.includes('periodo') || c.includes('período') || /^\d{6}$/.test(c)) ||
+                            r.some(c => ['pdv','farmac','cidade','marca','brick'].some(k => c.startsWith(k)))) {
+                            hIdx = i; break;
+                        }
+                    }
+                    const hdrs = raw[hIdx].map(c => String(c||'').trim());
+                    if (!detectedType) detectedType = projDetectType(hdrs);
+
+                    const dateObjToPeriod = d => {
+                        if (!(d instanceof Date)) return '';
+                        return d.getFullYear() + String(d.getMonth()+1).padStart(2,'0');
+                    };
+                    // pivotado? (colunas 2+ são períodos)
+                    const pivotCols = [];
+                    hdrs.forEach((h, idx) => {
+                        if (idx === 0) return;
+                        const cell = raw[hIdx][idx];
+                        if (cell instanceof Date) { pivotCols.push({idx, period: dateObjToPeriod(cell)}); return; }
+                        const m = String(h).match(/^(\d{4})[-\/]?(\d{2})$/);
+                        if (m) { pivotCols.push({idx, period: m[1]+m[2]}); return; }
+                        if (/^\d{6}$/.test(h)) pivotCols.push({idx, period: h});
+                    });
+                    const colPeriod = hdrs.findIndex((h,i) => i>0 && /periodo|período/i.test(h));
+                    const colValue  = hdrs.findIndex((h,i) => i>0 && /valor|value|vendas|amount|brl|r\$/i.test(h));
+
+                    if (pivotCols.length > 0) {
+                        for (let i = hIdx+1; i < raw.length; i++) {
+                            const row = raw[i]; if (!Array.isArray(row)) continue;
+                            const name = String(row[0]||'').trim();
+                            if (!name || /^total|^grand/i.test(name)) continue;
+                            pivotCols.forEach(({idx, period}) => {
+                                const v = row[idx]; if (v===''||v==null) return;
+                                const num = typeof v==='number' ? v : parseFloat(String(v).replace(',','.'));
+                                if (isNaN(num)) return;
+                                if (!out[name]) out[name]={};
+                                out[name][period] = (out[name][period]||0) + num;
+                            });
+                        }
+                    } else {
+                        // formato longo: col 0 = nome, colPeriod = período, colValue = valor
+                        const cp = colPeriod >= 0 ? colPeriod : 1;
+                        const cv = colValue >= 0 ? colValue : 2;
+                        for (let i = hIdx+1; i < raw.length; i++) {
+                            const row = raw[i]; if (!Array.isArray(row)) continue;
+                            const name = String(row[0]||'').trim();
+                            if (!name || /^total|^grand/i.test(name)) continue;
+                            const pr = row[cp];
+                            let period = pr instanceof Date ? dateObjToPeriod(pr) : String(pr).replace(/[^0-9]/g,'').slice(0,6);
+                            if (!period || period.length !== 6) continue;
+                            const val = typeof row[cv]==='number' ? row[cv] : parseFloat(String(row[cv]||'0').replace(',','.'));
+                            if (isNaN(val)) continue;
+                            if (!out[name]) out[name]={};
+                            out[name][period] = (out[name][period]||0) + val;
+                        }
+                    }
+                }
+                if (!Object.keys(out).length) { rej(new Error('Nenhum dado encontrado')); return; }
+                res({ data: out, type: detectedType || typeHint });
+            } catch(err) { rej(err); }
+        };
+        reader.onerror = rej;
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+/* ── upload slots ─────────────────────── */
+const projLoadedFiles = {pdv:null, cidade:null, marca:null, brick:null};
+
+function projCheckCanProcess() {
+    const any = Object.values(projLoadedFiles).some(v => v !== null);
+    const btnProc = document.getElementById('proj-btnProcess');
+    if (btnProc) btnProc.disabled = !any;
+}
+
+function projSetupSlots() {
+    ['pdv','cidade','marca','brick'].forEach(type => {
+        const slot = document.getElementById('proj-slot-'+type);
+        const inp  = document.getElementById('proj-file-'+type);
+        if (!slot || !inp) return;
+        slot.addEventListener('click', () => inp.click());
+        slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('drag-over'); });
+        slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+        slot.addEventListener('drop', e => {
+            e.preventDefault(); slot.classList.remove('drag-over');
+            if (e.dataTransfer.files[0]) projDoLoad(type, e.dataTransfer.files[0]);
+        });
+        inp.addEventListener('change', e => { if (e.target.files[0]) projDoLoad(type, e.target.files[0]); });
+    });
+
+    const btnProc = document.getElementById('proj-btnProcess');
+    if (btnProc) btnProc.addEventListener('click', projProcess);
+
+    const btnChange = document.getElementById('proj-btnChangeFiles');
+    if (btnChange) btnChange.addEventListener('click', () => {
+        localStorage.removeItem(PROJ.STORAGE_KEY);
+        PROJ.appData = null;
+        Object.keys(projLoadedFiles).forEach(k => projLoadedFiles[k] = null);
+        document.getElementById('proj-dashSection').style.display = 'none';
+        document.getElementById('proj-uploadSection').style.display = '';
+        // reset slots
+        ['pdv','cidade','marca','brick'].forEach(t => {
+            const slot = document.getElementById('proj-slot-'+t);
+            if (slot) slot.classList.remove('loaded');
+            const nm = document.getElementById('proj-slot-'+t+'-name');
+            if (nm) nm.textContent = 'Clique ou arraste';
+            const st = document.getElementById('proj-slot-'+t+'-status');
+            if (st) st.textContent = 'Opcional';
+            const ck = document.getElementById('proj-slot-'+t+'-check');
+            if (ck) ck.style.display = 'none';
+        });
+        projCheckCanProcess();
+    });
+
+    const btnCSV = document.getElementById('proj-btnExportCSV');
+    if (btnCSV) btnCSV.addEventListener('click', projExportCSV);
+
+    document.querySelectorAll('#proj-tabBtns .proj-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            PROJ.currentTab = btn.dataset.tab;
+            PROJ.currentPage = 1;
+            document.querySelectorAll('#proj-tabBtns .proj-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            // sync filterType select
+            const ft = document.getElementById('proj-filterType');
+            if (ft) ft.value = btn.dataset.tab;
+            projRerender();
+        });
+    });
+
+    ['proj-filterType','proj-filterBase','proj-filterComp'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => {
+            // sync tab buttons with filterType
+            if (id === 'proj-filterType') {
+                const v = el.value;
+                PROJ.currentTab = v;
+                PROJ.currentPage = 1;
+                document.querySelectorAll('#proj-tabBtns .proj-tab-btn').forEach(b => {
+                    b.classList.toggle('active', b.dataset.tab === v);
+                });
+            }
+            PROJ.currentPage = 1;
+            projRerender();
+        });
+    });
+    const ft = document.getElementById('proj-filterTarget');
+    if (ft) ft.addEventListener('input', () => { PROJ.currentPage=1; projRerender(); });
+    const sb = document.getElementById('proj-searchBox');
+    if (sb) sb.addEventListener('input', () => { PROJ.currentPage=1; projRerender(); });
+}
+
+async function projDoLoad(type, file) {
+    const nameEl   = document.getElementById('proj-slot-'+type+'-name');
+    const statusEl = document.getElementById('proj-slot-'+type+'-status');
+    if (nameEl) nameEl.textContent = file.name;
+    if (statusEl) statusEl.textContent = 'Lendo...';
+    try {
+        const result = await projParseXLSX(file, type);
+        projLoadedFiles[type] = result.data;
+        const slot = document.getElementById('proj-slot-'+type);
+        if (slot) slot.classList.add('loaded');
+        if (statusEl) statusEl.textContent = Object.keys(result.data).length + ' itens';
+        const ck = document.getElementById('proj-slot-'+type+'-check');
+        if (ck) ck.style.display = '';
+        const labels = {pdv:'PDVs', cidade:'Cidades', marca:'Marcas', brick:'Bricks'};
+        toast('✓ ' + labels[type] + ': ' + Object.keys(result.data).length + ' itens');
+        projCheckCanProcess();
+    } catch(e) {
+        if (statusEl) statusEl.textContent = 'Erro: ' + e.message;
+        toast('Erro: ' + e.message);
+    }
+}
+
+function projProcess() {
+    const periods = new Set();
+    ['pdv','cidade','marca','brick'].forEach(t => {
+        if (!projLoadedFiles[t]) return;
+        Object.values(projLoadedFiles[t]).forEach(item => Object.keys(item).forEach(k => periods.add(k)));
+    });
+    if (!periods.size) { toast('Nenhum dado para processar.'); return; }
+    PROJ.appData = {
+        periods: [...periods].sort(),
+        data: {
+            pdv:    projLoadedFiles.pdv    || {},
+            cidade: projLoadedFiles.cidade || {},
+            marca:  projLoadedFiles.marca  || {},
+            brick:  projLoadedFiles.brick  || {}
+        }
+    };
+    try { localStorage.setItem(PROJ.STORAGE_KEY, JSON.stringify(PROJ.appData)); } catch(e) {}
+    projInitDash();
+}
+
+/* ── init dash ────────────────────────── */
+function projInitDash() {
+    document.getElementById('proj-uploadSection').style.display = 'none';
+    document.getElementById('proj-dashSection').style.display   = '';
+    const btnCSV = document.getElementById('proj-btnExportCSV');
+    if (btnCSV) btnCSV.disabled = false;
+
+    // reconstrói allRows a partir dos tipos que têm dados
+    PROJ.allRows = [];
+    const typeMap = {pdv:'pdv', cidade:'cidade', marca:'marca', brick:'brick'};
+    const typeHasData = {};
+    Object.entries(typeMap).forEach(([key, type]) => {
+        const src = PROJ.appData.data[key] || {};
+        typeHasData[type] = Object.keys(src).length > 0;
+        Object.entries(src).forEach(([name, vals]) => {
+            PROJ.allRows.push({name, type, vals});
+        });
+    });
+
+    // mostra/oculta tabs conforme dados disponíveis
+    ['pdv','cidade','marca','brick'].forEach(t => {
+        const btn = document.querySelector(`#proj-tabBtns .proj-tab-btn[data-tab="${t}"]`);
+        const brickSpecial = document.getElementById('proj-tab-brick-btn');
+        const el = (t === 'brick') ? brickSpecial : btn;
+        if (el) el.style.display = typeHasData[t] ? '' : 'none';
+    });
+    // também oculta/exibe opções do select filterType
+    const ft = document.getElementById('proj-filterType');
+    if (ft) {
+        Array.from(ft.options).forEach(o => {
+            if (o.value === 'all') return;
+            o.style.display = typeHasData[o.value] ? '' : 'none';
+        });
+    }
+
+    const periods = PROJ.appData.periods;
+    const lastIdx = periods.length - 1;
+    const defComp = periods[lastIdx] || '';
+    const defBase = periods[Math.max(0, lastIdx-12)] || '';
+
+    ['proj-filterBase','proj-filterComp'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        sel.innerHTML = '';
+        periods.forEach(p => { const o = document.createElement('option'); o.value=p; o.textContent=projPeriodLabel(p); sel.appendChild(o); });
+    });
+    const fb = document.getElementById('proj-filterBase');
+    const fc = document.getElementById('proj-filterComp');
+    if (fb) fb.value = defBase;
+    if (fc) fc.value = defComp;
+
+    const hf = document.getElementById('proj-header-file');
+    if (hf) hf.textContent = '— ' + projPeriodLabel(defBase) + ' → ' + projPeriodLabel(defComp);
+
+    // contagens nos botões de tab
+    const counts = {pdv:0, cidade:0, marca:0, brick:0};
+    PROJ.allRows.forEach(r => { if (counts[r.type] !== undefined) counts[r.type]++; });
+    ['pdv','cidade','marca','brick'].forEach(t => {
+        const el = document.getElementById('proj-cnt-'+t);
+        if (el) el.textContent = counts[t] ? '('+counts[t]+')' : '';
+    });
+
+    // seleciona o primeiro tab disponível
+    const firstAvail = ['marca','cidade','brick','pdv'].find(t => typeHasData[t]);
+    if (firstAvail) {
+        PROJ.currentTab = 'all';
+        document.querySelectorAll('#proj-tabBtns .proj-tab-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.tab === 'all');
+        });
+    }
+
+    projRerender();
+    // dois rAF para garantir que o sticky-header foi pintado antes de medir
+    requestAnimationFrame(() => requestAnimationFrame(() => projUpdateStickyOffsets()));
+}
+
+/* ── rerender ─────────────────────────── */
+function projRerender() {
+    const typeFilter = (document.getElementById('proj-filterType') || {}).value || 'all';
+    const base   = (document.getElementById('proj-filterBase') || {}).value || '';
+    const comp   = (document.getElementById('proj-filterComp') || {}).value || '';
+    const target = parseFloat((document.getElementById('proj-filterTarget') || {}).value) || 0;
+    const search = ((document.getElementById('proj-searchBox') || {}).value || '').toLowerCase();
+    const bL = projPeriodLabel(base), cL = projPeriodLabel(comp);
+
+    const hf = document.getElementById('proj-header-file');
+    if (hf && bL && cL) hf.textContent = '— ' + bL + ' → ' + cL;
+
+    const computed = PROJ.allRows
+        .filter(r => typeFilter === 'all' || r.type === typeFilter)
+        .map(r => {
+            const b = r.vals[base]||0, c = r.vals[comp]||0;
+            const varBRL  = c - b;
+            const varPct  = b ? ((c/b) - 1) : null;
+            const targetVal = b * (1 + target/100);
+            const gap     = c - targetVal;
+            return {...r, b, c, varBRL, varPct, targetVal, gap, status: c >= targetVal ? 'acima' : 'abaixo'};
+        });
+
+    // KPI cards (soma total dos filtrados)
+    const totB = computed.reduce((s,r)=>s+r.b,0);
+    const totC = computed.reduce((s,r)=>s+r.c,0);
+    const totVar = totC - totB;
+    const totPct = totB ? ((totC/totB) - 1) : null;
+    const totTgt = computed.reduce((s,r)=>s+r.targetVal,0);
+    const totGap = totC - totTgt;
+
+    const setTxt = (id, v)  => { const el=document.getElementById(id); if(el) el.textContent=v; };
+    const setCls = (id, c)  => { const el=document.getElementById(id); if(el) el.className='proj-card-value '+c; };
+    const setTop = (id, c)  => { const el=document.getElementById(id); if(el) el.style.setProperty('--proj-card-top', c); };
+
+    setTxt('proj-lbl-base', 'Total '+bL);  setTxt('proj-card-base', projFmtBRL(totB));
+    setTxt('proj-lbl-comp', 'Total '+cL);  setTxt('proj-card-comp', projFmtBRL(totC));
+    setTxt('proj-lbl-var', 'Var. BRL ('+bL+' ➔ '+cL+')');
+    setTxt('proj-card-var', (totVar>=0?'↑ ':'↓ ') + projFmtBRL(Math.abs(totVar)));
+    setCls('proj-card-var', totVar>=0 ? 'proj-card-value proj-val-pos' : 'proj-card-value proj-val-neg');
+    setTop('proj-card-var-wrap', totVar>=0 ? 'var(--grn,#059669)' : 'var(--red,#dc2626)');
+
+    setTxt('proj-lbl-pct', 'Evolução % ('+bL+' ➔ '+cL+')');
+    setTxt('proj-card-pct', (totPct!=null&&totPct>=0?'↑ ':'↓ ') + projFmtPct(totPct));
+    setCls('proj-card-pct', totPct!=null&&totPct>=0 ? 'proj-card-value proj-val-pos' : 'proj-card-value proj-val-neg');
+    setTop('proj-card-pct-wrap', totPct!=null&&totPct>=0 ? 'var(--grn,#059669)' : 'var(--red,#dc2626)');
+
+    setTxt('proj-lbl-target', 'Meta Total ('+cL+')'); setTxt('proj-card-target', projFmtBRL(totTgt));
+    setTxt('proj-lbl-gap', totGap >= 0 ? 'Acima da Meta' : 'Faltam p/ Meta');
+    setTxt('proj-card-gap', (totGap>=0?'↑ ':'↓ ') + projFmtBRL(Math.abs(totGap)));
+    setCls('proj-card-gap', totGap>=0 ? 'proj-card-value proj-val-pos' : 'proj-card-value proj-val-neg');
+    setTop('proj-card-gap-wrap', totGap>=0 ? 'var(--grn,#059669)' : 'var(--red,#dc2626)');
+
+    projBuildRankings(computed);
+
+    const tableRows = computed.filter(r => {
+        if (PROJ.currentTab !== 'all' && r.type !== PROJ.currentTab) return false;
+        if (search && !r.name.toLowerCase().includes(search)) return false;
+        return true;
+    }).sort((a,b) => b.varBRL - a.varBRL);
+
+    PROJ.filteredRows = tableRows;
+    projBuildTable(tableRows, bL, cL);
+}
+
+/* ── rankings ─────────────────────────── */
+function projBuildRankings(rows) {
+    const typeLabels = {pdv:'PDVs', cidade:'Cidades', marca:'Marcas', brick:'Bricks'};
+    const cats = Object.entries(typeLabels)
+        .filter(([t]) => rows.some(r => r.type === t));
+
+    const topEl = document.getElementById('proj-rankTop');
+    const botEl = document.getElementById('proj-rankBot');
+    if (!topEl || !botEl) return;
+    topEl.innerHTML = ''; botEl.innerHTML = '';
+
+    cats.forEach(([type, label]) => {
+        const catRows = rows.filter(r => r.type === type);
+        if (!catRows.length) return;
+        const sorted = [...catRows].sort((a,b) => b.varBRL - a.varBRL);
+        topEl.appendChild(projBuildRankCard('🟢 Top 10 '+label, sorted.slice(0,10), true));
+        botEl.appendChild(projBuildRankCard('🔴 10 Piores '+label, [...catRows].sort((a,b)=>a.varBRL-b.varBRL).slice(0,10), false));
+    });
+}
+
+function projBuildRankCard(title, rows, isTop) {
+    const card = document.createElement('div'); card.className = 'proj-rank-card';
+    const head = document.createElement('div'); head.className = 'proj-rank-head';
+    head.innerHTML = title + '<span class="proj-rank-toggle">▼</span>';
+    const medals = ['🥇','🥈','🥉'];
+    const body = document.createElement('div');
+    const tbody = rows.map((r,i) => {
+        const rank = isTop && i<3 ? `<span>${medals[i]}</span>` : `<b>${i+1}</b>`;
+        const vc = r.varBRL >= 0 ? 'proj-val-pos' : 'proj-val-neg';
+        const pc = (r.varPct != null && r.varPct >= 0) ? 'proj-val-pos' : 'proj-val-neg';
+        return `<tr><td>${rank}</td><td title="${r.name}">${r.name}</td><td class="${vc}">${projFmtBRL(r.varBRL)}</td><td class="${pc}">${projFmtPct(r.varPct)}</td></tr>`;
+    }).join('');
+    body.innerHTML = `<table class="proj-rank-table"><thead><tr><th>#</th><th>Nome</th><th>Var. BRL</th><th>Evol. %</th></tr></thead><tbody>${tbody}</tbody></table>`;
+    head.addEventListener('click', () => { body.style.display = body.style.display==='none'?'':'none'; });
+    card.appendChild(head); card.appendChild(body);
+    return card;
+}
+
+/* ── tabela principal ──────────────────── */
+function projBuildTable(rows, bL, cL) {
+    const total = rows.length;
+    const totalPages = Math.ceil(total / PROJ.PAGE_SIZE) || 1;
+    if (PROJ.currentPage > totalPages) PROJ.currentPage = totalPages;
+    const slice = rows.slice((PROJ.currentPage-1)*PROJ.PAGE_SIZE, PROJ.currentPage*PROJ.PAGE_SIZE);
+
+    const thead       = document.getElementById('proj-mainThead');
+    const theadHidden = document.getElementById('proj-mainTheadHidden');
+    const tbody       = document.getElementById('proj-mainTbody');
+    const info        = document.getElementById('proj-tableInfo');
+    if (!thead || !tbody) return;
+
+    // larguras fixas por coluna (px) — mantém alinhamento header ↔ body
+    const COLS = [
+        { label: 'Nome',    align: 'left',  w: 240 },
+        { label: 'Tipo',    align: 'right', w: 100 },
+        { label: bL,        align: 'right', w: 110 },
+        { label: cL,        align: 'right', w: 110 },
+        { label: 'Var. BRL',align: 'right', w: 110 },
+        { label: 'Evol. %', align: 'right', w: 80  },
+        { label: 'Meta BRL',align: 'right', w: 110 },
+        { label: 'GAP',     align: 'right', w: 110 },
+        { label: 'Status',  align: 'right', w: 80  },
+    ];
+
+    const colgroup = COLS.map(c => `<col style="width:${c.w}px;min-width:${c.w}px">`).join('');
+    const thHTML   = COLS.map(c => `<th style="text-align:${c.align}">${c.label}</th>`).join('');
+
+    // cabeçalho visível (tabela separada)
+    thead.innerHTML = `<tr>${thHTML}</tr>`;
+    const theadTable = document.getElementById('proj-theadTable');
+    if (theadTable) theadTable.innerHTML = `<colgroup>${colgroup}</colgroup><thead id="proj-mainThead"><tr>${thHTML}</tr></thead>`;
+
+    // cabeçalho invisível na tabela do corpo (para alinhar colunas)
+    if (theadHidden) theadHidden.innerHTML = `<tr>${COLS.map(c=>`<th style="text-align:${c.align};visibility:hidden">${c.label}</th>`).join('')}</tr>`;
+
+    // injeta colgroup na tabela do corpo
+    const mainTable = document.getElementById('proj-mainTable');
+    if (mainTable) {
+        let cg = mainTable.querySelector('colgroup');
+        if (!cg) { cg = document.createElement('colgroup'); mainTable.prepend(cg); }
+        cg.innerHTML = colgroup;
+    }
+
+    const typeLabel = {pdv:'PDV/Farmácia', cidade:'Cidade', marca:'Marca', brick:'Brick'};
+    tbody.innerHTML = slice.map(r => {
+        const vc = r.varBRL >= 0 ? 'proj-val-pos' : 'proj-val-neg';
+        const pc = (r.varPct != null && r.varPct >= 0) ? 'proj-val-pos' : 'proj-val-neg';
+        const gc = r.gap >= 0 ? 'proj-val-pos' : 'proj-val-neg';
+        const badge = r.status === 'acima'
+            ? '<span class="proj-badge-pos">Acima</span>'
+            : '<span class="proj-badge-neg">Abaixo</span>';
+        return `<tr>
+            <td title="${r.name}">${r.name}</td>
+            <td style="color:var(--txt3,#94a3b8);text-align:right">${typeLabel[r.type]||r.type}</td>
+            <td>${projFmtBRL(r.b)}</td>
+            <td>${projFmtBRL(r.c)}</td>
+            <td class="${vc}">${projFmtBRL(r.varBRL)}</td>
+            <td class="${pc}">${projFmtPct(r.varPct)}</td>
+            <td>${projFmtBRL(r.targetVal)}</td>
+            <td class="${gc}">${projFmtBRL(r.gap)}</td>
+            <td>${badge}</td>
+        </tr>`;
+    }).join('');
+
+    if (info) info.textContent = total.toLocaleString('pt-BR') + ' registros · pág ' + PROJ.currentPage + '/' + totalPages;
+    projBuildPagination(totalPages, bL, cL);
+
+    // sincroniza scroll horizontal do header com o do body
+    const tblOuter  = document.getElementById('proj-tblOuter');
+    const theadWrap = document.getElementById('proj-theadWrap');
+    if (tblOuter && theadWrap) {
+        tblOuter.onscroll = () => { theadWrap.scrollLeft = tblOuter.scrollLeft; };
+    }
+}
+
+function projBuildPagination(total, bL, cL) {
+    const el = document.getElementById('proj-pagDiv');
+    if (!el) return;
+    if (total <= 1) { el.innerHTML = ''; return; }
+    let pages = [];
+    if (total <= 7) { for(let i=1;i<=total;i++) pages.push(i); }
+    else {
+        pages.push(1);
+        const s=Math.max(2,PROJ.currentPage-2), e=Math.min(total-1,PROJ.currentPage+2);
+        if(s>2) pages.push('…');
+        for(let i=s;i<=e;i++) pages.push(i);
+        if(e<total-1) pages.push('…');
+        pages.push(total);
+    }
+    el.innerHTML = pages.map(p =>
+        p==='…'
+            ? `<button class="proj-pg-btn" disabled>…</button>`
+            : `<button class="proj-pg-btn${p===PROJ.currentPage?' active':''}" data-p="${p}">${p}</button>`
+    ).join('');
+    el.querySelectorAll('.proj-pg-btn[data-p]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            PROJ.currentPage = parseInt(btn.getAttribute('data-p'));
+            projBuildTable(PROJ.filteredRows,
+                projPeriodLabel((document.getElementById('proj-filterBase')||{}).value||''),
+                projPeriodLabel((document.getElementById('proj-filterComp')||{}).value||''));
+        });
+    });
+}
+
+/* ── CSV export ────────────────────────── */
+function projExportCSV() {
+    if (!PROJ.filteredRows.length) return;
+    const b  = (document.getElementById('proj-filterBase')||{}).value||'';
+    const c  = (document.getElementById('proj-filterComp')||{}).value||'';
+    const bL = projPeriodLabel(b), cL = projPeriodLabel(c);
+    const lines = [['Nome','Tipo',bL,cL,'Var BRL','Evol %','Meta BRL','GAP','Status'].join(';')];
+    PROJ.filteredRows.forEach(r => lines.push([
+        '"'+r.name.replace(/"/g,'""')+'"', r.type,
+        projFmtBRL(r.b), projFmtBRL(r.c), projFmtBRL(r.varBRL),
+        projFmtPct(r.varPct), projFmtBRL(r.targetVal), projFmtBRL(r.gap), r.status
+    ].join(';')));
+    const blob = new Blob(['\uFEFF'+lines.join('\n')], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'projecao_export.csv';
+    a.click();
+    toast('CSV exportado!');
+}
+
+/* ── bootstrap ─────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+    projSetupSlots();
+});
