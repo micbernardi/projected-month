@@ -3702,6 +3702,7 @@ async function exportPDVXLSX() {
     const allHdrs = [...FIXED_HDRS, ...periodOrder.flatMap(p2 => PERIOD_HDRS[p2])];
 
     const _fmtArr = (arr) => arr && arr.length ? arr.join(', ') : null;
+    const activeBrandXL = activeBrandsXL.length === 1 ? activeBrandsXL[0] : (activeBrandsXL.length > 1 ? activeBrandsXL.join(', ') : null);
     const activeFilters = [
         activeBrandXL ? `Marca: ${activeBrandXL}` : (_fmtArr(f.marca) ? `Marcas: ${_fmtArr(f.marca)}` : ''),
         _fmtArr(f.brick) ? `Brick: ${_fmtArr(f.brick)}` : '',
