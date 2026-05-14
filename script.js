@@ -1041,7 +1041,7 @@ function showBrickModal(market, rec) {
         ${_thSort('totalPrev', 'Mkt. Ant.',   'c')}
         ${_thSort('totalCur',  'Mkt. Atual',  'c')}
         ${_thSort('share',     'Share',       'c')}
-        ${_thSort('growth',    'Evol.',       'c')}
+        ${_thSort('growth',    'Evol. Sup.',  'c')}
         ${_thSort('gap',       'Gap próx.',   'c')}
         <th class="c">Líder</th>
     </tr></thead><tbody>`;
