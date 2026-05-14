@@ -1383,7 +1383,7 @@ function rebuildSelectors() {
         const cur = UI.distrital;
         while (fbDist.children.length > 1) fbDist.removeChild(fbDist.lastChild);
         DB.distritais.forEach(d => {
-            const o = document.createElement('option'); o.value = d; o.textContent = d; fbDist.appendChild(o);
+            const o = document.createElement('option'); o.value = d; o.textContent = cleanSectorName(d) || d; fbDist.appendChild(o);
         });
         fbDist.value = DB.distritais.includes(cur) ? cur : 'all';
         if (fbDist.value !== cur) UI.distrital = fbDist.value;

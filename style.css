@@ -677,6 +677,12 @@ body {
     max-width: 170px
 }
 
+/* Distrital precisa de mais espaço para exibir o nome completo */
+#fbDist {
+    max-width: 260px;
+    min-width: 180px;
+}
+
 .filter-bar select option {
     background: #ffffff;
     color: var(--top-txt)
