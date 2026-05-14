@@ -1942,6 +1942,12 @@ function refreshGlobalMarketFilter(tabName) {
     // Oculta a filterbar superior na aba PDV e recomputa offsets sticky
     const filterBar = document.getElementById('filterBar');
     if (filterBar) filterBar.style.display = isPdv ? 'none' : '';
+    // Na aba PDV, esconde os botões Carregar e Exportar do header principal
+    // (substituídos pelos botões próprios do cabeçalho de PDVs)
+    const btnUploadHdr = document.getElementById('btnUpload');
+    const btnEnviarHdr = document.getElementById('btnEnviar');
+    if (btnUploadHdr) btnUploadHdr.style.display = isPdv ? 'none' : '';
+    if (btnEnviarHdr) btnEnviarHdr.style.display = isPdv ? 'none' : '';
     requestAnimationFrame(function () {
         if (typeof recomputeStickyOffsets === 'function') recomputeStickyOffsets();
         requestAnimationFrame(function () {
