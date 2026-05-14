@@ -796,10 +796,9 @@ function renderResumo() {
     let html = '<div class="tbl-wrap"><table class="main-tbl"><thead class="tbl-head-fixed"><tr>';
     html += '<th style="width:34px"></th>';
     html += `<th class="sortable" data-key="market">MERCADO ${arr('market')}</th>`;
-    html += `<th class="sortable c-supera" data-key="superaname">MARCA SUPERA ${arr('superaname')}</th>`;
     html += `<th class="c sortable" data-key="bricks">BRICKS ${arr('bricks')}</th>`;
-    html += `<th class="r sortable" data-key="current">MERCADO TOTAL ${arr('current')}</th>`;
-    html += `<th class="r sortable c-supera" data-key="supera">TOTAL SUPERA ${arr('supera')}</th>`;
+    html += `<th class="c sortable" data-key="current">MERCADO TOTAL ${arr('current')}</th>`;
+    html += `<th class="c sortable c-supera" data-key="supera">TOTAL SUPERA ${arr('supera')}</th>`;
     html += `<th class="r sortable" data-key="share">SHARE % ${arr('share')}</th>`;
     html += `<th class="c sortable c-lider" data-key="lider">LÍDER ${arr('lider')}</th>`;
     html += `<th class="c sortable c-crescer" data-key="crescer">CRESCER ${arr('crescer')}</th>`;
@@ -810,7 +809,7 @@ function renderResumo() {
     html += '</tr></thead><tbody>';
 
     if (!mktAgg.length) {
-        html += '<tr><td colspan="13" class="tbl-empty">Nenhum mercado encontrado para os filtros selecionados.</td></tr>';
+        html += '<tr><td colspan="12" class="tbl-empty">Nenhum mercado encontrado para os filtros selecionados.</td></tr>';
     }
 
     // Pré-cálculo: label da marca Supera por mercado (usado no sort)
@@ -840,11 +839,10 @@ function renderResumo() {
         html += `<tr class="mkt-row" id="row_${rowId}">
             <td class="expand-cell"><button class="expand-btn" onclick="toggleExpand('${rowId}')">${isExpanded ? '−' : '+'}</button></td>
             <td><div class="mkt-name">${m.market}${toggleBtn}</div></td>
-            <td><div class="mkt-supera-name">${m.superaLabel}</div></td>
             <td class="c"><span class="bricks-count">${m.bricksCount}</span></td>
-            <td class="r">${fmtValue(m.current)}</td>
-            <td class="r vacc">${fmtValue(m.supera)}</td>
-            <td class="r">${m.share.toFixed(1)}%</td>
+            <td class="c">${fmtValue(m.current)}</td>
+            <td class="c c-supera vacc">${fmtValue(m.supera)}</td>
+            <td class="c c-share">${m.share.toFixed(1)}%</td>
             ${recCell(m, 'LÍDER', 'rb-lider')}
             ${recCell(m, 'CRESCER', 'rb-crescer')}
             ${recCell(m, 'OPORTUNIDADE', 'rb-oport')}
@@ -857,7 +855,7 @@ function renderResumo() {
             // v3.5: ranking como TABELA VERTICIAL com evolução atual vs anterior.
             const ranking = aggMarketRanking(m.rows, pd, 30);
             const unitLabel = UI.unitMode === 'RS' ? 'R$' : 'Un.';
-            html += `<tr class="concs-row"><td></td><td colspan="12" class="concs-wrap">
+            html += `<tr class="concs-row"><td></td><td colspan="11" class="concs-wrap">
                 <div class="concs-title">🏆 Ranking neste mercado — ${pd} · ${UI.unitMode === 'RS' ? 'R$' : 'Unidades'}</div>
                 <table class="rank-tbl">
                     <thead><tr>
@@ -886,6 +884,22 @@ function renderResumo() {
                         </tr>`;
             }).join('')}
                     </tbody>
+                    <tfoot>
+                        ${(() => {
+                const totPrev = ranking.reduce((s, c) => s + (c.prev || 0), 0);
+                const totCur  = ranking.reduce((s, c) => s + (c.cur  || 0), 0);
+                const totG    = totPrev ? ((totCur / totPrev) - 1) : null;
+                const totGCls = totG == null ? 'vnull' : (totG >= 0 ? 'vpos' : 'vneg');
+                const totGTxt = totG == null ? '—' : ((totG >= 0 ? '+' : '') + (totG * 100).toFixed(1) + '%');
+                return `<tr class="rank-total-row">
+                            <td colspan="2" class="rank-total-label">📊 TOTAL DO MERCADO</td>
+                            <td class="r rank-prev">${fmtValue(totPrev)}</td>
+                            <td class="r">${fmtValue(totCur)}</td>
+                            <td class="r ${totGCls}"><strong>${totGTxt}</strong></td>
+                            <td class="r"><span class="rank-share">100%</span></td>
+                        </tr>`;
+            })()}
+                    </tfoot>
                 </table>
             </td></tr>`;
 
@@ -901,12 +915,11 @@ function renderResumo() {
                         <span class="brick-code">${b.brick}</span>
                         ${secClean ? `<span class="brick-sector">${secClean}</span>` : ''}
                     </td>
-                    <td></td>
                     <td class="c"><small>1 brick</small></td>
-                    <td class="r">${fmtValue(b.totalCur)}</td>
-                    <td class="r vacc">${fmtValue(b.superaCur)}</td>
-                    <td class="r"><strong>${b.share.toFixed(1)}%</strong></td>
-                    <td class="r ${gCls}"><strong>${fmtPct(b.growth)}</strong></td>
+                    <td class="c">${fmtValue(b.totalCur)}</td>
+                    <td class="c c-supera vacc">${fmtValue(b.superaCur)}</td>
+                    <td class="c c-share"><strong>${b.share.toFixed(1)}%</strong></td>
+                    <td class="c ${gCls}"><strong>${fmtPct(b.growth)}</strong></td>
                     <td colspan="5" class="c"><span class="rec-pill ${recPillCls(b.rec)}">${b.rec}</span></td>
                     <td></td>
                 </tr>`;

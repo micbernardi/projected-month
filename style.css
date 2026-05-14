@@ -743,7 +743,22 @@ body {
     border-spacing: 0;
     font-size: 12.5px;
     min-width: 1100px;
+    table-layout: fixed;
 }
+
+/* Larguras fixas das colunas do Resumo Geral */
+.main-tbl thead th:nth-child(1) { width: 34px; }   /* expand btn */
+.main-tbl thead th:nth-child(2) { width: 180px; }  /* MERCADO */
+.main-tbl thead th:nth-child(3) { width: 64px; }   /* BRICKS */
+.main-tbl thead th:nth-child(4) { width: 140px; }  /* MERCADO TOTAL */
+.main-tbl thead th:nth-child(5) { width: 140px; }  /* TOTAL SUPERA */
+.main-tbl thead th:nth-child(6) { width: 72px; }   /* SHARE % */
+.main-tbl thead th:nth-child(7),
+.main-tbl thead th:nth-child(8),
+.main-tbl thead th:nth-child(9),
+.main-tbl thead th:nth-child(10),
+.main-tbl thead th:nth-child(11) { width: 72px; }  /* rec badges */
+.main-tbl thead th:nth-child(12) { width: 60px; }  /* AÇÃO */
 
 /* cabeçalho sticky e fixo */
 .main-tbl thead.tbl-head-fixed th {
@@ -857,7 +872,10 @@ body {
 .mkt-name {
     font-weight: 700;
     color: var(--txt);
-    font-size: 12.5px
+    font-size: 12.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .mkt-sec {
@@ -1595,6 +1613,9 @@ body {
     color: var(--txt);
     letter-spacing: .15px;
     line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .mkt-concs {
@@ -1745,6 +1766,22 @@ body {
 
 .rank-tbl .vnull {
     color: var(--txt2);
+}
+
+/* Linha de total do mercado no rodapé do ranking */
+.rank-total-row td {
+    background: #f0f4fa;
+    border-top: 2px solid #c7d5eb;
+    font-weight: 700;
+    color: var(--navy);
+    padding: 9px 12px;
+}
+.rank-total-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--navy);
 }
 
 .rank-sup-badge {
@@ -2259,6 +2296,11 @@ body {
 .main-tbl tbody td.c-supera.vacc {
     color: #0f172a;
     font-weight: 800;
+}
+
+/* Coluna Share %: negrito */
+.main-tbl tbody td.c-share {
+    font-weight: 700;
 }
 
 /* v3.9 — a coluna SUPERA no Brick mantém o cabeçalho azul-escuro
