@@ -5465,13 +5465,43 @@ function projBuildRankCard(title, rows, isTop) {
     head.innerHTML = title + '<span class="proj-rank-toggle">▼</span>';
     const medals = ['🥇', '🥈', '🥉'];
     const body = document.createElement('div');
+    const isPdvCard = rows.length > 0 && rows[0].type === 'pdv';
     const tbody = rows.map((r, i) => {
         const rank = isTop && i < 3 ? `<span>${medals[i]}</span>` : `<b>${i + 1}</b>`;
         const vc = r.varBRL >= 0 ? 'proj-val-pos' : 'proj-val-neg';
         const pc = (r.varPct != null && r.varPct >= 0) ? 'proj-val-pos' : 'proj-val-neg';
-        return `<tr><td>${rank}</td><td title="${r.name}">${r.name}</td><td class="${vc}">${projFmtBRL(r.varBRL)}</td><td class="${pc}">${projFmtPct(r.varPct)}</td></tr>`;
+        const nameAttr = isPdvCard ? `class="proj-rank-pdv-name" title="Clique para copiar CNPJ e buscar" style="cursor:pointer;text-decoration:underline dotted;"` : `title="${r.name}"`;
+        return `<tr><td>${rank}</td><td ${nameAttr} data-fullname="${r.name}">${r.name}</td><td class="${vc}">${projFmtBRL(r.varBRL)}</td><td class="${pc}">${projFmtPct(r.varPct)}</td></tr>`;
     }).join('');
     body.innerHTML = `<table class="proj-rank-table"><thead><tr><th>#</th><th>Nome</th><th>Var. BRL</th><th>Evol. %</th></tr></thead><tbody>${tbody}</tbody></table>`;
+
+    // Clique no nome do PDV → extrai CNPJ, copia e abre modal de busca
+    if (isPdvCard) {
+        body.querySelectorAll('.proj-rank-pdv-name').forEach(td => {
+            td.addEventListener('click', () => {
+                const fullName = td.dataset.fullname || '';
+                // Extrai sequência de dígitos com 14 caracteres do nome (CNPJ)
+                const match = fullName.match(/(\d{14})/);
+                const cnpjDigits = match ? match[1] : onlyDigits(fullName.split('-').pop() || '');
+                if (cnpjDigits && cnpjDigits.length >= 8) {
+                    // Copia para clipboard
+                    const masked = cnpjDigits.length === 14 ? maskCNPJ(cnpjDigits) : cnpjDigits;
+                    navigator.clipboard.writeText(cnpjDigits).catch(() => {});
+                    // Preenche o campo de busca do header e abre o modal
+                    const inp = document.getElementById('cnpjQuickInput');
+                    if (inp) { inp.value = masked; }
+                    if (cnpjDigits.length === 14) {
+                        openPDVModal(cnpjDigits);
+                    } else {
+                        toast(`CNPJ copiado: ${cnpjDigits}`);
+                    }
+                } else {
+                    toast('CNPJ não identificado neste nome.');
+                }
+            });
+        });
+    }
+
     head.addEventListener('click', () => { body.style.display = body.style.display === 'none' ? '' : 'none'; });
     card.appendChild(head); card.appendChild(body);
     return card;
