@@ -360,6 +360,21 @@ async function parseFiles(files, forceUnit) {
                 let kept = 0;
                 const CHUNK = 50000;
 
+                /* ── VALIDAÇÃO: uso exclusivo da Regional Sul ──────────────────────────
+                   Lê a primeira linha de dados e bloqueia se algum campo de hierarquia
+                   não começar com o dígito 1.                                          */
+                if (aoa.length > 1) {
+                    const firstRow = aoa[1];
+                    const chkReg  = iRegional  >= 0 ? String(firstRow[iRegional]  || '').trim() : '';
+                    const chkDist = iDistrital >= 0 ? String(firstRow[iDistrital] || '').trim() : '';
+                    const chkSec  = iSetor     >= 0 ? String(firstRow[iSetor]     || '').trim() : '';
+                    const startsWithOne = v => !v || /^1/.test(String(v).replace(/\D/, ''));
+                    if (!startsWithOne(chkReg) || !startsWithOne(chkDist) || !startsWithOne(chkSec)) {
+                        showRegionalSulBlock();
+                        return;
+                    }
+                }
+
                 for (let r = 1; r < aoa.length; r++) {
                     const row = aoa[r];
                     if (!row || row.length === 0) continue;
@@ -443,6 +458,29 @@ function buildDB(rowsByMode) {
     applyHierarchy();
 }
 
+/* ── Bloqueio de acesso: uso exclusivo da Regional Sul ── */
+function showRegionalSulBlock() {
+    const uploadView = document.getElementById('uploadView');
+    const dashView   = document.getElementById('dashView');
+    const kpiStrip   = document.getElementById('kpiStrip');
+    if (dashView)  dashView.style.display  = 'none';
+    if (kpiStrip)  kpiStrip.style.display  = 'none';
+    if (uploadView) uploadView.style.display = 'block';
+    const existing = document.getElementById('regionalSulBlock');
+    if (existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'regionalSulBlock';
+    overlay.innerHTML = `
+        <div class="rsul-box">
+            <div class="rsul-icon">🔒</div>
+            <div class="rsul-title">DESCULPE, USO EXCLUSIVO DA REGIONAL SUL.</div>
+            <div class="rsul-sub">O arquivo carregado pertence a outra regional.<br>
+            Este dashboard é de uso exclusivo da Regional Sul.</div>
+            <button class="rsul-btn" onclick="document.getElementById('regionalSulBlock').remove()">Entendido</button>
+        </div>`;
+    document.body.appendChild(overlay);
+}
+
 /* v3.16 — reconstrói DB.rows aplicando filtro Regional + Distrital sobre
    o universo carregado. Usado tanto ao trocar Un/R$ quanto ao trocar o nível. */
 function applyHierarchy() {
@@ -482,17 +520,17 @@ function getFilteredRows(extraSector) {
         - OPORTUNIDADE → caso contrário                                ===== */
 /* v7.0 — Recomendação por brick: critério único baseado em gap
    ────────────────────────────────────────────────────────────────
-   Critério simples e direto: apenas o gap para a posição acima decide.
-   Remove barreira de share — volume em unidades naturalmente menor
-   não deve penalizar mercados com gap alcançável.
-
-   Árvore de decisão:
+   Regra simples e consistente para TODOS os mercados, em R$ e Unidades:
      • Supera sem venda                              → ENTRAR
      • Posição 1ª                                    → LÍDER
      • Posição 2ª                                    → CRESCER
      • Supera entrando (superaPrev = 0)              → OPORTUNIDADE
-     • gap p/ próxima posição ≤ 3× venda Supera      → OPORTUNIDADE
-     • gap p/ próxima posição > 3× venda Supera      → ACOMPANHAR
+     • gap p/ posição imediatamente acima ≤ 3× Supera → OPORTUNIDADE
+     • gap p/ posição imediatamente acima > 3× Supera → ACOMPANHAR
+
+   Usa sempre o gap para a posição ACIMA (não o gap para o líder),
+   o que torna o critério independente do tamanho do mercado e do
+   preço médio do produto — funciona igualmente em R$ e Unidades.
 */
 function calcRecBrick(superaCur, superaPrev, concMax, growth, pos, gapLider, liderGrowth, shareBrick, gapProximo) {
     if (!superaCur || superaCur <= 0) return 'ENTRAR';
@@ -502,14 +540,13 @@ function calcRecBrick(superaCur, superaPrev, concMax, growth, pos, gapLider, lid
     // Supera entrando no brick (sem histórico anterior) → sempre OPORTUNIDADE
     if (!superaPrev || superaPrev <= 0) return 'OPORTUNIDADE';
 
-    // Gap para a posição imediatamente acima (subir um degrau de cada vez)
-    // Fallback para gapLider caso gapProximo não esteja disponível
-    const gapRef = (gapProximo != null && gapProximo > 0) ? gapProximo : (gapLider || 0);
+    // Gap para a posição imediatamente acima
+    // Fallback para gapLider apenas se gapProximo não estiver disponível
+    const gapRef     = (gapProximo != null && gapProximo > 0) ? gapProximo : (gapLider || 0);
     const alcancavel = gapRef <= superaCur * 3;  // gap ≤ 3× venda Supera
 
     return alcancavel ? 'OPORTUNIDADE' : 'ACOMPANHAR';
 }
-
 function recColorVar(rec) {
     return ({
         'LÍDER': 'var(--c-lider)',
@@ -771,7 +808,7 @@ function renderResumo() {
         const isExpanded = UI.expandedRows.has(rowId);
 
         // Toggle de exclusão de concorrentes (ex: DURATESTON no ATESTO)
-        const mktExcl = MARKET_BRICK_EXCLUSIONS[normU(m.market)] || MARKET_BRICK_EXCLUSIONS[m.market];
+        const mktExcl  = MARKET_BRICK_EXCLUSIONS[normU(m.market)] || MARKET_BRICK_EXCLUSIONS[m.market];
         const exclActive = mktExcl && !UI.marketExclusions[normU(m.market)];
         const toggleBtn = mktExcl ? ` <button
             class="excl-toggle-btn ${exclActive ? 'excl-on' : 'excl-off'}"
@@ -780,9 +817,9 @@ function renderResumo() {
                 ? 'Clique para incluir: ' + [...mktExcl].join(', ')
                 : 'Clique para excluir: ' + [...mktExcl].join(', ')}"
         >${exclActive
-                ? '⊘ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
-                : '＋ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
-            }</button>` : '';
+            ? '⊘ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
+            : '＋ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
+        }</button>` : '';
 
         html += `<tr class="mkt-row" id="row_${rowId}">
             <td class="expand-cell"><button class="expand-btn" onclick="toggleExpand('${rowId}')">${isExpanded ? '−' : '+'}</button></td>
@@ -953,7 +990,7 @@ function showBrickModal(market, rec) {
     };
     // Badge de exclusão visível no título quando há produtos excluídos
     const exclBadge = excl && excl.size
-        ? ` <span class="excl-badge" title="Concorrentes excluídos desta visão: ${[...excl].join(', ')}">⚠ excl. ${[...excl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')}</span>`
+        ? ` <span class="excl-badge" title="Concorrentes excluídos desta visão: ${[...excl].join(', ')}">⚠ excl. ${[...excl].map(p => p.replace(/\s*\([^)]+\)/,'')).join(', ')}</span>`
         : '';
     $('brickModalTitle').innerHTML = `<span class="mmodal-mkt">${market}</span>
         <span class="mmodal-sep">—</span>
@@ -1010,7 +1047,7 @@ function showBrickModal(market, rec) {
                     const multRounded = multRaw != null ? Math.round(multRaw * 10) / 10 : null;
                     const mult = multRounded == null ? '∞'
                         : Number.isInteger(multRounded) ? String(multRounded)
-                            : multRounded.toFixed(1);
+                        : multRounded.toFixed(1);
                     const nomeAcima = acima.name.replace(/\s*\([^)]+\)/, '');
                     gapProxCls = gp <= b.superaCur * 3 ? 'vpos' : 'vneg';
                     gapProxLabel = `+${fmtValue(gp)} <span style="font-size:.7em;opacity:.7">(${mult}×) p/ ${nomeAcima}</span>`;
