@@ -259,12 +259,24 @@ function parseNum(v) {
      4) nome dos HEADERS da coluna MAT (MAT R$ → RS)
      5) fallback: UN                                                   */
 function detectUnitMode({ fileName, sheetName, matHeader, forceUnit }) {
-    if (forceUnit === 'UN' || forceUnit === 'RS') return forceUnit;
     const blob = (fileName + ' | ' + sheetName + ' | ' + (matHeader || '')).toLowerCase();
     const b = blob.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    // Não usamos \b porque nomes como DDDREAIS-CONSOLIDADO ficam colados
-    if (/r\$|reais?|fatur|valor|\$/.test(b)) return 'RS';
-    if (/unidades?|\bun\b|# ?un|dddunid/.test(b)) return 'UN';
+
+    // O nome do arquivo tem PRIORIDADE MÁXIMA — se indica claramente o modo,
+    // ignora o forceUnit do botão da UI para não classificar errado.
+    const fileOnly = (fileName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // VALOR/R$: reais, r$, $, ppp, valor
+    if (/reais?|r\$|\$|\bppp\b|valor/.test(fileOnly)) return 'RS';
+    // UNIDADES: unidades, uni, \bun\b (evita falso positivo em "função", "conjun", etc.)
+    if (/unidades?|\buni\b|\bun\b|dddunid/.test(fileOnly)) return 'UN';
+
+    // Sem indicação clara no nome: respeita o modo forçado pelo usuário (botão # Un. / $ R$)
+    if (forceUnit === 'UN' || forceUnit === 'RS') return forceUnit;
+
+    // Fallback: verifica aba e header da coluna MAT
+    if (/reais?|r\$|\$|\bppp\b|valor/.test(b)) return 'RS';
+    if (/unidades?|\buni\b|\bun\b|# ?un|dddunid/.test(b)) return 'UN';
     return 'UN';
 }
 /* v3.19 — Parser streaming + pré-agregação.
@@ -2602,13 +2614,17 @@ async function parsePDVFile(file, forceUnit) {
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
     if (!aoa.length) throw new Error('Planilha vazia.');
 
-    const fname = (file.name || '').toLowerCase();
-    /* v5.5 — Detecção de modo (R$ vs Un.):
-       1. Se o usuário forçou via botões do header, respeita.
-       2. Se o nome do arquivo contém "reai"/"r$"/"rs", classifica como RS.
+    const fname = (file.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    /* Detecção de modo (R$ vs Un.):
+       1. Nome do arquivo tem prioridade — indica claramente o modo.
+          VALOR: reais, r$, $, ppp, valor → RS
+          UNIDADES: unidades, uni, un → UN
+       2. Se o nome não indicar nada, respeita o forceUnit do botão da UI.
        3. Caso contrário, INSPECIONA os valores numéricos das colunas MAT/YTD/TRI:
           se >25% das células não-zero tiverem casas decimais, é R$. Se forem inteiras, Un. */
-    let unitMode = forceUnit || (/(reai|r\$|\brs\b|valores)/i.test(fname) ? 'RS' : null);
+    let unitMode = /reais?|r\$|\$|\bppp\b|valor/.test(fname) ? 'RS'
+                 : /unidades?|\buni\b|\bun\b|dddunid/.test(fname) ? 'UN'
+                 : forceUnit || null;
 
     // Localiza header
     let headerIdx = 0;
