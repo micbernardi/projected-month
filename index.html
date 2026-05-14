@@ -33,6 +33,7 @@
                 </div>
             </div>
             <div class="hdr-right">
+                <div class="hdr-proj-center-title" id="hdrProjCenterTitle">CENTRAL DE PROJEÇÕES E ANÁLISES</div>
                 <div class="period-grp" id="periodGrp">
                     <button class="period-btn" id="btnTRI" onclick="setPeriodMode('TRI')">TRI</button>
                     <button class="period-btn" id="btnYTD" onclick="setPeriodMode('YTD')">YTD</button>
@@ -233,6 +234,7 @@
             <div class="proj-back-divider"></div>
             <span class="proj-back-title">📈 Resultado Projetado</span>
             <span id="proj-header-file" class="proj-header-file"></span>
+            <span class="proj-back-center-title">CENTRAL DE PROJEÇÕES E ANÁLISES</span>
         </div>
 
         <!-- UPLOAD STATE -->
@@ -330,22 +332,30 @@
                     <!-- PERÍODO A vs B -->
                     <div id="proj-range-controls" style="display:flex;align-items:center;gap:6px">
                         <div class="proj-period-block">
-                            <span class="proj-period-label-a">Período A</span>
                             <div class="proj-ctrl-group">
                                 <label class="proj-ctrl-label">De</label>
                                 <select id="proj-filterAFrom"></select>
-                                <label class="proj-ctrl-label">Até</label>
-                                <select id="proj-filterATo"></select>
+                                <div class="proj-ate-wrap">
+                                    <span class="proj-period-label-a">Período A</span>
+                                    <div class="proj-ctrl-group">
+                                        <label class="proj-ctrl-label">Até</label>
+                                        <select id="proj-filterATo"></select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <span class="proj-vs-sep">vs</span>
                         <div class="proj-period-block">
-                            <span class="proj-period-label-b">Período B</span>
                             <div class="proj-ctrl-group">
                                 <label class="proj-ctrl-label">De</label>
                                 <select id="proj-filterBFrom"></select>
-                                <label class="proj-ctrl-label">Até</label>
-                                <select id="proj-filterBTo"></select>
+                                <div class="proj-ate-wrap">
+                                    <span class="proj-period-label-b">Período B</span>
+                                    <div class="proj-ctrl-group">
+                                        <label class="proj-ctrl-label">Até</label>
+                                        <select id="proj-filterBTo"></select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

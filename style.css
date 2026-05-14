@@ -110,6 +110,7 @@ body {
     min-height: 32px;
     flex-wrap: wrap;
     row-gap: 4px;
+    position: relative;
 }
 
 .hdr-left {
@@ -4208,7 +4209,7 @@ td.pdv-growth-neg {
 /* ── Sub-header fixo (volta + título + período) ── */
 .proj-back-bar {
     position: fixed;
-    top: var(--hdr-h, 42px);          /* cola abaixo do header principal */
+    top: var(--hdr-h, 42px);
     left: 0;
     right: 0;
     z-index: 300;
@@ -4217,10 +4218,25 @@ td.pdv-growth-neg {
     gap: 10px;
     padding: 0 18px;
     height: 34px;
-    background: var(--navy2, #eef2f8);
-    border-bottom: 1px solid var(--navy4, #cbd2e0);
-    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    background: var(--navy, #25395a);
+    border-bottom: 1px solid #1a2a44;
+    box-shadow: 0 1px 4px rgba(0,0,0,.18);
 }
+.hdr-proj-center-title {
+    display: none;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: .18em;
+    color: #ffffff;
+    text-transform: uppercase;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+
 .proj-back-btn {
     display: inline-flex;
     align-items: center;
@@ -4239,16 +4255,16 @@ td.pdv-growth-neg {
     white-space: nowrap;
 }
 .proj-back-btn:hover { background: #1a2a44; }
-.proj-back-divider { width: 1px; height: 16px; background: var(--navy4, #cbd2e0); flex-shrink: 0; }
+.proj-back-divider { width: 1px; height: 16px; background: rgba(255,255,255,.25); flex-shrink: 0; }
 .proj-back-title {
     font-size: .8rem;
     font-weight: 700;
-    color: var(--top-txt, #1e293b);
+    color: rgba(255,255,255,.85);
     letter-spacing: .2px;
 }
 .proj-header-file {
     font-size: .7rem;
-    color: var(--top-txt2, #475569);
+    color: rgba(255,255,255,.55);
     font-weight: 500;
 }
 
@@ -4421,6 +4437,19 @@ td.pdv-growth-neg {
     display: flex;
     flex-direction: column;
     gap: 1px;
+}
+.proj-ate-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+}
+.proj-ate-wrap .proj-period-label-a,
+.proj-ate-wrap .proj-period-label-b {
+    padding-left: 2px;
+}
+.proj-ate-wrap .proj-ctrl-group {
+    align-items: center;
 }
 .proj-period-label-a {
     font-size: .58rem;
@@ -4925,17 +4954,17 @@ td.pdv-growth-neg {
 /* ── Modo de período no Resultado Projetado ── */
 .proj-period-mode-wrap {
     display: flex;
-    background: var(--s3, #e9edf5);
+    background: var(--navy, #25395a);
     border-radius: 6px;
     padding: 2px;
     gap: 2px;
 }
 .proj-period-mode-btn {
-    padding: 3px 10px;
+    padding: 3px 12px;
     border-radius: 4px;
     border: none;
     background: transparent;
-    color: var(--txt2, #475569);
+    color: rgba(255,255,255,.5);
     font-family: inherit;
     font-size: .68rem;
     font-weight: 600;
@@ -4944,16 +4973,16 @@ td.pdv-growth-neg {
     white-space: nowrap;
 }
 .proj-period-mode-btn.active {
-    background: var(--s1, #fff);
-    color: var(--acc, #1e40af);
-    box-shadow: 0 1px 3px rgba(0,0,0,.1);
-}
-/* Mês a Mês ativo — destaque sutil com underline + peso extra */
-#proj-btnModeSingle.active {
-    border-bottom: 2px solid var(--acc, #1e40af);
-    padding-bottom: 1px;
+    background: #fff;
+    color: var(--navy, #25395a);
+    box-shadow: 0 1px 4px rgba(0,0,0,.2);
     font-weight: 700;
-    letter-spacing: .01em;
+}
+/* remover underline antigo */
+#proj-btnModeSingle.active {
+    border-bottom: none;
+    padding-bottom: 3px;
+    letter-spacing: normal;
 }
 /* Meta (%) — label e input com destaque */
 .proj-ctrl-group:has(#proj-filterTarget) .proj-ctrl-label {

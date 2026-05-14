@@ -4852,6 +4852,9 @@ function openProjecaoView() {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
+    // Mostrar título central
+    const ct = document.getElementById('hdrProjCenterTitle');
+    if (ct) ct.style.display = 'block';
     const pv = document.getElementById('projecaoView');
     pv.style.display = 'block';
     window.scrollTo(0, 0);
@@ -4877,6 +4880,9 @@ function closeProjecaoView() {
         const el = document.getElementById(id);
         if (el) el.style.display = '';
     });
+    // Esconder título central
+    const ct = document.getElementById('hdrProjCenterTitle');
+    if (ct) ct.style.display = 'none';
     // historyIndicator só aparece se houver dados salvos — deixa o estado original
     const hi = document.getElementById('historyIndicator');
     if (hi) hi.style.display = hi.dataset.wasVisible === 'true' ? '' : 'none';
