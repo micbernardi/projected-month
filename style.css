@@ -1491,12 +1491,36 @@ body {
     right: 24px;
     background: var(--navy);
     color: #fff;
-    padding: 10px 18px;
-    border-radius: 8px;
+    padding: 11px 16px 11px 14px;
+    border-radius: 10px;
     font-size: 13px;
     z-index: 9999;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, .3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, .35);
     animation: fadeInUp .2s ease;
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    max-width: 420px;
+    line-height: 1.45;
+    border-left: 4px solid rgba(255,255,255,.3);
+}
+.toast-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.toast-text {
+    flex: 1;
+    word-break: break-word;
+}
+.toast-info  { border-left-color: #60a5fa; }
+.toast-warn  { background: #92400e; border-left-color: #f59e0b; }
+.toast-error { background: #7f1d1d; border-left-color: #ef4444; }
+.toast-success { background: #14532d; border-left-color: #22c55e; }
+
+@keyframes fadeOutDown {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(10px); }
 }
 
 @keyframes fadeInUp {
@@ -4838,6 +4862,31 @@ td.pdv-growth-neg {
     background: var(--s1, #fff);
     color: var(--acc, #1e40af);
     box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+/* Mês a Mês ativo — destaque sutil com underline + peso extra */
+#proj-btnModeSingle.active {
+    border-bottom: 2px solid var(--acc, #1e40af);
+    padding-bottom: 1px;
+    font-weight: 700;
+    letter-spacing: .01em;
+}
+/* Meta (%) — label e input com destaque */
+.proj-ctrl-group:has(#proj-filterTarget) .proj-ctrl-label {
+    color: var(--txt2, #475569);
+    font-size: .65rem;
+    font-weight: 800;
+    letter-spacing: .5px;
+}
+#proj-filterTarget {
+    background: #eff6ff !important;
+    border-color: #93c5fd !important;
+    color: var(--acc, #1e40af) !important;
+    font-weight: 700 !important;
+    font-size: .78rem !important;
+}
+#proj-filterTarget:focus {
+    border-color: var(--acc, #1e40af) !important;
+    box-shadow: 0 0 0 2px rgba(30,64,175,.12);
 }
 .proj-shortcut-wrap {
     display: flex;

@@ -189,12 +189,28 @@ function productRole(productName) {
 }
 const isSupera = name => productRole(name) === 'SUPERA';
 
-function toast(msg) {
+function toast(msg, type, duration) {
+    // type: 'info' (padrão) | 'warn' | 'error' | 'success'
+    // duration: ms (padrão: 3000; warn/error: 6000)
+    const kind = type || 'info';
+    const ms = duration != null ? duration : (kind === 'warn' || kind === 'error' ? 6000 : 3000);
     const d = document.createElement('div');
-    d.className = 'toast';
-    d.textContent = msg;
+    d.className = 'toast toast-' + kind;
+    // Ícone por tipo
+    const icons = { info: 'ℹ️', warn: '⚠️', error: '❌', success: '✅' };
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.textContent = icons[kind] || 'ℹ️';
+    const text = document.createElement('span');
+    text.className = 'toast-text';
+    text.textContent = msg;
+    d.appendChild(icon);
+    d.appendChild(text);
     document.body.appendChild(d);
-    setTimeout(() => d.remove(), 3000);
+    setTimeout(() => {
+        d.style.animation = 'fadeOutDown .25s ease forwards';
+        setTimeout(() => d.remove(), 260);
+    }, ms);
 }
 
 /* ===== PARSE NUMBER ===== */
@@ -1966,6 +1982,29 @@ function refreshGlobalMarketFilter(tabName) {
 }
 
 /* ===== EXPORT XLSX ===== */
+/* smartExport — detecta a aba/view ativa e chama a função de exportação correta */
+function smartExport() {
+    // Verifica se a view de Projeção está aberta
+    const projView = document.getElementById('projecaoView');
+    if (projView && projView.style.display !== 'none' && projView.style.display !== '') {
+        const projExportBtn = document.getElementById('proj-btnExportCSV');
+        if (projExportBtn && !projExportBtn.disabled) {
+            projExportBtn.click();
+        } else {
+            toast('Nenhum dado de projeção para exportar');
+        }
+        return;
+    }
+    // Verifica a aba ativa no menu principal
+    const activeTabEl = document.querySelector('.tab.active');
+    const activeTabName = activeTabEl ? activeTabEl.dataset.tab : null;
+    if (activeTabName === 'pdv') {
+        exportPDVXLSX();
+    } else {
+        exportXLSX();
+    }
+}
+
 function exportXLSX() {
     if (!DB.rows.length) { toast('Nenhum dado para exportar'); return; }
     const pd = UI.periodMode;
@@ -1976,7 +2015,7 @@ function exportXLSX() {
 
     // Monta linhas com valores numéricos reais (não strings formatadas)
     const data = DB.rows.map(r => {
-        const d = r.data[pd];
+        const d = r.data[pd] || {};
         const obj = {
             'Setor (GD)': r.sector,
             'Mercado': r.market,
@@ -1991,41 +2030,55 @@ function exportXLSX() {
         return obj;
     });
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
+    try {
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
 
-    // Descobre índices das colunas numéricas pelo header
-    const headers = Object.keys(data[0] || {});
-    const numCols = [lbl + ' ' + pd + ' Anterior', lbl + ' ' + pd + ' Atual'];
-    const pctCols = ['Crescimento %'];
+        // Descobre índices das colunas numéricas pelo header
+        const headers = Object.keys(data[0] || {});
+        const numCols = [lbl + ' ' + pd + ' Anterior', lbl + ' ' + pd + ' Atual'];
+        const pctCols = ['Crescimento %'];
 
-    // Aplica formato e alinhamento em cada célula de dados
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-    for (let R = range.s.r; R <= range.e.r; R++) {
-        for (let C = range.s.c; C <= range.e.c; C++) {
-            const addr = XLSX.utils.encode_cell({ r: R, c: C });
-            if (!ws[addr]) continue;
-            const colName = headers[C];
-            const isHeader = R === 0;
-            const isNumCol = numCols.includes(colName);
-            const isPctCol = pctCols.includes(colName);
+        // Aplica formato e alinhamento em cada célula de dados
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+        for (let R = range.s.r; R <= range.e.r; R++) {
+            for (let C = range.s.c; C <= range.e.c; C++) {
+                const addr = XLSX.utils.encode_cell({ r: R, c: C });
+                if (!ws[addr]) continue;
+                const colName = headers[C];
+                const isHeader = R === 0;
+                const isNumCol = numCols.includes(colName);
+                const isPctCol = pctCols.includes(colName);
 
-            if (!ws[addr].s) ws[addr].s = {};
-            // Alinhamento centralizado para todas as colunas de valor
-            if (isNumCol || isPctCol) {
-                ws[addr].s.alignment = { horizontal: 'center', vertical: 'center' };
-            }
-            // Formato contábil (RS) ou percentual — só nas linhas de dados
-            if (!isHeader) {
-                if (isNumCol && isRS) ws[addr].z = FMT_CONTABIL;
-                if (isPctCol && ws[addr].t === 'n') ws[addr].z = FMT_PCT;
+                if (!ws[addr].s) ws[addr].s = {};
+                if (isNumCol || isPctCol) {
+                    ws[addr].s.alignment = { horizontal: 'center', vertical: 'center' };
+                }
+                if (!isHeader) {
+                    if (isNumCol && isRS) ws[addr].z = FMT_CONTABIL;
+                    if (isPctCol && ws[addr].t === 'n') ws[addr].z = FMT_PCT;
+                }
             }
         }
-    }
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Dados');
-    XLSX.writeFile(wb, 'supera_rx_' + pd + '_' + UI.unitMode + '.xlsx');
-    toast('Arquivo exportado');
+        XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+
+        // Usa Blob + <a> para download — funciona em todos os browsers
+        const fileName = 'supera_rx_' + pd + '_' + UI.unitMode + '.xlsx';
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
+        const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+        toast('Arquivo exportado');
+    } catch (err) {
+        console.error('[exportXLSX] erro:', err);
+        toast('Erro ao exportar: ' + (err.message || err));
+    }
 }
 
 /* ===== INIT =====
