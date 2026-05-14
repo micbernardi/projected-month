@@ -972,13 +972,49 @@ function toggleExpand(rowId) {
     renderResumo();
 }
 
-/* ===== MODAL DE BRICKS POR RECOMENDAÇÃO (print 2 do usuário) ===== */
+/* ===== MODAL DE BRICKS POR RECOMENDAÇÃO ===== */
+// Estado de sort do modal
+const _brickModalSort = { key: 'superaCur', dir: 'desc' };
+
+function _sortBricks(bricks) {
+    const { key, dir } = _brickModalSort;
+    const m = dir === 'asc' ? 1 : -1;
+    return [...bricks].sort((a, b) => {
+        let av, bv;
+        if (key === 'brick')      return m * a.brick.localeCompare(b.brick);
+        if (key === 'sector')     return m * (a.sector||'').localeCompare(b.sector||'');
+        if (key === 'superaPrev') { av = a.superaPrev; bv = b.superaPrev; }
+        else if (key === 'superaCur')  { av = a.superaCur; bv = b.superaCur; }
+        else if (key === 'totalPrev')  { av = a.totalPrev; bv = b.totalPrev; }
+        else if (key === 'totalCur')   { av = a.totalCur;  bv = b.totalCur;  }
+        else if (key === 'share')      { av = a.share;     bv = b.share;     }
+        else if (key === 'growth')     { av = a.growth ?? -Infinity; bv = b.growth ?? -Infinity; }
+        else if (key === 'gap')        { av = a.gapProximo ?? Infinity; bv = b.gapProximo ?? Infinity; }
+        else { av = a.superaCur; bv = b.superaCur; }
+        return m * (av - bv);
+    });
+}
+
+function _thSort(key, label, cls) {
+    const { key: ck, dir } = _brickModalSort;
+    const arrow = ck === key ? (dir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
+    return `<th class="${cls || 'c'} bm-sortable" data-sort="${key}" style="cursor:pointer;user-select:none">${label}<span style="opacity:.5;font-size:.8em">${arrow}</span></th>`;
+}
+
 function showBrickModal(market, rec) {
     const pd = UI.periodMode;
     let rows = getFilteredRows().filter(r => r.market === market);
     const excl = getEffectiveExclusions(market);
-    const bricks = aggBricksOfMarket(rows, pd, excl).filter(b => b.rec === rec);
-    bricks.sort((a, b) => (b.superaCur - a.superaCur) || a.brick.localeCompare(b.brick));
+    const allBricks = aggBricksOfMarket(rows, pd, excl).filter(b => b.rec === rec);
+    // pre-calc gapProximo para sort
+    allBricks.forEach(b => {
+        const rk = brickRanking(b);
+        if (rk.posSupera > 1) {
+            const acima = rk.ranking[rk.posSupera - 2];
+            b.gapProximo = acima ? Math.max(0, acima.cur - b.superaCur + 1) : 0;
+        } else { b.gapProximo = 0; }
+    });
+    const bricks = _sortBricks(allBricks);
     const sectorLabel = UI.sector !== 'all' ? ` · ${cleanSectorName(UI.sector)}` : '';
 
     const titleMap = {
@@ -996,18 +1032,18 @@ function showBrickModal(market, rec) {
         <span class="mmodal-sep">—</span>
         <span class="mmodal-rec ${recPillCls(rec)}">${titleMap[rec]} (${bricks.length} bricks)</span>${sectorLabel ? `<span class="mmodal-sub">${sectorLabel}</span>` : ''}${exclBadge}`;
 
-    let html = `<table class="modal-tbl"><thead><tr>
+    let html = `<table class="modal-tbl bm-table" id="brickModalTable"><thead><tr>
         <th class="w-hash">#</th>
-        <th class="col-brick">Brick (Número + Nome)</th>
-        <th class="col-setor">Setor</th>
-        <th class="c th-supera">Supera ${pd} Ant.</th>
-        <th class="c th-supera">Supera ${pd} Atual</th>
-        <th class="c">Mercado ${pd} Ant.</th>
-        <th class="c">Mercado ${pd} Atual</th>
-        <th class="c">Share %</th>
-        <th class="c">Evol. Sup</th>
-        <th class="c">Gap p/ próx. pos.</th>
-        <th class="c">Líder do Brick</th>
+        ${_thSort('brick',     'Brick',       'col-brick')}
+        ${_thSort('sector',    'Setor',       'col-setor')}
+        ${_thSort('superaPrev','Sup. Ant.',   'c th-supera')}
+        ${_thSort('superaCur', 'Sup. Atual',  'c th-supera')}
+        ${_thSort('totalPrev', 'Mkt. Ant.',   'c')}
+        ${_thSort('totalCur',  'Mkt. Atual',  'c')}
+        ${_thSort('share',     'Share',       'c')}
+        ${_thSort('growth',    'Evol.',       'c')}
+        ${_thSort('gap',       'Gap próx.',   'c')}
+        <th class="c">Líder</th>
     </tr></thead><tbody>`;
 
     if (!bricks.length) {
@@ -1070,8 +1106,25 @@ function showBrickModal(market, rec) {
     }
     html += '</tbody></table>';
     $('brickModalBody').innerHTML = html;
-    $('brickModalFooter').textContent = bricks.length + ' bricks';
+    $('brickModalFooter').textContent = allBricks.length + ' bricks';
     $('brickModal').classList.add('open');
+
+    // Eventos de sort nos cabeçalhos
+    const tbl = document.getElementById('brickModalTable');
+    if (tbl) {
+        tbl.querySelectorAll('th.bm-sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const k = th.getAttribute('data-sort');
+                if (_brickModalSort.key === k) {
+                    _brickModalSort.dir = _brickModalSort.dir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    _brickModalSort.key = k;
+                    _brickModalSort.dir = 'desc';
+                }
+                showBrickModal(market, rec);
+            });
+        });
+    }
 }
 
 /* ===== MODAL DE "VER" — detalhe do mercado (print 3) ===== */

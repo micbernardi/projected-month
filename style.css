@@ -1186,18 +1186,14 @@ body {
 
 .modal-body {
     overflow-y: auto;
-    padding: 18px 20px;
-    flex: 1
+    padding: 0;          /* remove padding aqui — vai nas tabelas */
+    flex: 1;
+    position: relative;  /* scroll container para sticky funcionar */
 }
 
-.modal-footer {
-    padding: 10px 20px;
-    border-top: 1px solid var(--brd);
-    font-size: 12px;
-    color: var(--txt2);
-    font-weight: 600;
-    flex-shrink: 0;
-    background: var(--s2);
+/* padding apenas onde não há tabela fixa */
+.modal-body > :not(.modal-tbl):not(table) {
+    padding: 18px 20px;
 }
 
 /* tabelas dentro dos modais */
@@ -1219,7 +1215,9 @@ body {
     white-space: nowrap;
     position: sticky;
     top: 0;
+    z-index: 10;        /* garante que fica acima das linhas ao rolar */
     border-bottom: 2px solid #1a2a44;
+    box-shadow: 0 2px 4px rgba(0,0,0,.15); /* sombra sutil ao rolar */
 }
 
 .modal-tbl thead th.r {
@@ -2159,32 +2157,44 @@ body {
 
 /* Modal de bricks: colunas compactas para caber leader + gap na tela */
 .modal-xl {
-    max-width: min(1560px, 97vw);
+    max-width: min(1600px, 98vw);
 }
 
 .modal-tbl .col-brick {
-    width: 22%;
-    min-width: 180px;
+    width: 20%;
+    min-width: 160px;
 }
 
 .modal-tbl .col-setor {
-    width: 13%;
-    min-width: 100px;
+    width: 11%;
+    min-width: 90px;
+}
+
+.modal-tbl .w-hash {
+    width: 28px;
+    min-width: 28px;
 }
 
 .modal-tbl tbody tr td {
-    padding: 5px 6px;
+    padding: 5px 5px;
     line-height: 1.2;
 }
 
 .modal-tbl thead th {
-    font-size: 9.5px;
-    padding: 8px 6px;
+    font-size: 9px;
+    padding: 7px 5px;
+    white-space: nowrap;
+}
+
+/* colunas numéricas: largura mínima enxuta */
+.modal-tbl thead th.c,
+.modal-tbl tbody td.c {
+    min-width: 68px;
     white-space: nowrap;
 }
 
 .modal-tbl tbody td.col-brick code {
-    font-size: 11px;
+    font-size: 10.5px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4736,3 +4746,24 @@ td.pdv-growth-neg {
     transition: background .15s;
 }
 .rsul-btn:hover { background: #1a2a44; }
+
+/* ── Modal footer (restaurado) ── */
+.modal-footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--brd);
+    font-size: 12px;
+    color: var(--txt2);
+    font-weight: 600;
+    flex-shrink: 0;
+    background: var(--s2);
+}
+
+/* ── Sort nos cabeçalhos do modal de bricks ── */
+.modal-tbl thead th.bm-sortable:hover {
+    background: rgba(255,255,255,.08);
+}
+.modal-tbl thead th.bm-sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background .12s;
+}
