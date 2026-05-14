@@ -749,24 +749,26 @@ body {
     border-spacing: 0;
     font-size: 12.5px;
     min-width: 1100px;
-    table-layout: fixed;
 }
 
-/* Larguras fixas das colunas do Resumo Geral */
-.main-tbl thead th:nth-child(1)  { width: 34px; }   /* expand btn */
-.main-tbl thead th:nth-child(2)  { width: 170px; }  /* MERCADO */
-.main-tbl thead th:nth-child(3)  { width: 58px; }   /* BRICKS */
-.main-tbl thead th:nth-child(4)  { width: 130px; }  /* MERCADO TOTAL */
-.main-tbl thead th:nth-child(5)  { width: 76px; }   /* EVOL. MKT */
-.main-tbl thead th:nth-child(6)  { width: 130px; }  /* TOTAL SUPERA */
-.main-tbl thead th:nth-child(7)  { width: 76px; }   /* EVOL. SUP */
-.main-tbl thead th:nth-child(8)  { width: 68px; }   /* SHARE % */
-.main-tbl thead th:nth-child(9),
-.main-tbl thead th:nth-child(10),
-.main-tbl thead th:nth-child(11),
-.main-tbl thead th:nth-child(12),
-.main-tbl thead th:nth-child(13) { width: 68px; }   /* rec badges */
-.main-tbl thead th:nth-child(14) { width: 56px; }   /* AÇÃO */
+/* Larguras fixas das colunas do Resumo Geral (exclui brick-detail-tbl) */
+.main-tbl:not(.brick-detail-tbl) {
+    table-layout: fixed;
+}
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(1)  { width: 34px; }   /* expand btn */
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(2)  { width: 170px; }  /* MERCADO */
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(3)  { width: 58px; }   /* BRICKS */
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(4)  { width: 130px; }  /* MERCADO TOTAL */
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(5)  { width: 76px; }   /* EVOL. MKT */
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(6)  { width: 130px; }  /* TOTAL SUPERA */
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(7)  { width: 76px; }   /* EVOL. SUP */
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(8)  { width: 68px; }   /* SHARE % */
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(9),
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(10),
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(11),
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(12),
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(13) { width: 68px; }   /* rec badges */
+.main-tbl:not(.brick-detail-tbl) thead th:nth-child(14) { width: 56px; }   /* AÇÃO */
 
 /* cabeçalho sticky e fixo */
 .main-tbl thead.tbl-head-fixed th {
