@@ -747,18 +747,20 @@ body {
 }
 
 /* Larguras fixas das colunas do Resumo Geral */
-.main-tbl thead th:nth-child(1) { width: 34px; }   /* expand btn */
-.main-tbl thead th:nth-child(2) { width: 180px; }  /* MERCADO */
-.main-tbl thead th:nth-child(3) { width: 64px; }   /* BRICKS */
-.main-tbl thead th:nth-child(4) { width: 140px; }  /* MERCADO TOTAL */
-.main-tbl thead th:nth-child(5) { width: 140px; }  /* TOTAL SUPERA */
-.main-tbl thead th:nth-child(6) { width: 72px; }   /* SHARE % */
-.main-tbl thead th:nth-child(7),
-.main-tbl thead th:nth-child(8),
+.main-tbl thead th:nth-child(1)  { width: 34px; }   /* expand btn */
+.main-tbl thead th:nth-child(2)  { width: 170px; }  /* MERCADO */
+.main-tbl thead th:nth-child(3)  { width: 58px; }   /* BRICKS */
+.main-tbl thead th:nth-child(4)  { width: 130px; }  /* MERCADO TOTAL */
+.main-tbl thead th:nth-child(5)  { width: 76px; }   /* EVOL. MKT */
+.main-tbl thead th:nth-child(6)  { width: 130px; }  /* TOTAL SUPERA */
+.main-tbl thead th:nth-child(7)  { width: 76px; }   /* EVOL. SUP */
+.main-tbl thead th:nth-child(8)  { width: 68px; }   /* SHARE % */
 .main-tbl thead th:nth-child(9),
 .main-tbl thead th:nth-child(10),
-.main-tbl thead th:nth-child(11) { width: 72px; }  /* rec badges */
-.main-tbl thead th:nth-child(12) { width: 60px; }  /* AÇÃO */
+.main-tbl thead th:nth-child(11),
+.main-tbl thead th:nth-child(12),
+.main-tbl thead th:nth-child(13) { width: 68px; }   /* rec badges */
+.main-tbl thead th:nth-child(14) { width: 56px; }   /* AÇÃO */
 
 /* cabeçalho sticky e fixo */
 .main-tbl thead.tbl-head-fixed th {
@@ -2301,6 +2303,27 @@ body {
 /* Coluna Share %: negrito */
 .main-tbl tbody td.c-share {
     font-weight: 700;
+}
+
+/* Colunas de evolução */
+.main-tbl thead th.c-evol-mkt,
+.main-tbl thead th.c-evol-sup {
+    font-size: 9.5px;
+    letter-spacing: .4px;
+}
+.main-tbl tbody td.c-evol-mkt,
+.main-tbl tbody td.c-evol-sup {
+    font-weight: 700;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.main-tbl tbody td.c-evol-sup {
+    background: #fafff6;
+    border-left: 1px solid rgba(5, 150, 105, .12);
+    border-right: 1px solid rgba(5, 150, 105, .12);
+}
+.main-tbl tbody tr:hover td.c-evol-sup {
+    background: #f0faf4;
 }
 
 /* v3.9 — a coluna SUPERA no Brick mantém o cabeçalho azul-escuro

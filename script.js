@@ -651,15 +651,17 @@ function aggMarkets(rows, pd) {
         const current = bricks.reduce((s, b) => s + b.totalCur, 0);
         const previous = bricks.reduce((s, b) => s + b.totalPrev, 0);
         const supera = bricks.reduce((s, b) => s + b.superaCur, 0);
+        const superaPrev = bricks.reduce((s, b) => s + b.superaPrev, 0);
         const recs = { 'LÍDER': [], 'CRESCER': [], 'OPORTUNIDADE': [], 'ACOMPANHAR': [], 'ENTRAR': [] };
         bricks.forEach(b => recs[b.rec].push(b));
         const growth = previous !== 0 ? ((current / previous) - 1) : null;
+        const superaGrowth = superaPrev !== 0 ? ((supera / superaPrev) - 1) : null;
         const share = current ? (supera / current) * 100 : 0;
         const bricksCount = bricks.length;
         out.push({
             market, bricks, bricksCount,
             current, previous, growth,
-            supera, share, recs, rows: rs
+            supera, superaPrev, superaGrowth, share, recs, rows: rs
         });
     });
     return out;
@@ -773,7 +775,9 @@ function renderResumo() {
             case 'previous': va = a.previous; vb = b.previous; break;
             case 'delta': va = a.current - a.previous; vb = b.current - b.previous; break;
             case 'growth': va = a.growth ?? -Infinity; vb = b.growth ?? -Infinity; break;
+            case 'mktGrowth': va = a.growth ?? -Infinity; vb = b.growth ?? -Infinity; break;
             case 'supera': va = a.supera; vb = b.supera; break;
+            case 'superaGrowth': va = a.superaGrowth ?? -Infinity; vb = b.superaGrowth ?? -Infinity; break;
             case 'share': va = a.share; vb = b.share; break;
             case 'lider': va = a.recs['LÍDER'].length; vb = b.recs['LÍDER'].length; break;
             case 'crescer': va = a.recs['CRESCER'].length; vb = b.recs['CRESCER'].length; break;
@@ -798,7 +802,9 @@ function renderResumo() {
     html += `<th class="sortable" data-key="market">MERCADO ${arr('market')}</th>`;
     html += `<th class="c sortable" data-key="bricks">BRICKS ${arr('bricks')}</th>`;
     html += `<th class="c sortable" data-key="current">MERCADO TOTAL ${arr('current')}</th>`;
+    html += `<th class="c sortable c-evol-mkt" data-key="mktGrowth">EVOL. MKT ${arr('mktGrowth')}</th>`;
     html += `<th class="c sortable c-supera" data-key="supera">TOTAL SUPERA ${arr('supera')}</th>`;
+    html += `<th class="c sortable c-evol-sup" data-key="superaGrowth">EVOL. SUP ${arr('superaGrowth')}</th>`;
     html += `<th class="r sortable" data-key="share">SHARE % ${arr('share')}</th>`;
     html += `<th class="c sortable c-lider" data-key="lider">LÍDER ${arr('lider')}</th>`;
     html += `<th class="c sortable c-crescer" data-key="crescer">CRESCER ${arr('crescer')}</th>`;
@@ -809,7 +815,7 @@ function renderResumo() {
     html += '</tr></thead><tbody>';
 
     if (!mktAgg.length) {
-        html += '<tr><td colspan="12" class="tbl-empty">Nenhum mercado encontrado para os filtros selecionados.</td></tr>';
+        html += '<tr><td colspan="14" class="tbl-empty">Nenhum mercado encontrado para os filtros selecionados.</td></tr>';
     }
 
     // Pré-cálculo: label da marca Supera por mercado (usado no sort)
@@ -841,7 +847,9 @@ function renderResumo() {
             <td><div class="mkt-name">${m.market}${toggleBtn}</div></td>
             <td class="c"><span class="bricks-count">${m.bricksCount}</span></td>
             <td class="c">${fmtValue(m.current)}</td>
+            <td class="c c-evol-mkt ${m.growth == null ? '' : m.growth >= 0 ? 'vpos' : 'vneg'}">${m.growth == null ? '—' : (m.growth >= 0 ? '+' : '') + (m.growth * 100).toFixed(1) + '%'}</td>
             <td class="c c-supera vacc">${fmtValue(m.supera)}</td>
+            <td class="c c-evol-sup ${m.superaGrowth == null ? '' : m.superaGrowth >= 0 ? 'vpos' : 'vneg'}">${m.superaGrowth == null ? '—' : (m.superaGrowth >= 0 ? '+' : '') + (m.superaGrowth * 100).toFixed(1) + '%'}</td>
             <td class="c c-share">${m.share.toFixed(1)}%</td>
             ${recCell(m, 'LÍDER', 'rb-lider')}
             ${recCell(m, 'CRESCER', 'rb-crescer')}
@@ -855,7 +863,7 @@ function renderResumo() {
             // v3.5: ranking como TABELA VERTICIAL com evolução atual vs anterior.
             const ranking = aggMarketRanking(m.rows, pd, 30);
             const unitLabel = UI.unitMode === 'RS' ? 'R$' : 'Un.';
-            html += `<tr class="concs-row"><td></td><td colspan="11" class="concs-wrap">
+            html += `<tr class="concs-row"><td></td><td colspan="13" class="concs-wrap">
                 <div class="concs-title">🏆 Ranking neste mercado — ${pd} · ${UI.unitMode === 'RS' ? 'R$' : 'Unidades'}</div>
                 <table class="rank-tbl">
                     <thead><tr>
@@ -920,7 +928,7 @@ function renderResumo() {
                     <td class="c c-supera vacc">${fmtValue(b.superaCur)}</td>
                     <td class="c c-share"><strong>${b.share.toFixed(1)}%</strong></td>
                     <td class="c ${gCls}"><strong>${fmtPct(b.growth)}</strong></td>
-                    <td colspan="5" class="c"><span class="rec-pill ${recPillCls(b.rec)}">${b.rec}</span></td>
+                    <td colspan="7" class="c"><span class="rec-pill ${recPillCls(b.rec)}">${b.rec}</span></td>
                     <td></td>
                 </tr>`;
             });
