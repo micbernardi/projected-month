@@ -1866,16 +1866,16 @@ body {
 
 /* Abas dinâmicas por Setor */
 .tab-sector {
-    font-size: 10px !important;
-    padding: 5px 9px !important;
-    letter-spacing: .25px;
+    font-size: 12px !important;
+    padding: 5px 11px !important;
+    letter-spacing: .2px;
     text-transform: uppercase;
     color: var(--top-txt2) !important;
     font-weight: 800;
     background: transparent;
     border-radius: 4px;
     height: auto !important;
-    line-height: 1.1;
+    line-height: 1.2;
 }
 
 .tab-sector:hover {
