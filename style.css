@@ -4198,7 +4198,7 @@ td.pdv-growth-neg {
    RESULTADO PROJETADO — VIEW INLINE  v2
 ════════════════════════════════════════ */
 
-/* ── Wrapper: ocupa toda a área abaixo do header fixo ── */
+/* ── Wrapper: ocupa toda a área abaixo do header fixo + back-bar ── */
 #projecaoView {
     padding-top: calc(var(--hdr-h, 42px) + 22px); /* empurra abaixo do header fixo */
     min-height: 100vh;
@@ -4253,12 +4253,24 @@ td.pdv-growth-neg {
 }
 
 /* ── Upload ── */
+#proj-uploadSection {
+    position: fixed;
+    top: calc(var(--hdr-h, 42px) + 56px); /* abaixo do header + back-bar */
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg, #f3f5fa);
+    overflow-y: auto;
+    z-index: 10;
+}
 .proj-upload-wrap {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 55vh;
     gap: 18px;
     padding: 32px 24px;
 }

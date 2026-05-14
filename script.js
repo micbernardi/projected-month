@@ -4845,6 +4845,13 @@ function openProjecaoView() {
     document.getElementById('uploadView').style.display = 'none';
     document.getElementById('dashView').style.display = 'none';
     document.getElementById('kpiStrip').style.display = 'none';
+    // Ocultar botões do header que não têm função nessa tela
+    ['periodGrp','unitGrp','datasetStatus','btnUpload','btnClearData',
+     'btnClearHistory','historyIndicator','btnProjecao','btnEnviar'
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
     const pv = document.getElementById('projecaoView');
     pv.style.display = 'block';
     window.scrollTo(0, 0);
@@ -4863,6 +4870,16 @@ function openProjecaoView() {
 
 function closeProjecaoView() {
     document.getElementById('projecaoView').style.display = 'none';
+    // Restaurar botões do header
+    ['periodGrp','unitGrp','datasetStatus','btnUpload','btnClearData',
+     'btnClearHistory','btnProjecao','btnEnviar'
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = '';
+    });
+    // historyIndicator só aparece se houver dados salvos — deixa o estado original
+    const hi = document.getElementById('historyIndicator');
+    if (hi) hi.style.display = hi.dataset.wasVisible === 'true' ? '' : 'none';
     const hasData = DB.rows && DB.rows.length > 0;
     document.getElementById('uploadView').style.display = hasData ? 'none' : 'block';
     document.getElementById('dashView').style.display = hasData ? 'block' : 'none';
@@ -5017,6 +5034,8 @@ function projSetupSlots() {
         Object.keys(projLoadedFiles).forEach(k => projLoadedFiles[k] = null);
         document.getElementById('proj-dashSection').style.display = 'none';
         document.getElementById('proj-uploadSection').style.display = '';
+        window.scrollTo(0, 0);
+        document.getElementById('projecaoView').scrollTop = 0;
         // reset slots
         ['pdv', 'cidade', 'marca', 'brick'].forEach(t => {
             const slot = document.getElementById('proj-slot-' + t);
