@@ -5262,12 +5262,12 @@ function projRerender() {
 
     const kpiRows = finalComputed.filter(r => r.type === kpiType);
 
-    const totB      = kpiRows.reduce((s, r) => s + r.b, 0);
-    const totC      = kpiRows.reduce((s, r) => s + r.c, 0);
-    const totVar    = totC - totB;
-    const totPct    = totB ? (totC / totB - 1) : 0;
+    const totB = kpiRows.reduce((s, r) => s + r.b, 0);
+    const totC = kpiRows.reduce((s, r) => s + r.c, 0);
+    const totVar = totC - totB;
+    const totPct = totB ? (totC / totB - 1) : 0;
     const totTarget = kpiRows.reduce((s, r) => s + r.targetVal, 0);
-    const totGap    = totC - totTarget;
+    const totGap = totC - totTarget;
 
     projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap, bL, cL, kpiType);
 
@@ -5522,23 +5522,144 @@ function projBuildPagination(total, bL, cL) {
 }
 
 /* ── CSV export ────────────────────────── */
-function projExportCSV() {
+function projExportCSV() { projExportXLSX(); }
+
+async function projExportXLSX() {
     if (!PROJ.filteredRows.length) return;
-    const b = (document.getElementById('proj-filterBase') || {}).value || '';
-    const c = (document.getElementById('proj-filterComp') || {}).value || '';
-    const bL = projPeriodLabel(b), cL = projPeriodLabel(c);
-    const lines = [['Nome', 'Tipo', bL, cL, 'Var BRL', 'Evol %', 'Meta BRL', 'GAP', 'Status'].join(';')];
-    PROJ.filteredRows.forEach(r => lines.push([
-        '"' + r.name.replace(/"/g, '""') + '"', r.type,
-        projFmtBRL(r.b), projFmtBRL(r.c), projFmtBRL(r.varBRL),
-        projFmtPct(r.varPct), projFmtBRL(r.targetVal), projFmtBRL(r.gap), r.status
-    ].join(';')));
-    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    toast('Gerando Excel...');
+
+    // ── Período labels ────────────────────────────────────────────────────
+    const bVal = (document.getElementById('proj-filterBase') || {}).value || '';
+    const cVal = (document.getElementById('proj-filterComp') || {}).value || '';
+    const bL = projPeriodLabel(bVal) || 'Base';
+    const cL = projPeriodLabel(cVal) || 'Comp.';
+
+    // ── Ordenação decrescente por Var BRL ─────────────────────────────────
+    const rows = [...PROJ.filteredRows].sort((a, b) => b.varBRL - a.varBRL);
+    const nData = rows.length;
+    const lastDataRow = nData + 1; // linha Excel (1-indexed, cabeçalho na 1)
+
+    // ── Formatos numéricos ────────────────────────────────────────────────
+    const FMT_BRL = '_(\"R$\"* #,##0.00_);_(\"R$\"* \\(#,##0.00\\);_(\"R$\"* \"-\"??_);_(@_)';
+    const FMT_PCT = '0.00%';
+
+    // ── Estilos reutilizáveis ─────────────────────────────────────────────
+    const fontHdr = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+    const fontBold = { name: 'Calibri', size: 12, bold: true };
+    const fontBase = { name: 'Calibri', size: 12, bold: false };
+    const fillHdr = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002060' } };
+    const fillGrn = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
+    const fillRed = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+    const fontGrn = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF006100' } };
+    const fontRed = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF9C0006' } };
+
+    // ── Cria workbook ─────────────────────────────────────────────────────
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Resultado Projetado');
+
+    // ── Larguras de coluna ────────────────────────────────────────────────
+    ws.columns = [
+        { width: 21.0 },   // A — Nome
+        { width: 6.0 },   // B — Tipo
+        { width: 13.08 },  // C — Base
+        { width: 13.0 },   // D — Comp
+        { width: 12.66 },  // E — Var BRL
+        { width: 8.33 },  // F — Evol %
+        { width: 13.08 },  // G — Meta BRL
+        { width: 12.58 },  // H — GAP
+        { width: 6.41 },  // I — Status
+    ];
+
+    // ── Cabeçalho (linha 1) ───────────────────────────────────────────────
+    const hdrRow = ws.addRow(['Nome', 'Tipo', bL, cL, 'Var BRL', 'Evol %', 'Meta BRL', 'GAP', 'Status']);
+    hdrRow.eachCell(cell => {
+        cell.font = fontHdr;
+        cell.fill = fillHdr;
+        cell.alignment = { horizontal: cell.col === 1 ? 'left' : 'center', vertical: 'middle' };
+    });
+
+    // ── Linhas de dados ───────────────────────────────────────────────────
+    rows.forEach((r, i) => {
+        const exRow = i + 2;
+        const tipo = { pdv: 'PDV', cidade: 'Cidade', marca: 'Marca', brick: 'Brick' }[r.type] || r.type;
+        const status = r.status === 'acima' ? 'Acima' : 'Abaixo';
+        const varBRL = r.varBRL != null ? r.varBRL : 0;
+        const varPct = r.varPct != null ? r.varPct : 0;
+        const isPos = varBRL >= 0;
+
+        const dataRow = ws.addRow([
+            r.name,
+            tipo,
+            r.b != null ? r.b : 0,
+            r.c != null ? r.c : 0,
+            { formula: `D${exRow}-C${exRow}`, result: varBRL },
+            { formula: `D${exRow}/C${exRow}-1`, result: varPct },
+            r.targetVal != null ? r.targetVal : 0,
+            r.gap != null ? r.gap : 0,
+            status,
+        ]);
+
+        // Nome — bold, alinhado à esquerda
+        const cellA = dataRow.getCell(1);
+        cellA.font = fontBold;
+        cellA.alignment = { horizontal: 'left', vertical: 'middle' };
+
+        // Tipo — normal, esquerda
+        const cellB = dataRow.getCell(2);
+        cellB.font = fontBase;
+        cellB.alignment = { horizontal: 'left', vertical: 'middle' };
+
+        // Base (C) e Comp (D) — BRL, normal, centralizado
+        [3, 4].forEach(col => {
+            const cell = dataRow.getCell(col);
+            cell.numFmt = FMT_BRL;
+            cell.font = fontBase;
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+
+        // Var BRL (E) — BRL, bold+cor+fill condicional, centralizado
+        const cellE = dataRow.getCell(5);
+        cellE.numFmt = FMT_BRL;
+        cellE.font = isPos ? fontGrn : fontRed;
+        cellE.fill = isPos ? fillGrn : fillRed;
+        cellE.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Evol % (F) — PCT, bold+cor+fill condicional, centralizado
+        const cellF = dataRow.getCell(6);
+        cellF.numFmt = FMT_PCT;
+        cellF.font = isPos ? fontGrn : fontRed;
+        cellF.fill = isPos ? fillGrn : fillRed;
+        cellF.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Meta BRL (G) e GAP (H) — BRL, normal, centralizado
+        [7, 8].forEach(col => {
+            const cell = dataRow.getCell(col);
+            cell.numFmt = FMT_BRL;
+            cell.font = fontBase;
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+
+        // Status (I) — normal, centralizado
+        const cellI = dataRow.getCell(9);
+        cellI.font = fontBase;
+        cellI.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    // ── Congela linha 1 ───────────────────────────────────────────────────
+    ws.views = [{ state: 'frozen', xSplit: 0, ySplit: 1, activeCell: 'A2' }];
+
+    // ── Gera buffer e dispara download ────────────────────────────────────
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'projecao_export.csv';
+    const now = new Date();
+    const ts = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    a.href = url;
+    a.download = `projecao_${bL}_vs_${cL}_${ts}.xlsx`;
     a.click();
-    toast('CSV exportado!');
+    URL.revokeObjectURL(url);
+    toast('Excel exportado!');
 }
 
 /* ── bootstrap ─────────────────────────── */
