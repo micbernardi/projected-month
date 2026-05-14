@@ -5185,14 +5185,26 @@ function projRerender() {
     const hf = document.getElementById('proj-header-file');
     if (hf && bL && cL) hf.textContent = '— ' + bL + ' → ' + cL;
 
+    // Determina o tipo efetivo para os KPIs:
+    // Prioridade: tab ativo > typeFilter > tipo prioritário (marca > cidade > pdv > brick)
+    // Nunca soma múltiplas dimensões — cada dimensão representa 100% do volume
+    const activeType = PROJ.currentTab !== 'all'
+        ? PROJ.currentTab
+        : typeFilter !== 'all'
+            ? typeFilter
+            : null; // vai usar o prioritário abaixo
+
     const computed = PROJ.allRows
-        .filter(r => typeFilter === 'all' || r.type === typeFilter)
+        .filter(r => {
+            // para os KPIs usa o tipo ativo; para o computed geral filtra igual
+            if (typeFilter !== 'all') return r.type === typeFilter;
+            return true; // typeFilter=all: mantém tudo para rankings/tabela
+        })
         .map(r => {
             const { b, c } = getBC(r.vals);
             const varBRL = c - b;
             const varPct = b ? ((c / b) - 1) : null;
 
-            // v6.17: Cálculo inicial da meta padrão (base para compensação)
             const metaPctPadrao = target / 100;
             let metaPct = metaPctPadrao;
             let isReduzida = false;
@@ -5244,15 +5256,20 @@ function projRerender() {
         return { ...r, targetVal, gap, status: r.c >= targetVal ? 'acima' : 'abaixo' };
     });
 
-    // KPI cards (soma total dos filtrados)
-    const totB = finalComputed.reduce((s, r) => s + r.b, 0);
-    const totC = finalComputed.reduce((s, r) => s + r.c, 0);
-    const totVar = totC - totB;
-    const totPct = totB ? (totC / totB - 1) : 0;
-    const totTarget = finalComputed.reduce((s, r) => s + r.targetVal, 0);
-    const totGap = totC - totTarget;
+    // KPI cards: sempre uma única dimensão para não duplicar o volume
+    const kpiType = activeType
+        || (['marca', 'cidade', 'pdv', 'brick'].find(t => finalComputed.some(r => r.type === t)) || 'marca');
 
-    projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap, bL, cL);
+    const kpiRows = finalComputed.filter(r => r.type === kpiType);
+
+    const totB      = kpiRows.reduce((s, r) => s + r.b, 0);
+    const totC      = kpiRows.reduce((s, r) => s + r.c, 0);
+    const totVar    = totC - totB;
+    const totPct    = totB ? (totC / totB - 1) : 0;
+    const totTarget = kpiRows.reduce((s, r) => s + r.targetVal, 0);
+    const totGap    = totC - totTarget;
+
+    projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap, bL, cL, kpiType);
 
     projBuildRankings(finalComputed);
 
@@ -5266,14 +5283,17 @@ function projRerender() {
     projBuildTable(tableRows, bL, cL);
 }
 
-function projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap, bL, cL) {
+function projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap, bL, cL, kpiType) {
+    const typeLabels = { marca: 'Marcas', cidade: 'Cidades', pdv: 'PDVs', brick: 'Bricks' };
+    const typeSuffix = (PROJ.currentTab === 'all' && kpiType)
+        ? ' · ' + (typeLabels[kpiType] || '') : '';
 
     const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     const setCls = (id, c) => { const el = document.getElementById(id); if (el) el.className = 'proj-card-value ' + c; };
     const setTop = (id, c) => { const el = document.getElementById(id); if (el) el.style.setProperty('--proj-card-top', c); };
 
-    setTxt('proj-lbl-base', 'Total ' + bL); setTxt('proj-card-base', projFmtBRL(totB));
-    setTxt('proj-lbl-comp', 'Total ' + cL); setTxt('proj-card-comp', projFmtBRL(totC));
+    setTxt('proj-lbl-base', 'Total ' + bL + typeSuffix); setTxt('proj-card-base', projFmtBRL(totB));
+    setTxt('proj-lbl-comp', 'Total ' + cL + typeSuffix); setTxt('proj-card-comp', projFmtBRL(totC));
     setTxt('proj-lbl-var', 'Var. BRL (' + bL + ' ➔ ' + cL + ')');
     setTxt('proj-card-var', (totVar >= 0 ? '↑ ' : '↓ ') + projFmtBRL(Math.abs(totVar)));
     setCls('proj-card-var', totVar >= 0 ? 'proj-card-value proj-val-pos' : 'proj-card-value proj-val-neg');
