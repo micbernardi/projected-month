@@ -4254,11 +4254,11 @@ td.pdv-growth-neg {
     background: var(--s1, #fff);
     border-bottom: 1px solid var(--brd, #dbe1ed);
     border-radius: 0;
-    padding: 7px 20px;
+    padding: 6px 20px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 10px;
+    flex-wrap: nowrap;   /* não quebra linha — tudo numa faixa */
 }
 /* Cards dentro do bloco fixo */
 .proj-sticky-header .proj-cards-row {
@@ -4274,15 +4274,15 @@ td.pdv-growth-neg {
     color: var(--txt3, #94a3b8);
     white-space: nowrap;
 }
-.proj-ctrl-group { display: flex; align-items: center; gap: 6px; }
+.proj-ctrl-group { display: flex; align-items: center; gap: 5px; }
 .proj-controls-bar select,
 .proj-controls-bar input[type="number"] {
     background: var(--s2, #f5f7fc);
     border: 1px solid var(--brd, #dbe1ed);
     border-radius: 5px;
-    padding: 4px 8px;
+    padding: 3px 6px;
     font-family: inherit;
-    font-size: .75rem;
+    font-size: .72rem;
     color: var(--txt, #1e293b);
     font-weight: 500;
     outline: none;
@@ -4290,7 +4290,52 @@ td.pdv-growth-neg {
 }
 .proj-controls-bar select:focus,
 .proj-controls-bar input[type="number"]:focus { border-color: var(--acc, #1e40af); }
-.proj-ctrl-sep { width: 1px; height: 20px; background: var(--brd, #dbe1ed); }
+.proj-ctrl-sep { width: 1px; height: 18px; background: var(--brd, #dbe1ed); flex-shrink: 0; }
+
+/* Botão Trocar — visível sobre fundo claro */
+.proj-controls-bar .hdr-clear-btn {
+    background: var(--s2, #f5f7fc);
+    border: 1px solid var(--brd, #dbe1ed);
+    color: var(--txt2, #475569);
+    box-shadow: none;
+    font-size: .72rem;
+    padding: 4px 10px;
+}
+.proj-controls-bar .hdr-clear-btn:hover {
+    background: var(--s3, #e9edf5);
+    border-color: var(--navy4, #cbd2e0);
+    color: var(--txt, #1e293b);
+}
+
+/* Período A/B — layout compacto e bem distribuído */
+.proj-period-block {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.proj-period-label-a {
+    font-size: .58rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #3b82f6;
+    line-height: 1;
+}
+.proj-period-label-b {
+    font-size: .58rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #10b981;
+    line-height: 1;
+}
+.proj-vs-sep {
+    font-size: .75rem;
+    font-weight: 800;
+    color: var(--txt3, #94a3b8);
+    flex-shrink: 0;
+    padding: 0 2px;
+}
 
 /* ── KPI Cards ── */
 .proj-cards-row {
@@ -4766,4 +4811,59 @@ td.pdv-growth-neg {
     cursor: pointer;
     user-select: none;
     transition: background .12s;
+}
+
+/* ── Modo de período no Resultado Projetado ── */
+.proj-period-mode-wrap {
+    display: flex;
+    background: var(--s3, #e9edf5);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+}
+.proj-period-mode-btn {
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--txt2, #475569);
+    font-family: inherit;
+    font-size: .68rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+.proj-period-mode-btn.active {
+    background: var(--s1, #fff);
+    color: var(--acc, #1e40af);
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+.proj-shortcut-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.proj-shortcut-btn {
+    padding: 3px 9px;
+    border-radius: 4px;
+    border: 1px solid var(--brd, #dbe1ed);
+    background: var(--s1, #fff);
+    color: var(--acc, #1e40af);
+    font-family: inherit;
+    font-size: .68rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+.proj-shortcut-btn:hover {
+    background: var(--acc, #1e40af);
+    color: #fff;
+    border-color: var(--acc, #1e40af);
+}
+.proj-shortcut-btn.active-shortcut {
+    background: var(--acc, #1e40af);
+    color: #fff;
+    border-color: var(--acc, #1e40af);
 }

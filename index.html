@@ -295,8 +295,9 @@
             <div class="proj-sticky-header" id="proj-stickyHeader">
                 <!-- CONTROLS -->
                 <div class="proj-controls-bar">
+                    <!-- Tipo de Aba -->
                     <div class="proj-ctrl-group">
-                        <label class="proj-ctrl-label">Tipo de Aba</label>
+                        <label class="proj-ctrl-label">Tipo</label>
                         <select id="proj-filterType">
                             <option value="all">Todos</option>
                             <option value="pdv">PDVs</option>
@@ -305,27 +306,71 @@
                             <option value="brick">Bricks</option>
                         </select>
                     </div>
-                    <div class="proj-ctrl-group"><label class="proj-ctrl-label">Mês Base</label><select id="proj-filterBase"></select></div>
-                    <div class="proj-ctrl-group"><label class="proj-ctrl-label">Mês Comparação</label><select id="proj-filterComp"></select></div>
                     <div class="proj-ctrl-sep"></div>
+
+                    <!-- toggle de modo -->
+                    <div class="proj-period-mode-wrap">
+                        <button class="proj-period-mode-btn"        id="proj-btnModeSingle" onclick="projSetMode('single')">Mês a Mês</button>
+                        <button class="proj-period-mode-btn active" id="proj-btnModeRange"  onclick="projSetMode('range')">Intervalo</button>
+                    </div>
+
+                    <!-- MÊS A MÊS -->
+                    <div id="proj-single-controls" style="display:none;align-items:center;gap:6px">
+                        <div class="proj-ctrl-group">
+                            <label class="proj-ctrl-label">Mês A</label>
+                            <select id="proj-filterBase"></select>
+                        </div>
+                        <span class="proj-vs-sep">vs</span>
+                        <div class="proj-ctrl-group">
+                            <label class="proj-ctrl-label">Mês B</label>
+                            <select id="proj-filterComp"></select>
+                        </div>
+                    </div>
+
+                    <!-- PERÍODO A vs B -->
+                    <div id="proj-range-controls" style="display:flex;align-items:center;gap:6px">
+                        <div class="proj-period-block">
+                            <span class="proj-period-label-a">Período A</span>
+                            <div class="proj-ctrl-group">
+                                <label class="proj-ctrl-label">De</label>
+                                <select id="proj-filterAFrom"></select>
+                                <label class="proj-ctrl-label">Até</label>
+                                <select id="proj-filterATo"></select>
+                            </div>
+                        </div>
+                        <span class="proj-vs-sep">vs</span>
+                        <div class="proj-period-block">
+                            <span class="proj-period-label-b">Período B</span>
+                            <div class="proj-ctrl-group">
+                                <label class="proj-ctrl-label">De</label>
+                                <select id="proj-filterBFrom"></select>
+                                <label class="proj-ctrl-label">Até</label>
+                                <select id="proj-filterBTo"></select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- spacer empurra Meta/Tipo para a direita -->
+                    <div style="flex:1"></div>
+
+                    <!-- Meta -->
                     <div class="proj-ctrl-group" style="gap:4px">
-                        <span style="font-size:.9rem">🎯</span>
-                        <label class="proj-ctrl-label">Meta (%)</label>
-                        <input type="number" id="proj-filterTarget" value="14.2" step="0.1" min="0" style="width:62px">
+                        <label class="proj-ctrl-label">🎯 Meta (%)</label>
+                        <input type="number" id="proj-filterTarget" value="14.2" step="0.1" min="0" style="width:58px">
                     </div>
                     <div class="proj-ctrl-sep"></div>
-                    <div class="proj-ctrl-group" style="gap:4px" title="Padrão: meta = base × (1+X%). Ajustada: PDVs/bricks em queda recebem 50% da meta.">
-                        <span style="font-size:.9rem">⚙️</span>
-                        <label class="proj-ctrl-label">Tipo de Meta</label>
+                    <!-- Tipo de Meta -->
+                    <div class="proj-ctrl-group" style="gap:4px">
+                        <label class="proj-ctrl-label">⚙️ Tipo de Meta</label>
                         <select id="proj-filterMetaType">
                             <option value="padrao">Padrão</option>
                             <option value="ajustada">Ajustada por Performance</option>
                         </select>
                     </div>
-                    <div style="margin-left:auto;display:flex;gap:6px">
-                        <button class="hdr-clear-btn" id="proj-btnChangeFiles">↑ Trocar</button>
-                        <button class="hdr-send-btn" id="proj-btnExportCSV" disabled>⬇ Excel</button>
-                    </div>
+                    <div class="proj-ctrl-sep"></div>
+                    <!-- Ações -->
+                    <button class="hdr-clear-btn" id="proj-btnChangeFiles">↑ Trocar</button>
+                    <button class="hdr-send-btn" id="proj-btnExportCSV" disabled>⬇ Excel</button>
                 </div>
                 <!-- CARDS -->
                 <div class="proj-cards-row">

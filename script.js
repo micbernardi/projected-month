@@ -365,9 +365,9 @@ async function parseFiles(files, forceUnit) {
                    não começar com o dígito 1.                                          */
                 if (aoa.length > 1) {
                     const firstRow = aoa[1];
-                    const chkReg  = iRegional  >= 0 ? String(firstRow[iRegional]  || '').trim() : '';
+                    const chkReg = iRegional >= 0 ? String(firstRow[iRegional] || '').trim() : '';
                     const chkDist = iDistrital >= 0 ? String(firstRow[iDistrital] || '').trim() : '';
-                    const chkSec  = iSetor     >= 0 ? String(firstRow[iSetor]     || '').trim() : '';
+                    const chkSec = iSetor >= 0 ? String(firstRow[iSetor] || '').trim() : '';
                     const startsWithOne = v => !v || /^1/.test(String(v).replace(/\D/, ''));
                     if (!startsWithOne(chkReg) || !startsWithOne(chkDist) || !startsWithOne(chkSec)) {
                         showRegionalSulBlock();
@@ -461,10 +461,10 @@ function buildDB(rowsByMode) {
 /* ── Bloqueio de acesso: uso exclusivo da Regional Sul ── */
 function showRegionalSulBlock() {
     const uploadView = document.getElementById('uploadView');
-    const dashView   = document.getElementById('dashView');
-    const kpiStrip   = document.getElementById('kpiStrip');
-    if (dashView)  dashView.style.display  = 'none';
-    if (kpiStrip)  kpiStrip.style.display  = 'none';
+    const dashView = document.getElementById('dashView');
+    const kpiStrip = document.getElementById('kpiStrip');
+    if (dashView) dashView.style.display = 'none';
+    if (kpiStrip) kpiStrip.style.display = 'none';
     if (uploadView) uploadView.style.display = 'block';
     const existing = document.getElementById('regionalSulBlock');
     if (existing) existing.remove();
@@ -542,7 +542,7 @@ function calcRecBrick(superaCur, superaPrev, concMax, growth, pos, gapLider, lid
 
     // Gap para a posição imediatamente acima
     // Fallback para gapLider apenas se gapProximo não estiver disponível
-    const gapRef     = (gapProximo != null && gapProximo > 0) ? gapProximo : (gapLider || 0);
+    const gapRef = (gapProximo != null && gapProximo > 0) ? gapProximo : (gapLider || 0);
     const alcancavel = gapRef <= superaCur * 3;  // gap ≤ 3× venda Supera
 
     return alcancavel ? 'OPORTUNIDADE' : 'ACOMPANHAR';
@@ -808,7 +808,7 @@ function renderResumo() {
         const isExpanded = UI.expandedRows.has(rowId);
 
         // Toggle de exclusão de concorrentes (ex: DURATESTON no ATESTO)
-        const mktExcl  = MARKET_BRICK_EXCLUSIONS[normU(m.market)] || MARKET_BRICK_EXCLUSIONS[m.market];
+        const mktExcl = MARKET_BRICK_EXCLUSIONS[normU(m.market)] || MARKET_BRICK_EXCLUSIONS[m.market];
         const exclActive = mktExcl && !UI.marketExclusions[normU(m.market)];
         const toggleBtn = mktExcl ? ` <button
             class="excl-toggle-btn ${exclActive ? 'excl-on' : 'excl-off'}"
@@ -817,9 +817,9 @@ function renderResumo() {
                 ? 'Clique para incluir: ' + [...mktExcl].join(', ')
                 : 'Clique para excluir: ' + [...mktExcl].join(', ')}"
         >${exclActive
-            ? '⊘ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
-            : '＋ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
-        }</button>` : '';
+                ? '⊘ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
+                : '＋ ' + [...mktExcl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')
+            }</button>` : '';
 
         html += `<tr class="mkt-row" id="row_${rowId}">
             <td class="expand-cell"><button class="expand-btn" onclick="toggleExpand('${rowId}')">${isExpanded ? '−' : '+'}</button></td>
@@ -981,15 +981,15 @@ function _sortBricks(bricks) {
     const m = dir === 'asc' ? 1 : -1;
     return [...bricks].sort((a, b) => {
         let av, bv;
-        if (key === 'brick')      return m * a.brick.localeCompare(b.brick);
-        if (key === 'sector')     return m * (a.sector||'').localeCompare(b.sector||'');
+        if (key === 'brick') return m * a.brick.localeCompare(b.brick);
+        if (key === 'sector') return m * (a.sector || '').localeCompare(b.sector || '');
         if (key === 'superaPrev') { av = a.superaPrev; bv = b.superaPrev; }
-        else if (key === 'superaCur')  { av = a.superaCur; bv = b.superaCur; }
-        else if (key === 'totalPrev')  { av = a.totalPrev; bv = b.totalPrev; }
-        else if (key === 'totalCur')   { av = a.totalCur;  bv = b.totalCur;  }
-        else if (key === 'share')      { av = a.share;     bv = b.share;     }
-        else if (key === 'growth')     { av = a.growth ?? -Infinity; bv = b.growth ?? -Infinity; }
-        else if (key === 'gap')        { av = a.gapProximo ?? Infinity; bv = b.gapProximo ?? Infinity; }
+        else if (key === 'superaCur') { av = a.superaCur; bv = b.superaCur; }
+        else if (key === 'totalPrev') { av = a.totalPrev; bv = b.totalPrev; }
+        else if (key === 'totalCur') { av = a.totalCur; bv = b.totalCur; }
+        else if (key === 'share') { av = a.share; bv = b.share; }
+        else if (key === 'growth') { av = a.growth ?? -Infinity; bv = b.growth ?? -Infinity; }
+        else if (key === 'gap') { av = a.gapProximo ?? Infinity; bv = b.gapProximo ?? Infinity; }
         else { av = a.superaCur; bv = b.superaCur; }
         return m * (av - bv);
     });
@@ -1026,7 +1026,7 @@ function showBrickModal(market, rec) {
     };
     // Badge de exclusão visível no título quando há produtos excluídos
     const exclBadge = excl && excl.size
-        ? ` <span class="excl-badge" title="Concorrentes excluídos desta visão: ${[...excl].join(', ')}">⚠ excl. ${[...excl].map(p => p.replace(/\s*\([^)]+\)/,'')).join(', ')}</span>`
+        ? ` <span class="excl-badge" title="Concorrentes excluídos desta visão: ${[...excl].join(', ')}">⚠ excl. ${[...excl].map(p => p.replace(/\s*\([^)]+\)/, '')).join(', ')}</span>`
         : '';
     $('brickModalTitle').innerHTML = `<span class="mmodal-mkt">${market}</span>
         <span class="mmodal-sep">—</span>
@@ -1034,15 +1034,15 @@ function showBrickModal(market, rec) {
 
     let html = `<table class="modal-tbl bm-table" id="brickModalTable"><thead><tr>
         <th class="w-hash">#</th>
-        ${_thSort('brick',     'Brick',       'col-brick')}
-        ${_thSort('sector',    'Setor',       'col-setor')}
-        ${_thSort('superaPrev','Sup. Ant.',   'c th-supera')}
-        ${_thSort('superaCur', 'Sup. Atual',  'c th-supera')}
-        ${_thSort('totalPrev', 'Mkt. Ant.',   'c')}
-        ${_thSort('totalCur',  'Mkt. Atual',  'c')}
-        ${_thSort('share',     'Share',       'c')}
-        ${_thSort('growth',    'Evol. Sup.',  'c')}
-        ${_thSort('gap',       'Gap próx.',   'c')}
+        ${_thSort('brick', 'Brick', 'col-brick')}
+        ${_thSort('sector', 'Setor', 'col-setor')}
+        ${_thSort('superaPrev', 'Sup. Ant.', 'c th-supera')}
+        ${_thSort('superaCur', 'Sup. Atual', 'c th-supera')}
+        ${_thSort('totalPrev', 'Mkt. Ant.', 'c')}
+        ${_thSort('totalCur', 'Mkt. Atual', 'c')}
+        ${_thSort('share', 'Share', 'c')}
+        ${_thSort('growth', 'Evol. Sup.', 'c')}
+        ${_thSort('gap', 'Gap próx.', 'c')}
         <th class="c">Líder</th>
     </tr></thead><tbody>`;
 
@@ -1083,7 +1083,7 @@ function showBrickModal(market, rec) {
                     const multRounded = multRaw != null ? Math.round(multRaw * 10) / 10 : null;
                     const mult = multRounded == null ? '∞'
                         : Number.isInteger(multRounded) ? String(multRounded)
-                        : multRounded.toFixed(1);
+                            : multRounded.toFixed(1);
                     const nomeAcima = acima.name.replace(/\s*\([^)]+\)/, '');
                     gapProxCls = gp <= b.superaCur * 3 ? 'vpos' : 'vneg';
                     gapProxLabel = `+${fmtValue(gp)} <span style="font-size:.7em;opacity:.7">(${mult}×) p/ ${nomeAcima}</span>`;
@@ -4675,8 +4675,71 @@ const PROJ = {
     currentTab: 'all',
     currentPage: 1,
     PAGE_SIZE: 50,
-    STORAGE_KEY: 'proj_dashboard_v4'
+    STORAGE_KEY: 'proj_dashboard_v4',
+    periodMode: 'range',    // 'single' | 'range'
+    activeShortcut: null    // 'MES' | 'TRI' | 'YTD' | 'MAT' | null
 };
+
+/* ── helpers de período ──────────────────────────────────────────── */
+
+// Soma os valores de uma lista de períodos para uma linha
+function projSumPeriods(vals, periods) {
+    return periods.reduce((s, p) => s + (vals[p] || 0), 0);
+}
+
+// Desloca um período YYYYMM em N meses
+function projShiftPeriod(yyyymm, months) {
+    const y = parseInt(yyyymm.slice(0, 4));
+    const m = parseInt(yyyymm.slice(4, 6)) - 1 + months;
+    const date = new Date(y, m, 1);
+    return String(date.getFullYear()) + String(date.getMonth() + 1).padStart(2, '0');
+}
+
+// Retorna todos os períodos disponíveis entre from e to (inclusive)
+function projPeriodsInRange(from, to, available) {
+    return available.filter(p => p >= from && p <= to).sort();
+}
+
+// Desloca um intervalo inteiro 12 meses para trás (mesmo período ano anterior)
+function projShiftRangeBack12(periods) {
+    return periods.map(p => projShiftPeriod(p, -12));
+}
+
+/* ── toggle de modo ─────────────────────────────────────────────── */
+function projSetMode(mode, skipRerender) {
+    PROJ.periodMode = mode;
+    const isRange = mode === 'range';
+    const rc = document.getElementById('proj-range-controls');
+    const sc = document.getElementById('proj-single-controls');
+    if (rc) rc.style.display = isRange ? 'flex' : 'none';
+    if (sc) sc.style.display = !isRange ? 'flex' : 'none';
+    document.getElementById('proj-btnModeRange')?.classList.toggle('active', isRange);
+    document.getElementById('proj-btnModeSingle')?.classList.toggle('active', !isRange);
+    PROJ.currentPage = 1;
+    if (!skipRerender) projRerender();
+}
+
+/* ── atalhos removidos — períodos livres via A/B ── */
+function projApplyShortcut(shortcut) { /* não utilizado */ }
+
+/* ── obtém períodos do intervalo atual ─────────────────────────── */
+function projGetRangePeriods() {
+    const all = PROJ.appData ? [...PROJ.appData.periods].sort() : [];
+    const aFrom = (document.getElementById('proj-filterAFrom') || {}).value || '';
+    const aTo = (document.getElementById('proj-filterATo') || {}).value || '';
+    const bFrom = (document.getElementById('proj-filterBFrom') || {}).value || '';
+    const bTo = (document.getElementById('proj-filterBTo') || {}).value || '';
+    const base = projPeriodsInRange(aFrom, aTo, all);
+    const comp = projPeriodsInRange(bFrom, bTo, all);
+    return { comp, base };
+}
+
+/* ── label do intervalo ────────────────────────────────────────── */
+function projRangeLabel(periods) {
+    if (!periods.length) return '—';
+    if (periods.length === 1) return projPeriodLabel(periods[0]);
+    return projPeriodLabel(periods[0]) + ' – ' + projPeriodLabel(periods[periods.length - 1]);
+}
 
 /* ── abrir / fechar view ───────────────────── */
 function projUpdateStickyOffsets() {
@@ -4733,7 +4796,7 @@ function projFmtBRL(n) {
 }
 function projFmtPct(n) {
     if (n == null) return '—';
-    return (n >= 0 ? '+' : '') + (n * 100).toFixed(1) + '%';
+    return (n >= 0 ? '+' : '') + (n * 100).toFixed(2) + '%';
 }
 function projPeriodLabel(p) {
     if (!p) return '';
@@ -5010,19 +5073,42 @@ function projInitDash() {
     const defComp = periods[lastIdx] || '';
     const defBase = periods[Math.max(0, lastIdx - 12)] || '';
 
-    ['proj-filterBase', 'proj-filterComp'].forEach(id => {
-        const sel = document.getElementById(id);
-        if (!sel) return;
-        sel.innerHTML = '';
-        periods.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = projPeriodLabel(p); sel.appendChild(o); });
-    });
+    // popula todos os selects
+    ['proj-filterBase', 'proj-filterComp',
+        'proj-filterAFrom', 'proj-filterATo',
+        'proj-filterBFrom', 'proj-filterBTo'].forEach(id => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            sel.innerHTML = '';
+            periods.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = projPeriodLabel(p); sel.appendChild(o); });
+        });
+    // Mês a Mês: defBase vs defComp
     const fb = document.getElementById('proj-filterBase');
     const fc = document.getElementById('proj-filterComp');
     if (fb) fb.value = defBase;
     if (fc) fc.value = defComp;
+    // Período A vs B: padrão Jan–último ano vs Jan–este ano
+    const bFrom = defComp.slice(0, 4) + '01', bTo = defComp;
+    const aFrom = projShiftPeriod(bFrom, -12), aTo = projShiftPeriod(bTo, -12);
+    const setDef = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    setDef('proj-filterAFrom', aFrom); setDef('proj-filterATo', aTo);
+    setDef('proj-filterBFrom', bFrom); setDef('proj-filterBTo', bTo);
+    // persiste no estado para fallback no primeiro rerender
+    PROJ._lastBasePeriods = projPeriodsInRange(aFrom, aTo, periods);
+    PROJ._lastCompPeriods = projPeriodsInRange(bFrom, bTo, periods);
+    // listeners
+    ['proj-filterBase', 'proj-filterComp',
+        'proj-filterAFrom', 'proj-filterATo',
+        'proj-filterBFrom', 'proj-filterBTo'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el._projBound) {
+                el._projBound = true;
+                el.addEventListener('change', () => { PROJ.currentPage = 1; projRerender(); });
+            }
+        });
 
-    const hf = document.getElementById('proj-header-file');
-    if (hf) hf.textContent = '— ' + projPeriodLabel(defBase) + ' → ' + projPeriodLabel(defComp);
+    // sincroniza DOM (sem rerender — fazemos abaixo com tudo pronto)
+    projSetMode(PROJ.periodMode, true);
 
     // contagens nos botões de tab
     const counts = { pdv: 0, cidade: 0, marca: 0, brick: 0 };
@@ -5041,9 +5127,9 @@ function projInitDash() {
         });
     }
 
+    // rerender único e definitivo — tudo populado e sincronizado
     projRerender();
-    // dois rAF para garantir que o sticky-header foi pintado antes de medir
-    requestAnimationFrame(() => requestAnimationFrame(() => projUpdateStickyOffsets()));
+    requestAnimationFrame(() => projUpdateStickyOffsets());
     // v6.15 — garante que mudanças de viewport (resize / zoom) recalculem o offset
     if (!window._projResizeBound) {
         window._projResizeBound = true;
@@ -5056,12 +5142,45 @@ function projInitDash() {
 /* ── rerender ─────────────────────────── */
 function projRerender() {
     const typeFilter = (document.getElementById('proj-filterType') || {}).value || 'all';
-    const base = (document.getElementById('proj-filterBase') || {}).value || '';
-    const comp = (document.getElementById('proj-filterComp') || {}).value || '';
     const target = parseFloat((document.getElementById('proj-filterTarget') || {}).value) || 0;
     const metaType = (document.getElementById('proj-filterMetaType') || {}).value || 'padrao';
     const search = ((document.getElementById('proj-searchBox') || {}).value || '').toLowerCase();
-    const bL = projPeriodLabel(base), cL = projPeriodLabel(comp);
+
+    let bL, cL, getBC;
+    const all = PROJ.appData ? [...PROJ.appData.periods].sort() : [];
+
+    if (PROJ.periodMode === 'single') {
+        const base = (document.getElementById('proj-filterBase') || {}).value || '';
+        const comp = (document.getElementById('proj-filterComp') || {}).value || '';
+        bL = projPeriodLabel(base);
+        cL = projPeriodLabel(comp);
+        getBC = (vals) => ({ b: vals[base] || 0, c: vals[comp] || 0 });
+    } else {
+        // lê selects A/B
+        const aFrom = (document.getElementById('proj-filterAFrom') || {}).value || '';
+        const aTo = (document.getElementById('proj-filterATo') || {}).value || '';
+        const bFrom = (document.getElementById('proj-filterBFrom') || {}).value || '';
+        const bTo = (document.getElementById('proj-filterBTo') || {}).value || '';
+
+        // se os selects ainda não foram populados, usa fallback do PROJ state
+        const basePeriods = (aFrom && aTo)
+            ? projPeriodsInRange(aFrom, aTo, all)
+            : (PROJ._lastBasePeriods || []);
+        const compPeriods = (bFrom && bTo)
+            ? projPeriodsInRange(bFrom, bTo, all)
+            : (PROJ._lastCompPeriods || []);
+
+        // persiste para próximo fallback
+        if (basePeriods.length) PROJ._lastBasePeriods = basePeriods;
+        if (compPeriods.length) PROJ._lastCompPeriods = compPeriods;
+
+        bL = projRangeLabel(basePeriods);
+        cL = projRangeLabel(compPeriods);
+        getBC = (vals) => ({
+            b: projSumPeriods(vals, basePeriods),
+            c: projSumPeriods(vals, compPeriods)
+        });
+    }
 
     const hf = document.getElementById('proj-header-file');
     if (hf && bL && cL) hf.textContent = '— ' + bL + ' → ' + cL;
@@ -5069,7 +5188,7 @@ function projRerender() {
     const computed = PROJ.allRows
         .filter(r => typeFilter === 'all' || r.type === typeFilter)
         .map(r => {
-            const b = r.vals[base] || 0, c = r.vals[comp] || 0;
+            const { b, c } = getBC(r.vals);
             const varBRL = c - b;
             const varPct = b ? ((c / b) - 1) : null;
 
@@ -5133,7 +5252,7 @@ function projRerender() {
     const totTarget = finalComputed.reduce((s, r) => s + r.targetVal, 0);
     const totGap = totC - totTarget;
 
-    projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap);
+    projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap, bL, cL);
 
     projBuildRankings(finalComputed);
 
@@ -5147,9 +5266,7 @@ function projRerender() {
     projBuildTable(tableRows, bL, cL);
 }
 
-function projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap) {
-    const bL = projPeriodLabel((document.getElementById('proj-filterBase') || {}).value);
-    const cL = projPeriodLabel((document.getElementById('proj-filterComp') || {}).value);
+function projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap, bL, cL) {
 
     const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     const setCls = (id, c) => { const el = document.getElementById(id); if (el) el.className = 'proj-card-value ' + c; };
