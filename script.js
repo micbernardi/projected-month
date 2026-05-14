@@ -4869,6 +4869,9 @@ function openProjecaoView() {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
+    // Ocultar apenas o texto Distrital|Período (mantém busca CNPJ/Brick)
+    const hdrSub = document.querySelector('.hdr-sub');
+    if (hdrSub) hdrSub.style.display = 'none';
     // Mostrar título central
     const ct = document.getElementById('hdrProjCenterTitle');
     if (ct) ct.style.display = 'block';
@@ -4897,6 +4900,9 @@ function closeProjecaoView() {
         const el = document.getElementById(id);
         if (el) el.style.display = '';
     });
+    // Restaurar texto Distrital|Período
+    const hdrSub = document.querySelector('.hdr-sub');
+    if (hdrSub) hdrSub.style.display = '';
     // Esconder título central
     const ct = document.getElementById('hdrProjCenterTitle');
     if (ct) ct.style.display = 'none';
