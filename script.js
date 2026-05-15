@@ -902,7 +902,7 @@ function renderResumo() {
                         <th>MARCA</th>
                         <th class="r">${pd} ANTERIOR</th>
                         <th class="r">${pd} ATUAL</th>
-                        <th class="r">EVOLUÇÃO</th>
+                        <th class="r">EVOL.</th>
                         <th class="r">SHARE ATUAL</th>
                     </tr></thead>
                     <tbody>${rankRows}</tbody>
@@ -4840,12 +4840,28 @@ function openProjecaoView() {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
-    // Ocultar apenas o texto Distrital|Período (mantém busca CNPJ/Brick)
-    const hdrSub = document.querySelector('.hdr-sub');
-    if (hdrSub) hdrSub.style.display = 'none';
+    // Ocultar a linha inferior do header inteira e mover busca CNPJ para hdr-right
+    const hdrBottom = document.querySelector('.hdr-bottom');
+    const hdrRight  = document.querySelector('.hdr-right');
+    const cnpjWrap  = document.querySelector('.cnpj-quick-wrap');
+    if (hdrBottom) hdrBottom.style.display = 'none';
+    if (cnpjWrap && hdrRight) {
+        cnpjWrap.dataset.origParent = 'hdr-bottom';
+        hdrRight.appendChild(cnpjWrap);
+    }
     // Mostrar título central
     const ct = document.getElementById('hdrProjCenterTitle');
     if (ct) ct.style.display = 'block';
+    // Compactar header (oculta hdr-bottom)
+    const hdr = document.getElementById('mainHeader');
+    if (hdr) {
+        hdr.classList.add('proj-mode');
+        // Atualiza --hdr-h para a nova altura (sem hdr-bottom ~38px)
+        requestAnimationFrame(() => {
+            document.documentElement.style.setProperty('--hdr-h', hdr.offsetHeight + 'px');
+            if (typeof recomputeStickyOffsets === 'function') recomputeStickyOffsets();
+        });
+    }
     const pv = document.getElementById('projecaoView');
     pv.style.display = 'block';
     window.scrollTo(0, 0);
@@ -4871,12 +4887,26 @@ function closeProjecaoView() {
         const el = document.getElementById(id);
         if (el) el.style.display = '';
     });
-    // Restaurar texto Distrital|Período
-    const hdrSub = document.querySelector('.hdr-sub');
-    if (hdrSub) hdrSub.style.display = '';
+    // Restaurar linha inferior e devolver busca CNPJ ao hdr-bottom
+    const hdrBottom2 = document.querySelector('.hdr-bottom');
+    const cnpjWrap2  = document.querySelector('.cnpj-quick-wrap');
+    if (hdrBottom2) hdrBottom2.style.display = '';
+    if (cnpjWrap2 && cnpjWrap2.dataset.origParent === 'hdr-bottom' && hdrBottom2) {
+        hdrBottom2.appendChild(cnpjWrap2);
+        delete cnpjWrap2.dataset.origParent;
+    }
     // Esconder título central
     const ct = document.getElementById('hdrProjCenterTitle');
     if (ct) ct.style.display = 'none';
+    // Restaurar header ao tamanho original
+    const hdr2 = document.getElementById('mainHeader');
+    if (hdr2) {
+        hdr2.classList.remove('proj-mode');
+        requestAnimationFrame(() => {
+            document.documentElement.style.setProperty('--hdr-h', hdr2.offsetHeight + 'px');
+            if (typeof recomputeStickyOffsets === 'function') recomputeStickyOffsets();
+        });
+    }
     // historyIndicator só aparece se houver dados salvos — deixa o estado original
     const hi = document.getElementById('historyIndicator');
     if (hi) hi.style.display = hi.dataset.wasVisible === 'true' ? '' : 'none';
@@ -4901,7 +4931,7 @@ function projPeriodLabel(p) {
     if (s.length === 6) {
         const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
         const m = parseInt(s.slice(4, 6), 10) - 1;
-        return (months[m] || s.slice(4)) + '/' + s.slice(0, 4);
+        return (months[m] || s.slice(4)) + '/' + s.slice(2, 4);
     }
     return s;
 }
@@ -5391,14 +5421,14 @@ function projUpdateKPIs(totB, totC, totVar, totPct, totTarget, totGap, bL, cL, k
     const setCls = (id, c) => { const el = document.getElementById(id); if (el) el.className = 'proj-card-value ' + c; };
     const setTop = (id, c) => { const el = document.getElementById(id); if (el) el.style.setProperty('--proj-card-top', c); };
 
-    setTxt('proj-lbl-base', 'Total ' + bL + typeSuffix); setTxt('proj-card-base', projFmtBRL(totB));
-    setTxt('proj-lbl-comp', 'Total ' + cL + typeSuffix); setTxt('proj-card-comp', projFmtBRL(totC));
+    setTxt('proj-lbl-base', 'Total ' + bL); setTxt('proj-card-base', projFmtBRL(totB));
+    setTxt('proj-lbl-comp', 'Total ' + cL); setTxt('proj-card-comp', projFmtBRL(totC));
     setTxt('proj-lbl-var', 'Var. BRL (' + bL + ' ➔ ' + cL + ')');
     setTxt('proj-card-var', (totVar >= 0 ? '↑ ' : '↓ ') + projFmtBRL(Math.abs(totVar)));
     setCls('proj-card-var', totVar >= 0 ? 'proj-card-value proj-val-pos' : 'proj-card-value proj-val-neg');
     setTop('proj-card-var-wrap', totVar >= 0 ? 'var(--grn,#059669)' : 'var(--red,#dc2626)');
 
-    setTxt('proj-lbl-pct', 'Evolução % (' + bL + ' ➔ ' + cL + ')');
+    setTxt('proj-lbl-pct', 'Evol. % (' + bL + ' ➔ ' + cL + ')');
     setTxt('proj-card-pct', (totPct != null && totPct >= 0 ? '↑ ' : '↓ ') + projFmtPct(totPct));
     setCls('proj-card-pct', totPct != null && totPct >= 0 ? 'proj-card-value proj-val-pos' : 'proj-card-value proj-val-neg');
     setTop('proj-card-pct-wrap', totPct != null && totPct >= 0 ? 'var(--grn,#059669)' : 'var(--red,#dc2626)');
