@@ -1955,7 +1955,7 @@ body {
 
 /* ═══ Tabela Detalhe por Brick ═══ */
 .brick-view-wrap {
-    padding: 8px 10px;
+    padding: 8px 10px 8px 0;
     background: var(--bg);
 }
 
