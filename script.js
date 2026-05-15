@@ -1403,7 +1403,7 @@ function rebuildSelectors() {
         if (wrap) wrap.style.display = (DB.distritais.length > 1) ? '' : 'none';
     }
     const fbSec = $('fbSec'); const fbMkt = $('fbMkt'); const fbGoto = $('fbGoto');
-    [fbSec, fbMkt, fbGoto].forEach(sel => { while (sel.children.length > 1) sel.removeChild(sel.lastChild); });
+    [fbSec, fbMkt, fbGoto].filter(Boolean).forEach(sel => { while (sel.children.length > 1) sel.removeChild(sel.lastChild); });
     // Setores e mercados: une os da base consolidada com os da base PDV (se houver)
     let sectors = [...DB.sectors];
     let markets = [...DB.markets];
@@ -1421,7 +1421,7 @@ function rebuildSelectors() {
     sectors.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; fbSec.appendChild(o); });
     markets.forEach(m => {
         const o = document.createElement('option'); o.value = m; o.textContent = m; fbMkt.appendChild(o);
-        const o2 = o.cloneNode(true); fbGoto.appendChild(o2);
+        if (fbGoto) { const o2 = o.cloneNode(true); fbGoto.appendChild(o2); }
     });
     /* mantém seleções atuais quando ainda existirem na nova lista */
     if ($('fbSec')) $('fbSec').value = sectors.includes(UI.sector) ? UI.sector : 'all';
