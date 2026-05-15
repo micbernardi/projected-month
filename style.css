@@ -2642,6 +2642,7 @@ td.vneg strong {
     border-radius: 6px;
     padding: 1px 4px 1px 8px;
     transition: all .2s ease;
+    margin-left: auto;
 }
 
 .cnpj-quick-wrap:focus-within {

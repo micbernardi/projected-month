@@ -5465,13 +5465,16 @@ function projBuildRankCard(title, rows, isTop) {
     head.innerHTML = title + '<span class="proj-rank-toggle">▼</span>';
     const medals = ['🥇', '🥈', '🥉'];
     const body = document.createElement('div');
-    const isPdvCard = rows.length > 0 && rows[0].type === 'pdv';
+    const isPdvCard   = rows.length > 0 && rows[0].type === 'pdv';
+    const isBrickCard = rows.length > 0 && rows[0].type === 'brick';
     const tbody = rows.map((r, i) => {
         const rank = isTop && i < 3 ? `<span>${medals[i]}</span>` : `<b>${i + 1}</b>`;
         const vc = r.varBRL >= 0 ? 'proj-val-pos' : 'proj-val-neg';
         const pc = (r.varPct != null && r.varPct >= 0) ? 'proj-val-pos' : 'proj-val-neg';
-        const nameAttr = isPdvCard ? `class="proj-rank-pdv-name" title="Clique para copiar CNPJ e buscar" style="cursor:pointer;text-decoration:underline dotted;"` : `title="${r.name}"`;
-        return `<tr><td>${rank}</td><td ${nameAttr} data-fullname="${r.name}">${r.name}</td><td class="${vc}">${projFmtBRL(r.varBRL)}</td><td class="${pc}">${projFmtPct(r.varPct)}</td></tr>`;
+        let nameAttr = `title="${r.name}"`;
+        if (isPdvCard)   nameAttr = `class="proj-rank-pdv-name"   data-fullname="${r.name}" title="Clique para copiar CNPJ e buscar" style="cursor:pointer;text-decoration:underline dotted;"`;
+        if (isBrickCard) nameAttr = `class="proj-rank-brick-name" data-market="${r.name}"   title="Clique para ver no Detalhe por Brick" style="cursor:pointer;text-decoration:underline dotted;"`;
+        return `<tr><td>${rank}</td><td ${nameAttr}>${r.name}</td><td class="${vc}">${projFmtBRL(r.varBRL)}</td><td class="${pc}">${projFmtPct(r.varPct)}</td></tr>`;
     }).join('');
     body.innerHTML = `<table class="proj-rank-table"><thead><tr><th>#</th><th>Nome</th><th>Var. BRL</th><th>Evol. %</th></tr></thead><tbody>${tbody}</tbody></table>`;
 
@@ -5480,14 +5483,11 @@ function projBuildRankCard(title, rows, isTop) {
         body.querySelectorAll('.proj-rank-pdv-name').forEach(td => {
             td.addEventListener('click', () => {
                 const fullName = td.dataset.fullname || '';
-                // Extrai sequência de dígitos com 14 caracteres do nome (CNPJ)
                 const match = fullName.match(/(\d{14})/);
                 const cnpjDigits = match ? match[1] : onlyDigits(fullName.split('-').pop() || '');
                 if (cnpjDigits && cnpjDigits.length >= 8) {
-                    // Copia para clipboard
                     const masked = cnpjDigits.length === 14 ? maskCNPJ(cnpjDigits) : cnpjDigits;
                     navigator.clipboard.writeText(cnpjDigits).catch(() => {});
-                    // Preenche o campo de busca do header e abre o modal
                     const inp = document.getElementById('cnpjQuickInput');
                     if (inp) { inp.value = masked; }
                     if (cnpjDigits.length === 14) {
@@ -5498,6 +5498,33 @@ function projBuildRankCard(title, rows, isTop) {
                 } else {
                     toast('CNPJ não identificado neste nome.');
                 }
+            });
+        });
+    }
+
+    // Clique no nome do Brick → fecha Resultado Projetado, filtra pelo brick e abre Detalhe por Brick
+    if (isBrickCard) {
+        body.querySelectorAll('.proj-rank-brick-name').forEach(td => {
+            td.addEventListener('click', () => {
+                const brickName = td.dataset.market || '';
+                if (!brickName) return;
+                // Fecha a Central de Projeções
+                closeProjecaoView();
+                // Limpa filtro de mercado (mostra todos os mercados)
+                UI.market = 'all';
+                const fbMkt = document.getElementById('fbMkt');
+                if (fbMkt) fbMkt.value = 'all';
+                // Define o search com o nome/código do brick para filtrar a tabela
+                UI.search = brickName;
+                const fbSearch = document.getElementById('fbSearch');
+                if (fbSearch) fbSearch.value = brickName;
+                // Navega para a aba Detalhe por Brick
+                switchTab('brick');
+                // Marca a aba como ativa visualmente
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                const brickTabBtn = document.querySelector('.tab-btn[data-tab="brick"]');
+                if (brickTabBtn) brickTabBtn.classList.add('active');
+                window.scrollTo(0, 0);
             });
         });
     }
