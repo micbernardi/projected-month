@@ -1705,8 +1705,81 @@ body {
     margin-bottom: 10px;
 }
 
+/* Cards de bricks na coluna lateral */
+.bricks-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.brick-card {
+    background: #fff;
+    border: 1px solid var(--brd);
+    border-radius: 7px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04);
+    font-size: 11.5px;
+}
+
+.brick-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.brick-card-loc {
+    font-weight: 700;
+    color: var(--navy);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.brick-card-rec {
+    flex-shrink: 0;
+    font-size: 9px !important;
+    padding: 2px 7px !important;
+}
+
+.brick-card-mid {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--txt2);
+    font-size: 10.5px;
+}
+
+.brick-card-nums {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--txt);
+    flex-wrap: wrap;
+}
+
+.brick-card-mkt {
+    color: var(--txt2);
+}
+
+.brick-card-sup {
+    font-weight: 700;
+}
+
+.brick-card-share {
+    color: var(--navy);
+}
+
 .rank-tbl {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     background: #fff;
     border: 1px solid var(--brd);
@@ -1715,6 +1788,14 @@ body {
     box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
     font-size: 12.5px;
 }
+
+/* Distribuição proporcional das colunas da tabela de ranking */
+.rank-tbl thead th:nth-child(1) { width: 5%; }   /* POS. */
+.rank-tbl thead th:nth-child(2) { width: 35%; }  /* MARCA */
+.rank-tbl thead th:nth-child(3) { width: 15%; }  /* ANTERIOR */
+.rank-tbl thead th:nth-child(4) { width: 15%; }  /* ATUAL */
+.rank-tbl thead th:nth-child(5) { width: 15%; }  /* EVOLUÇÃO */
+.rank-tbl thead th:nth-child(6) { width: 15%; }  /* SHARE */
 
 .rank-tbl thead th {
     background: var(--navy);

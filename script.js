@@ -872,10 +872,29 @@ function renderResumo() {
         </tr>`;
 
         if (isExpanded) {
-            // v3.5: ranking como TABELA VERTICIAL com evolução atual vs anterior.
+            // Ranking como tabela full-width, sem coluna de bricks lateral
             const ranking = aggMarketRanking(m.rows, pd, 30);
-            const unitLabel = UI.unitMode === 'RS' ? 'R$' : 'Un.';
-            html += `<tr class="concs-row"><td></td><td colspan="13" class="concs-wrap">
+            const totPrev = ranking.reduce((s, c) => s + (c.prev || 0), 0);
+            const totCur  = ranking.reduce((s, c) => s + (c.cur  || 0), 0);
+            const totG    = totPrev ? ((totCur / totPrev) - 1) : null;
+            const totGCls = totG == null ? 'vnull' : (totG >= 0 ? 'vpos' : 'vneg');
+            const totGTxt = totG == null ? '—' : ((totG >= 0 ? '+' : '') + (totG * 100).toFixed(1) + '%');
+            const rankRows = ranking.map((c, i) => {
+                const isSup = c.role === 'SUPERA';
+                const g = c.growth;
+                const gCls = g == null ? 'vnull' : (g >= 0 ? 'vpos' : 'vneg');
+                const gTxt = g == null ? '—' : ((g >= 0 ? '+' : '') + (g * 100).toFixed(1) + '%');
+                const displayName = isSup ? c.name.replace(/\s*\(SP0\)\s*/i, '').trim() : c.name;
+                return `<tr class="rank-row${isSup ? ' rank-supera' : ''}">
+                    <td class="c rank-pos">${i + 1}º</td>
+                    <td class="rank-name">${displayName}${isSup ? ' <span class="rank-sup-badge">SUPERA</span>' : ''}</td>
+                    <td class="r rank-prev">${fmtValue(c.prev)}</td>
+                    <td class="r">${fmtValue(c.cur)}</td>
+                    <td class="r ${gCls}"><strong>${gTxt}</strong></td>
+                    <td class="r"><span class="rank-share">${c.share.toFixed(1)}%</span></td>
+                </tr>`;
+            }).join('');
+            html += `<tr class="concs-row"><td colspan="14" class="concs-wrap">
                 <div class="concs-title">🏆 Ranking neste mercado — ${pd} · ${UI.unitMode === 'RS' ? 'R$' : 'Unidades'}</div>
                 <table class="rank-tbl">
                     <thead><tr>
@@ -886,64 +905,16 @@ function renderResumo() {
                         <th class="r">EVOLUÇÃO</th>
                         <th class="r">SHARE ATUAL</th>
                     </tr></thead>
-                    <tbody>
-                    ${ranking.map((c, i) => {
-                const isSup = c.role === 'SUPERA';
-                const g = c.growth;
-                const gCls = g == null ? 'vnull' : (g >= 0 ? 'vpos' : 'vneg');
-                const gTxt = g == null ? '—' : ((g >= 0 ? '+' : '') + (g * 100).toFixed(1) + '%');
-                const displayName = isSup ? c.name.replace(/\s*\(SP0\)\s*/i, '').trim() : c.name;
-                return `
-                        <tr class="rank-row${isSup ? ' rank-supera' : ''}">
-                            <td class="c rank-pos">${i + 1}º</td>
-                            <td class="rank-name">${displayName}${isSup ? ' <span class="rank-sup-badge">SUPERA</span>' : ''}</td>
-                            <td class="r rank-prev">${fmtValue(c.prev)}</td>
-                            <td class="r">${fmtValue(c.cur)}</td>
-                            <td class="r ${gCls}"><strong>${gTxt}</strong></td>
-                            <td class="r"><span class="rank-share">${c.share.toFixed(1)}%</span></td>
-                        </tr>`;
-            }).join('')}
-                    </tbody>
-                    <tfoot>
-                        ${(() => {
-                const totPrev = ranking.reduce((s, c) => s + (c.prev || 0), 0);
-                const totCur  = ranking.reduce((s, c) => s + (c.cur  || 0), 0);
-                const totG    = totPrev ? ((totCur / totPrev) - 1) : null;
-                const totGCls = totG == null ? 'vnull' : (totG >= 0 ? 'vpos' : 'vneg');
-                const totGTxt = totG == null ? '—' : ((totG >= 0 ? '+' : '') + (totG * 100).toFixed(1) + '%');
-                return `<tr class="rank-total-row">
-                            <td colspan="2" class="rank-total-label">📊 TOTAL DO MERCADO</td>
-                            <td class="r rank-prev">${fmtValue(totPrev)}</td>
-                            <td class="r">${fmtValue(totCur)}</td>
-                            <td class="r ${totGCls}"><strong>${totGTxt}</strong></td>
-                            <td class="r"><span class="rank-share">100%</span></td>
-                        </tr>`;
-            })()}
-                    </tfoot>
+                    <tbody>${rankRows}</tbody>
+                    <tfoot><tr class="rank-total-row">
+                        <td colspan="2" class="rank-total-label">📊 TOTAL DO MERCADO</td>
+                        <td class="r rank-prev">${fmtValue(totPrev)}</td>
+                        <td class="r">${fmtValue(totCur)}</td>
+                        <td class="r ${totGCls}"><strong>${totGTxt}</strong></td>
+                        <td class="r"><span class="rank-share">100%</span></td>
+                    </tr></tfoot>
                 </table>
             </td></tr>`;
-
-            // Bricks individuais: linhas estreitas com crescimento, share e recomendação
-            const bricks = [...m.bricks].sort((a, b) => b.superaCur - a.superaCur);
-            bricks.forEach(b => {
-                const gCls = b.growth != null && b.growth >= 0 ? 'vpos' : 'vneg';
-                const secClean = cleanSectorName(b.sector);
-                html += `<tr class="brick-row">
-                    <td></td>
-                    <td class="brick-cell">
-                        <span class="brick-loc">📍 ${b.cidade || '—'}</span>
-                        <span class="brick-code">${b.brick}</span>
-                        ${secClean ? `<span class="brick-sector">${secClean}</span>` : ''}
-                    </td>
-                    <td class="c"><small>1 brick</small></td>
-                    <td class="c">${fmtValue(b.totalCur)}</td>
-                    <td class="c c-supera vacc">${fmtValue(b.superaCur)}</td>
-                    <td class="c c-share"><strong>${b.share.toFixed(1)}%</strong></td>
-                    <td class="c ${gCls}"><strong>${fmtPct(b.growth)}</strong></td>
-                    <td colspan="7" class="c"><span class="rec-pill ${recPillCls(b.rec)}">${b.rec}</span></td>
-                    <td></td>
-                </tr>`;
-            });
         }
     });
     html += '</tbody></table></div>';
