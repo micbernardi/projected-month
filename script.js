@@ -1325,6 +1325,7 @@ function setUnitMode(mode) {
     /* Marca que o usuário escolheu explicitamente o modo (para o próximo upload) */
     window._unitForced = mode;
     UI.unitMode = mode;
+    if (typeof PDV !== 'undefined') PDV.viewMode = null; // segue o modo global
     applyHierarchy();
     document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
     $('btn' + mode).classList.add('active');
@@ -2535,6 +2536,7 @@ function median(arr) {
    ════════════════════════════════════════════════════════════════ */
 
 const PDV = {
+    viewMode: null,  // modo da aba PDV (null = usa UI.unitMode global)
     rowsByValueMode: { UN: [], RS: [] },  // todas as linhas brutas (uma por CNPJ × Marca × Brick)
     pdvsByValueMode: { UN: [], RS: [] },  // agregadas: 1 obj por CNPJ
     cnpjCache: {},                         // cache local de respostas BrasilAPI
@@ -2579,123 +2581,198 @@ function saveCnpjCache() {
    PDV = "CNPJ | RAZAO SOCIAL | BAIRRO - CIDADE / UF"
 */
 async function parsePDVFile(file, forceUnit) {
+    const setProgress = (msg) => {
+        ['uploadProgress', 'pdvUploadProgress', 'pdvWorkerProgress'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = msg;
+        });
+    };
+
+    setProgress('Lendo arquivo...');
+    await new Promise(r => setTimeout(r, 0));
+
     const data = await file.arrayBuffer();
-    const wb = XLSX.read(data, { type: 'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    if (!aoa.length) throw new Error('Planilha vazia.');
 
     const fname = (file.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    /* Detecção de modo (R$ vs Un.):
-       1. Nome do arquivo tem prioridade — indica claramente o modo.
-          VALOR: reais, r$, $, ppp, valor → RS
-          UNIDADES: unidades, uni, un → UN
-       2. Se o nome não indicar nada, respeita o forceUnit do botão da UI.
-       3. Caso contrário, INSPECIONA os valores numéricos das colunas MAT/YTD/TRI:
-          se >25% das células não-zero tiverem casas decimais, é R$. Se forem inteiras, Un. */
     let unitMode = /reais?|r\$|\$|\bppp\b|valor/.test(fname) ? 'RS'
                  : /unidades?|\buni\b|\bun\b|dddunid/.test(fname) ? 'UN'
                  : forceUnit || null;
 
-    // Localiza header
-    let headerIdx = 0;
-    for (let i = 0; i < Math.min(5, aoa.length); i++) {
-        const row = aoa[i].map(c => String(c || '').toLowerCase());
-        if (row.some(c => c.includes('pdv')) && row.some(c => c.includes('brick'))) {
-            headerIdx = i; break;
+    // ── Abre o XLSX como ZIP e extrai XMLs ───────────────────────────────
+    setProgress('Abrindo arquivo...');
+    await new Promise(r => setTimeout(r, 0));
+
+    let sheetXml, ssXml;
+    try {
+        const zip = await JSZip.loadAsync(data);
+        const ssFile = zip.file('xl/sharedStrings.xml');
+        ssXml = ssFile ? await ssFile.async('string') : '';
+        const sheetKey = Object.keys(zip.files).find(k => /xl\/worksheets\/sheet\d+\.xml$/.test(k));
+        if (!sheetKey) throw new Error('Sheet não encontrada.');
+        setProgress('Descompactando...');
+        await new Promise(r => setTimeout(r, 0));
+        sheetXml = await zip.files[sheetKey].async('string');
+    } catch (e) {
+        console.warn('[PDV] JSZip falhou:', e.message);
+        setProgress('Modo alternativo...');
+        await new Promise(r => setTimeout(r, 100));
+        const wb = XLSX.read(data, { type:'array', dense:true, raw:true, cellDates:false, cellNF:false, cellText:false });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:true });
+        if (!aoa || !aoa.length) throw new Error('Planilha vazia.');
+        return _parsePDVFromAoa(aoa, unitMode, forceUnit, file.name, setProgress);
+    }
+
+    // ── Parse SharedStrings (tabela de strings do Excel) ─────────────────
+    setProgress('Carregando strings...');
+    await new Promise(r => setTimeout(r, 0));
+
+    const sharedStrings = [];
+    const tRe = /<t(?:\s[^>]*)?>([^<]*)<\/t>/g;
+    let tm;
+    while ((tm = tRe.exec(ssXml)) !== null) {
+        sharedStrings.push(tm[1]
+            .replace(/&amp;/g,'&').replace(/&lt;/g,'<')
+            .replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#xD;/g,''));
+    }
+
+    // ── Regex de célula — sem backtracking ────────────────────────────────
+    const cellRe = /<c r="([A-Z]+)\d+"([^>]*)>(?:<v>([^<]*)<\/v>)?/g;
+
+    const parseRow = (rowContent) => {
+        const cells = {};
+        cellRe.lastIndex = 0;
+        let cm;
+        while ((cm = cellRe.exec(rowContent)) !== null) {
+            const col = cm[1], attrs = cm[2] || '', val = cm[3] || '';
+            cells[col] = (attrs.indexOf('t="s"') >= 0 && val !== '')
+                ? (sharedStrings[parseInt(val)] || '') : val;
+        }
+        return cells;
+    };
+
+    // ── SPLIT por <row  — NUNCA usa regex no XML de 45MB inteiro ─────────
+    // split('<row ') parte o XML em fragmentos; cada fragmento começa com
+    // os atributos da row (r="N" ...) e termina antes do próximo <row.
+    setProgress('Indexando linhas...');
+    await new Promise(r => setTimeout(r, 0));
+
+    const rowParts = sheetXml.split('<row ');
+    // rowParts[0] = cabeçalho XML (antes da 1ª row) — ignorar
+    // rowParts[i] = 'r="N" ...>CÉLULAS</row>...'  para i >= 1
+
+    // ── Detecta colunas no header (r="1") ────────────────────────────────
+    let headerContent = '';
+    for (let i = 1; i < rowParts.length; i++) {
+        if (rowParts[i].startsWith('r="1"') || rowParts[i].startsWith("r='1'")) {
+            const gt = rowParts[i].indexOf('>');
+            const end = rowParts[i].indexOf('</row>');
+            if (gt >= 0 && end > gt) { headerContent = rowParts[i].slice(gt + 1, end); break; }
         }
     }
-    const header = aoa[headerIdx].map(c => String(c || '').toLowerCase().trim());
+    if (!headerContent) throw new Error('Linha de cabeçalho não encontrada.');
 
-    const ix = (patterns) => header.findIndex(h => patterns.some(p => p.test(h)));
-    // Colunas hierárquicas: detecção EXCLUSIVAMENTE por nome.
-    // Se a planilha não tem colunas "Regional"/"Distrital" explícitas, derivamos do código do Setor.
-    // Setor típico: "101101 - NOME" → Distrital = "101100" (4 primeiros + "00"), Regional = "101000"
-    const iReg = ix([/^regional$/]);   // -1 se não existir
-    const iDst = ix([/^distrital$/]);  // -1 se não existir
-    const iSet = ix([/^setor$/, /setor/]);
-    const iMrc = ix([/^marca$/, /marca/]);
-    const iBrk = ix([/^brick$/, /brick/]);
-    const iPdv = ix([/^pdv$/, /pdv/, /cnpj/]);
-    // MAT atual = coluna "MAT" sem (p.p), MAT anterior = "MAT (p.p)"
-    const iMatA = header.findIndex(h => /^mat$/i.test(h));
-    const iMatP = header.findIndex(h => /^mat\s*\(p\.?p\.?\)/i.test(h));
-    const iYtdA = header.findIndex(h => /^ytd$/i.test(h));
-    const iYtdP = header.findIndex(h => /^ytd\s*\(p\.?p\.?\)/i.test(h));
-    const iTriA = header.findIndex(h => /^tri$/i.test(h));
-    const iTriP = header.findIndex(h => /^tri\s*\(p\.?p\.?\)/i.test(h));
-    const iTriY = header.findIndex(h => /^tri\s*\(p\.?y\.?\)/i.test(h));
+    const headerCells = parseRow(headerContent);
+    const colMap = {};
+    for (const [col, val] of Object.entries(headerCells)) {
+        colMap[col] = String(val).toLowerCase().trim();
+    }
 
-    if (iPdv < 0 || iBrk < 0) throw new Error('Cabeçalho inválido (faltam PDV/Brick).');
+    const colByName = (patterns) => {
+        for (const [col, name] of Object.entries(colMap)) {
+            if (patterns.some(p => p.test(name))) return col;
+        }
+        return null;
+    };
 
-    /* Heurística automática de R$ vs Un. quando não foi forçado nem detectado pelo nome */
+    const cReg  = colByName([/^regional$/]);
+    const cDst  = colByName([/^distrital$/]);
+    const cSet  = colByName([/^setor$/, /setor/]);
+    const cMrc  = colByName([/^marca$/, /marca/]);
+    const cBrk  = colByName([/^brick$/, /brick/]);
+    const cPdv  = colByName([/^pdv$/, /pdv/, /cnpj/]);
+    const cMatA = colByName([/^mat$/]);
+    const cMatP = colByName([/^mat\s*\(p\.?p\.?\)/]);
+    const cYtdA = colByName([/^ytd$/]);
+    const cYtdP = colByName([/^ytd\s*\(p\.?p\.?\)/]);
+    const cTriA = colByName([/^tri$/]);
+    const cTriP = colByName([/^tri\s*\(p\.?p\.?\)/]);
+    const cTriY = colByName([/^tri\s*\(p\.?y\.?\)/]);
+
+    if (!cPdv || !cBrk) {
+        throw new Error('Colunas PDV/Brick não encontradas. Colunas: ' + Object.values(colMap).join(', '));
+    }
+
+    // ── Detecta R$/Un. por amostra ───────────────────────────────────────
     if (!unitMode) {
         let total = 0, decimals = 0;
-        const numCols = [iMatA, iMatP, iYtdA, iYtdP, iTriA, iTriP, iTriY].filter(i => i >= 0);
-        const limit = Math.min(aoa.length, headerIdx + 200); /* checa até 200 linhas */
-        for (let r = headerIdx + 1; r < limit; r++) {
-            const row = aoa[r];
-            if (!row) continue;
-            for (const c of numCols) {
-                const v = parseNum(row[c]);
-                if (v && Math.abs(v) > 0.0001) {
-                    total++;
-                    /* Se o valor não é inteiro (tem fração), conta como decimal */
-                    if (Math.abs(v - Math.round(v)) > 0.001) decimals++;
-                }
+        const numCols = [cMatA, cMatP, cYtdA, cYtdP, cTriA, cTriP].filter(Boolean);
+        for (let i = 1; i < Math.min(202, rowParts.length); i++) {
+            const gt = rowParts[i].indexOf('>');
+            const end = rowParts[i].indexOf('</row>');
+            if (gt < 0 || end <= gt) continue;
+            const cells = parseRow(rowParts[i].slice(gt + 1, end));
+            for (const col of numCols) {
+                const v = parseFloat(cells[col] || 0);
+                if (v && Math.abs(v) > 0.0001) { total++; if (Math.abs(v - Math.round(v)) > 0.001) decimals++; }
             }
         }
-        const ratio = total ? decimals / total : 0;
-        unitMode = (ratio > 0.25) ? 'RS' : 'UN';
-        console.log('[PDV][detectUnit]', file.name, '| amostras=', total, 'decimais=', decimals, 'ratio=', ratio.toFixed(2), '→ modo=', unitMode);
+        unitMode = (total && decimals / total > 0.25) ? 'RS' : 'UN';
     }
 
+    // ── Loop principal — processa cada parte com yield ────────────────────
     const rows = [];
-    for (let r = headerIdx + 1; r < aoa.length; r++) {
-        const row = aoa[r];
-        if (!row || !row.length) continue;
-        const pdvStr = String(row[iPdv] || '').trim();
-        if (!pdvStr) continue;
+    const CHUNK = 3000;
+    const total = rowParts.length - 1;
 
-        // Quebra "CNPJ | RAZAO | ENDERECO"
+    for (let i = 1; i < rowParts.length; i++) {
+        // Yield a cada CHUNK para não travar a UI
+        if ((i - 1) % CHUNK === 0) {
+            setProgress('Processando... ' + (i - 1).toLocaleString('pt-BR') + ' / ' + total.toLocaleString('pt-BR'));
+            await new Promise(r => setTimeout(r, 0));
+        }
+
+        // Extrai rowNum do atributo r="N"
+        const rMatch = rowParts[i].match(/^r="(\d+)"/);
+        if (!rMatch || parseInt(rMatch[1]) <= 1) continue;
+
+        const gt = rowParts[i].indexOf('>');
+        const end = rowParts[i].indexOf('</row>');
+        if (gt < 0 || end <= gt) continue;
+
+        const cells = parseRow(rowParts[i].slice(gt + 1, end));
+
+        const pdvStr = (cells[cPdv] || '').trim();
+        if (!pdvStr) continue;
         const parts = pdvStr.split('|').map(s => s.trim());
         const cnpjRaw = onlyDigits(parts[0] || '');
         if (cnpjRaw.length !== 14) continue;
+
         const razao = parts[1] || '';
-        const local = parts[2] || ''; // "BAIRRO - CIDADE / UF"
+        const local  = parts[2] || '';
         let bairro = '', cidade = '', uf = '';
-        const localM = local.match(/^(.*?)\s*-\s*(.*?)\s*\/\s*([A-Z]{2})\s*$/);
-        if (localM) { bairro = localM[1].trim(); cidade = localM[2].trim(); uf = localM[3].trim(); }
+        const lm = local.match(/^(.*?)\s*-\s*(.*?)\s*\/\s*([A-Z]{2})\s*$/);
+        if (lm) { bairro = lm[1].trim(); cidade = lm[2].trim(); uf = lm[3].trim(); }
 
-        const setor = iSet >= 0 ? String(row[iSet] || '').trim() : '';
-        // Deriva código numérico do setor (ex: "101101 - NOME" → "101101")
-        const setorCodeMatch = setor.match(/(\d{4,6})/);
-        const setorCode = setorCodeMatch ? setorCodeMatch[1] : '';
-        // Distrital: usa coluna se existir, senão deriva (4 primeiros dígitos + "00")
-        let distrital = iDst >= 0 ? String(row[iDst] || '').trim() : '';
-        if (!distrital && setorCode.length >= 4) {
-            distrital = setorCode.slice(0, 4) + '00';
-        }
-        // Regional: usa coluna se existir, senão deriva (3 primeiros dígitos + "000")
-        let regional = iReg >= 0 ? String(row[iReg] || '').trim() : '';
-        if (!regional && setorCode.length >= 3) {
-            regional = setorCode.slice(0, 3) + '000';
-        }
-        const marca = String(row[iMrc] || '').trim();
-        const brick = String(row[iBrk] || '').trim();
+        const setor = cSet ? (cells[cSet] || '').trim() : '';
+        const scm = setor.match(/(\d{4,6})/), setorCode = scm ? scm[1] : '';
+        let distrital = cDst ? (cells[cDst] || '').trim() : '';
+        if (!distrital && setorCode.length >= 4) distrital = setorCode.slice(0, 4) + '00';
+        let regional = cReg ? (cells[cReg] || '').trim() : '';
+        if (!regional && setorCode.length >= 3) regional = setorCode.slice(0, 3) + '000';
 
-        const matA = iMatA >= 0 ? parseNum(row[iMatA]) : 0;
-        const matP = iMatP >= 0 ? parseNum(row[iMatP]) : 0;
-        const ytdA = iYtdA >= 0 ? parseNum(row[iYtdA]) : 0;
-        const ytdP = iYtdP >= 0 ? parseNum(row[iYtdP]) : 0;
-        const triA = iTriA >= 0 ? parseNum(row[iTriA]) : 0;
-        const triP = iTriP >= 0 ? parseNum(row[iTriP]) : 0;
-        const triY = iTriY >= 0 ? parseNum(row[iTriY]) : 0;
+        const marca = cMrc ? (cells[cMrc] || '').trim() : '';
+        const brick = cBrk ? (cells[cBrk] || '').trim() : '';
+        const matA = parseNum(cMatA ? cells[cMatA] : 0);
+        const matP = parseNum(cMatP ? cells[cMatP] : 0);
+        const ytdA = parseNum(cYtdA ? cells[cYtdA] : 0);
+        const ytdP = parseNum(cYtdP ? cells[cYtdP] : 0);
+        const triA = parseNum(cTriA ? cells[cTriA] : 0);
+        const triP = parseNum(cTriP ? cells[cTriP] : 0);
+        const triY = parseNum(cTriY ? cells[cTriY] : 0);
 
         if (matA + matP + ytdA + ytdP + triA + triP === 0) continue;
 
-        // tri_prev = trimestre do ANO ANTERIOR (TRI p.y.), pois comparação é sempre ano vs ano.
-        // tri_qprev = trimestre imediatamente anterior (TRI p.p.) — guardado para referência futura.
         rows.push({
             cnpj: cnpjRaw, razao, bairro, cidade, uf,
             regional, distrital, setor, marca, brick,
@@ -2705,8 +2782,55 @@ async function parsePDVFile(file, forceUnit) {
             unitMode
         });
     }
+
+    setProgress('');
     return { rows, unitMode };
 }
+
+/* Fallback AOA quando JSZip não disponível */
+async function _parsePDVFromAoa(aoa, unitMode, forceUnit, fileName, setProgress) {
+    const fname = (fileName||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if (!unitMode) unitMode = /reais?|r\$|\$|\bppp\b|valor/.test(fname)?'RS':/unidades?|\buni\b|\bun\b|dddunid/.test(fname)?'UN':forceUnit||'UN';
+    let headerIdx=0;
+    for(let i=0;i<Math.min(5,aoa.length);i++){const row=aoa[i].map(c=>String(c||'').toLowerCase());if(row.some(c=>c.includes('pdv'))&&row.some(c=>c.includes('brick'))){headerIdx=i;break;}}
+    const header=aoa[headerIdx].map(c=>String(c||'').toLowerCase().trim());
+    const ix=(pats)=>header.findIndex(h=>pats.some(p=>p.test(h)));
+    const iReg=ix([/^regional$/]),iDst=ix([/^distrital$/]),iSet=ix([/^setor$/,/setor/]);
+    const iMrc=ix([/^marca$/,/marca/]),iBrk=ix([/^brick$/,/brick/]),iPdv=ix([/^pdv$/,/pdv/,/cnpj/]);
+    const iMatA=header.findIndex(h=>/^mat$/i.test(h)),iMatP=header.findIndex(h=>/^mat\s*\(p\.?p\.?\)/i.test(h));
+    const iYtdA=header.findIndex(h=>/^ytd$/i.test(h)),iYtdP=header.findIndex(h=>/^ytd\s*\(p\.?p\.?\)/i.test(h));
+    const iTriA=header.findIndex(h=>/^tri$/i.test(h)),iTriP=header.findIndex(h=>/^tri\s*\(p\.?p\.?\)/i.test(h));
+    const iTriY=header.findIndex(h=>/^tri\s*\(p\.?y\.?\)/i.test(h));
+    if(iPdv<0||iBrk<0) throw new Error('Colunas PDV/Brick não encontradas.');
+    const rows=[];const tot=aoa.length-headerIdx-1;
+    for(let r=headerIdx+1;r<aoa.length;r++){
+        if((r-headerIdx-1)%3000===0){setProgress('Processando... '+(r-headerIdx-1).toLocaleString('pt-BR')+' / '+tot.toLocaleString('pt-BR'));await new Promise(res=>setTimeout(res,0));}
+        const row=aoa[r];if(!row||!row.length)continue;
+        const pdvStr=String(row[iPdv]||'').trim();if(!pdvStr)continue;
+        const parts=pdvStr.split('|').map(s=>s.trim());
+        const cnpjRaw=onlyDigits(parts[0]||'');if(cnpjRaw.length!==14)continue;
+        const razao=parts[1]||'',local=parts[2]||'';
+        let bairro='',cidade='',uf='';
+        const lm=local.match(/^(.*?)\s*-\s*(.*?)\s*\/\s*([A-Z]{2})\s*$/);
+        if(lm){bairro=lm[1].trim();cidade=lm[2].trim();uf=lm[3].trim();}
+        const setor=iSet>=0?String(row[iSet]||'').trim():'';
+        const scm=setor.match(/(\d{4,6})/),setorCode=scm?scm[1]:'';
+        let distrital=iDst>=0?String(row[iDst]||'').trim():'';if(!distrital&&setorCode.length>=4)distrital=setorCode.slice(0,4)+'00';
+        let regional=iReg>=0?String(row[iReg]||'').trim():'';if(!regional&&setorCode.length>=3)regional=setorCode.slice(0,3)+'000';
+        const marca=String(row[iMrc]||'').trim(),brick=String(row[iBrk]||'').trim();
+        const matA=iMatA>=0?parseNum(row[iMatA]):0,matP=iMatP>=0?parseNum(row[iMatP]):0;
+        const ytdA=iYtdA>=0?parseNum(row[iYtdA]):0,ytdP=iYtdP>=0?parseNum(row[iYtdP]):0;
+        const triA=iTriA>=0?parseNum(row[iTriA]):0,triP=iTriP>=0?parseNum(row[iTriP]):0;
+        const triY=iTriY>=0?parseNum(row[iTriY]):0;
+        if(matA+matP+ytdA+ytdP+triA+triP===0)continue;
+        rows.push({cnpj:cnpjRaw,razao,bairro,cidade,uf,regional,distrital,setor,marca,brick,
+            mat_cur:matA,mat_prev:matP,ytd_cur:ytdA,ytd_prev:ytdP,
+            tri_cur:triA,tri_prev:triY,tri_qprev:triP,unitMode});
+    }
+    setProgress('');
+    return {rows,unitMode};
+}
+
 
 /* Agrega rows brutas em 1 entrada por CNPJ — com lista de produtos por dentro */
 function aggregatePDVs(rows) {
@@ -2818,25 +2942,20 @@ function classificarPDVs(pdvs) {
    Quando a quota é excedida, mostramos um aviso amigável ao usuário. */
 let _pdvQuotaWarned = false;
 function savePDVData() {
-    try {
-        const data = JSON.stringify({
-            UN: PDV.rowsByValueMode.UN,
-            RS: PDV.rowsByValueMode.RS
-        });
-        localStorage.setItem('SUPERA_PDV_DATA_v1', data);
-        _pdvQuotaWarned = false;
-    } catch (e) {
-        /* Quota exceeded — limpa qualquer entrada parcial e avisa o usuário */
+    // Planilhas de PDV com >10k linhas são muito grandes para localStorage (~33MB vs limite 5MB).
+    // Não tentamos salvar para evitar travar o browser. O usuário recarrega ao reabrir.
+    const totalRows = (PDV.rowsByValueMode.UN || []).length + (PDV.rowsByValueMode.RS || []).length;
+    if (totalRows > 10000) {
+        console.info('[PDV] Base grande (' + totalRows + ' linhas) — não persiste em localStorage.');
         try { localStorage.removeItem('SUPERA_PDV_DATA_v1'); } catch (_) { }
-        if (!_pdvQuotaWarned) {
-            _pdvQuotaWarned = true;
-            try {
-                if (typeof toast === 'function') {
-                    toast('Base de PDVs muito grande para histórico local. Você precisará recarregar a planilha PDV ao reabrir.', 'warn', 5000);
-                }
-            } catch (_) { }
-            console.warn('[PDV] Quota localStorage excedida — histórico de PDVs não será mantido entre sessões.');
-        }
+        return;
+    }
+    try {
+        const data = JSON.stringify({ UN: PDV.rowsByValueMode.UN, RS: PDV.rowsByValueMode.RS });
+        localStorage.setItem('SUPERA_PDV_DATA_v1', data);
+    } catch (e) {
+        try { localStorage.removeItem('SUPERA_PDV_DATA_v1'); } catch (_) { }
+        console.warn('[PDV] Quota localStorage excedida.');
     }
 }
 
@@ -2857,9 +2976,23 @@ function loadPDVData() {
 async function handlePDVUpload(files, opts) {
     const forceUnit = (opts && opts.forceUnit) || null;
     let countOk = 0, errors = [];
+    // Mostra banner de loading enquanto o Worker processa
+    const _showPDVLoading = (fname) => {
+        const pdvTab = document.getElementById('tab-pdv');
+        if (pdvTab) {
+            pdvTab.innerHTML = `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px;gap:18px;">
+                    <div style="font-size:2.5rem;animation:spin 1.2s linear infinite">⚙️</div>
+                    <div style="font-size:1.1rem;font-weight:700;color:#1d4ed8">Processando ${fname}</div>
+                    <div id="pdvWorkerProgress" style="font-size:0.92rem;color:#475569;min-height:1.4em">Iniciando...</div>
+                    <div style="font-size:0.82rem;color:#94a3b8">Arquivo grande — aguarde, pode levar alguns segundos</div>
+                </div>`;
+        }
+    };
+
     for (const f of files) {
         try {
-            toast('Processando ' + f.name + '...');
+            _showPDVLoading(f.name);
             const { rows, unitMode } = await parsePDVFile(f, forceUnit);
             // Substitui (não acumula) o conjunto correspondente — comportamento mais previsível.
             PDV.rowsByValueMode[unitMode] = rows;
@@ -2872,27 +3005,18 @@ async function handlePDVUpload(files, opts) {
     }
     savePDVData();
     if (countOk) {
-        /* v5.5 — Mostra a contagem do MODO que acabou de ser carregado, e não
-           o modo ativo da UI (que pode estar diferente). */
+        // Determina qual modo foi carregado agora
         const lastMode = (PDV.rowsByValueMode.UN.length > 0 && PDV.rowsByValueMode.RS.length > 0)
             ? UI.unitMode
             : (PDV.rowsByValueMode.RS.length ? 'RS' : 'UN');
         const tot = PDV.pdvsByValueMode[lastMode].length;
-        /* Se a UI está em modo diferente do que acabou de chegar e não há dados consolidados
-           naquele modo, troca automaticamente para o modo carregado para evitar tela vazia. */
-        const allMM = (DB.allRowsByValueMode || { UN: [], RS: [] });
-        const dbHasCurrent = (allMM[UI.unitMode] || []).length > 0;
-        const pdvHasCurrent = (PDV.pdvsByValueMode[UI.unitMode] || []).length > 0;
-        if (!dbHasCurrent && !pdvHasCurrent && lastMode !== UI.unitMode) {
-            UI.unitMode = lastMode;
-            document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
-            const btn2 = $('btn' + UI.unitMode); if (btn2) btn2.classList.add('active');
-            applyHierarchy();
-        }
         toast(`${tot} PDV(s) carregados em ${lastMode === 'RS' ? 'R$' : 'Unidades'}.`);
+
+        // Garante que a aba PDV mostre o modo recém-carregado.
+        // A aba PDV tem modo próprio (PDV.viewMode) independente do modo global da análise.
+        PDV.viewMode = lastMode;
     }
     if (errors.length) toast('Erros: ' + errors.join(' | '));
-    /* Atualiza badge de status do header (Un./R$) após carregar PDV */
     if (typeof updateDatasetStatus === 'function') updateDatasetStatus();
     renderPDV();
 }
@@ -2901,7 +3025,8 @@ function clearPDVData() {
     PDV.rowsByValueMode = { UN: [], RS: [] };
     PDV.pdvsByValueMode = { UN: [], RS: [] };
     try { localStorage.removeItem('SUPERA_PDV_DATA_v1'); } catch (e) { }
-    PDV.filter = { brick: [], cidade: [], setor: [], marca: [], classe: 'all', search: '' };
+    PDV.filter = { brick: [], cidade: [], setor: [], marca: [], classe: 'all', search: '', distrital: 'all' };
+    PDV.viewMode = null; // null = usa UI.unitMode global
     toast('Base de PDVs limpa.');
     renderPDV();
 }
@@ -2912,7 +3037,9 @@ function renderPDV() {
     if (!el) return;
     el.classList.add('pdv-view');
 
-    const mode = UI.unitMode;
+    // PDV.viewMode é definido ao carregar uma planilha de PDV.
+    // Permite que a aba PDV mostre UN mesmo quando a análise principal está em R$, e vice-versa.
+    const mode = PDV.viewMode || UI.unitMode;
     const pdvs = PDV.pdvsByValueMode[mode] || [];
     const otherMode = mode === 'UN' ? 'RS' : 'UN';
     const hasOther = (PDV.pdvsByValueMode[otherMode] || []).length > 0;
@@ -3013,11 +3140,22 @@ function renderPDV() {
         if (gMarket && !matchMarket(p.marcas, gMarket)) return false;
         return true;
     });
-    const totalPdvs = pdvsGlobal.length;
+    // Coleta distritais disponíveis (para seletor local da aba PDV)
+    const distritalSet = new Set();
+    pdvsGlobal.forEach(p => { if (p.distritais) p.distritais.forEach(d => { if (d) distritalSet.add(d); }); });
+    const distritalArr = [...distritalSet].sort();
 
-    // Coleta opções de filtro local a partir do universo já recortado pelos filtros globais
+    // Filtro LOCAL de Distrital (filterbar da aba PDV - independente do header global)
+    const localDistrital = f.distrital && f.distrital !== 'all' ? f.distrital : null;
+    const pdvsAfterDist = localDistrital
+        ? pdvsGlobal.filter(p => p.distritais && matchSector([...p.distritais], localDistrital))
+        : pdvsGlobal;
+
+    const totalPdvs = pdvsAfterDist.length;
+
+    // Coleta opções de filtro local a partir do universo recortado (distrital + header)
     const bricksSet = new Set(), citySet = new Set(), secSet = new Set(), marcaSet = new Set();
-    pdvsGlobal.forEach(p => {
+    pdvsAfterDist.forEach(p => {
         p.bricks.forEach(b => bricksSet.add(b));
         if (p.cidade) citySet.add(p.cidade);
         p.setores.forEach(s => secSet.add(s));
@@ -3064,8 +3202,24 @@ function renderPDV() {
         </div>`;
     };
 
+    // Monta opções de Distrital para o select local
+    const distritalOpts = distritalArr.map(d => {
+        const namePart = d.replace(/^\d+\s*-?\s*/, '').trim();
+        const lbl = namePart || d;
+        return `<option value="${d}" ${f.distrital === d ? 'selected' : ''}>${lbl}</option>`;
+    }).join('');
+
     let html = `
         <div class="pdv-filterbar">
+            ${distritalArr.length > 1 ? `
+            <label class="pdv-dist-label">Distrital</label>
+            <div class="pdv-dist-wrap">
+                <select id="pdvFilterDistrital" class="pdv-dist-select${localDistrital ? ' pdv-dist-active' : ''}">
+                    <option value="all"${!localDistrital ? ' selected' : ''}>🌐 Todas</option>
+                    ${distritalOpts}
+                </select>
+                ${localDistrital ? `<button class="pdv-dist-clear" id="pdvDistClear" title="Ver todas as distritais">✕</button>` : ''}
+            </div>` : ''}
             <label>Brick</label>${mkDropdown('pdvFilterBrick', 'brick', bricksSet, 'Todos os Bricks')}
             <label>Cidade</label>${mkDropdown('pdvFilterCidade', 'cidade', citySet, 'Todas as Cidades')}
             <label>Setor</label>${mkDropdown('pdvFilterSetor', 'setor', secSet, 'Todos os Setores')}
@@ -3083,7 +3237,9 @@ function renderPDV() {
         </div>`;
 
     // Banner DEPOIS da filterbar — inclui badges de contexto para filtros do header ativos
+    const localDistName = localDistrital ? (localDistrital.replace(/^\d+\s*-?\s*/, '').trim() || localDistrital) : null;
     const _ctxBadges = [
+        localDistrital ? `<span class="pdv-ctx-badge pdv-ctx-dist-local" title="Filtro de Distrital (aba PDV)">🏢 ${escapeHTML(localDistName)}</span>` : '',
         gDistrital ? `<span class="pdv-ctx-badge pdv-ctx-dist" title="Filtro de Distrital ativo">📍 ${escapeHTML(gDistrital)}</span>` : '',
         gSector ? `<span class="pdv-ctx-badge pdv-ctx-setor" title="Filtro de Setor ativo">🏢 ${escapeHTML(gSector)}</span>` : '',
         gRegional ? `<span class="pdv-ctx-badge pdv-ctx-reg" title="Filtro de Regional ativo">🌐 ${escapeHTML(gRegional)}</span>` : '',
@@ -3094,11 +3250,13 @@ function renderPDV() {
             <div class="pdv-tb-info">
                 Visualizando <b>${totalPdvs}</b> farmácia(s) em <b>${mode === 'RS' ? 'R$' : 'Unidades'}</b>
                 · Período: <b>${periodLblHeader}</b>
+                ${localDistrital ? `<br><span style="color:#0369a1;font-weight:600">🏢 Distrital: ${escapeHTML(localDistName)}</span>` : ''}
                 ${(gDistrital || gSector || gRegional) ? `<br><span style="color:#1d4ed8;font-weight:600">⚑ Dados filtrados pelo recorte do header</span>` : ''}
                 ${_activeBrandHdr ? `<br><span style="color:#0a4ea3;font-weight:600">⚠ Valores exibidos são apenas da marca <b>${escapeHTML(_activeBrandHdr)}</b> (não o total do PDV)</span>` : ''}
             </div>
             <input type="file" id="pdvFileInput" accept=".xlsx,.xls,.csv" hidden multiple>
             <button class="pdv-upload-btn" id="pdvUploadBtn">📁 Carregar/Trocar planilha</button>
+            <span class="pdv-upload-progress" id="pdvUploadProgress" style="font-size:11px;color:#0369a1;font-weight:600;margin-left:8px;"></span>
             <button class="pdv-clear-btn" id="pdvClearBtn">🗑 Limpar PDVs</button>
             <button class="pdv-export-btn" id="pdvExportBtn" onclick="exportPDVXLSX()" title="Exportar PDVs filtrados para Excel">⬇ Excel</button>
         </div>`;
@@ -3139,7 +3297,7 @@ function renderPDV() {
        quando filtramos por distrital/setor, os volumes devem refletir apenas
        os produtos pertencentes àquele recorte. */
     const matchProductSector = (prodSetor) => {
-        if (!gSector && !gDistrital) return true;
+        if (!gSector && !gDistrital && !localDistrital) return true;
         const u = String(prodSetor || '').toUpperCase().trim();
         const uCode = extractCode(u);
         if (gSector) {
@@ -3147,9 +3305,12 @@ function renderPDV() {
             const tCode = extractCode(t);
             return (tCode && uCode && tCode === uCode) || u === t || u.includes(t) || t.includes(u);
         }
-        // Distrital: primeiros 4 dígitos do código do setor devem casar
-        const distCode = extractCode(String(gDistrital)).slice(0, 4);
-        return distCode && uCode && uCode.slice(0, 4) === distCode;
+        const activeDist = gDistrital || localDistrital;
+        if (activeDist) {
+            const distCode = extractCode(String(activeDist)).slice(0, 4);
+            return distCode && uCode && uCode.slice(0, 4) === distCode;
+        }
+        return true;
     };
     const projectBySector = (p) => {
         const items = (p.products || []).filter(pr => matchProductSector(pr.setor));
@@ -3166,7 +3327,7 @@ function renderPDV() {
         return acc;
     };
 
-    let filtered = pdvsGlobal.filter(p => {
+    let filtered = pdvsAfterDist.filter(p => {
         if (f.brick && f.brick.length && !f.brick.some(v => p.bricks.includes(v))) return false;
         if (f.cidade && f.cidade.length && !f.cidade.includes(p.cidade)) return false;
         if (f.setor && f.setor.length && !f.setor.some(v => p.setores.includes(v))) return false;
@@ -3181,7 +3342,7 @@ function renderPDV() {
 
     /* Reprojecta volumes pelo setor/distrital ativo (antes do filtro de marca,
        para que a projeção de setor já esteja incorporada nos totais) */
-    if (gSector || gDistrital) {
+    if (gSector || gDistrital || localDistrital) {
         filtered = filtered
             .map(p => projectBySector(p))
             .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
@@ -3338,6 +3499,24 @@ function renderPDV() {
     // Listeners
     const setSel = (id, key) => { const s = $(id); if (s) { s.value = (f[key] && f[key] !== 'all') ? f[key] : 'all'; s.onchange = () => { PDV.filter[key] = s.value; renderPDV(); }; } };
     setSel('pdvFilterClasse', 'classe');
+
+    // Listener do seletor Distrital local
+    const distSel = $('pdvFilterDistrital');
+    if (distSel) {
+        distSel.onchange = () => {
+            PDV.filter.distrital = distSel.value;
+            PDV.filter.setor = []; // limpa setores ao trocar distrital
+            renderPDV();
+        };
+    }
+    const distClear = $('pdvDistClear');
+    if (distClear) {
+        distClear.onclick = () => {
+            PDV.filter.distrital = 'all';
+            PDV.filter.setor = [];
+            renderPDV();
+        };
+    }
 
     // Multi-select dropdowns (Brick, Cidade, Setor, Marca)
     // IMPORTANTE: renderPDV() só é chamado ao FECHAR o painel, nunca a cada checkbox.
@@ -3967,20 +4146,35 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         // ── Filtro de setor/distrital ativo no header ─────────────────────────
         const gSector = (typeof UI !== 'undefined' && UI.sector && UI.sector !== 'all') ? UI.sector : null;
         const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
+        // Filtro LOCAL de distrital da aba PDV (seletor "Distrital" na filterbar)
+        const localDistFilter = (typeof PDV !== 'undefined' && PDV.filter && PDV.filter.distrital && PDV.filter.distrital !== 'all')
+            ? PDV.filter.distrital : null;
+        // Distrital efetiva: local tem prioridade sobre global
+        const activeDistrital = localDistFilter || gDistrital;
 
         const extractCode = s => { const m = String(s || '').match(/(\d{4,6})/); return m ? m[1].padEnd(6, '0').slice(0, 6) : ''; };
-        const matchesSectorFilter = (prodSetor) => {
-            if (!prodSetor) return true;
+        const matchesSectorFilter = (prodSetor, prodDistrital) => {
             if (gSector) {
                 const t = String(gSector).toUpperCase().trim(), tCode = extractCode(t);
-                const u = String(prodSetor).toUpperCase().trim(), uCode = extractCode(u);
+                const u = String(prodSetor || '').toUpperCase().trim(), uCode = extractCode(u);
                 if (tCode && uCode && tCode === uCode) return true;
                 if (u === t || u.includes(t) || t.includes(u)) return true;
                 return false;
             }
-            if (gDistrital) {
-                const distCode = extractCode(gDistrital).slice(0, 4);
-                const sectCode = extractCode(prodSetor).slice(0, 4);
+            if (activeDistrital) {
+                // Compara pela distrital do produto diretamente (mais preciso)
+                if (prodDistrital) {
+                    const dA = String(prodDistrital).toUpperCase().trim();
+                    const dB = String(activeDistrital).toUpperCase().trim();
+                    if (dA === dB) return true;
+                    const codeA = extractCode(dA).slice(0, 4);
+                    const codeB = extractCode(dB).slice(0, 4);
+                    if (codeA && codeB && codeA === codeB) return true;
+                    return false;
+                }
+                // Fallback: compara pelo código do setor
+                const distCode = extractCode(activeDistrital).slice(0, 4);
+                const sectCode = extractCode(prodSetor || '').slice(0, 4);
                 return distCode && sectCode && distCode === sectCode;
             }
             return true;
@@ -4000,19 +4194,19 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
             });
         };
 
-        const activeSectorFilter = gSector || gDistrital;
+        const activeSectorFilter = gSector || activeDistrital;
         const activeBrandFilter = activeMarcas.length > 0;
         const activeFilter = activeSectorFilter || activeBrandFilter;
 
         const activeFilterLabel = activeSectorFilter
-            ? (gSector || gDistrital).replace(/^\d+\s*-\s*/, '').trim()
+            ? (gSector || activeDistrital).replace(/^\d+\s*-\s*/, '').trim()
             : activeBrandFilter
                 ? (activeMarcas.length === 1 ? activeMarcas[0] : `${activeMarcas.length} marcas`)
                 : null;
 
         // Filtra produtos aplicando setor E marca simultaneamente
         const filteredProducts = activeFilter
-            ? localPdv.products.filter(pr => matchesSectorFilter(pr.setor) && matchesBrandFilter(pr.marca))
+            ? localPdv.products.filter(pr => matchesSectorFilter(pr.setor, pr.distrital) && matchesBrandFilter(pr.marca))
             : localPdv.products;
 
         // Recalcula KPIs totais com base nos produtos filtrados
