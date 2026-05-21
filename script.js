@@ -312,7 +312,7 @@ async function parseFiles(files, forceUnit) {
             const buf = await file.arrayBuffer();
             /* dense:true é obrigatório para planilhas grandes (>~600k linhas);
                sem ele, SheetJS retorna Sheets[name]=undefined silenciosamente. */
-            const wb = XLSX.read(buf, { type: 'array', raw: false, dense: true, cellDates: false, cellNF: false, cellText: false });
+            const wb = XLSX.read(buf, { type: 'array', raw: true, dense: true, cellDates: false, cellNF: false, cellText: false });
 
             for (const sheetName of wb.SheetNames) {
                 const ws = wb.Sheets[sheetName];
@@ -321,7 +321,7 @@ async function parseFiles(files, forceUnit) {
                 await _yield();
 
                 /* AOA evita criar objeto por linha; muito mais leve em memória. */
-                const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: false });
+                const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true, blankrows: false });
                 if (!aoa.length) continue;
                 const headers = aoa[0].map(h => String(h || '').trim());
                 if (!headers.length) continue;
