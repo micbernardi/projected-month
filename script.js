@@ -299,6 +299,227 @@ function _setProgress(text) {
     else console.log('[SUPERA]', text);
 }
 
+/* v3.20 — Parser JSZip para planilhas DDD muito grandes que o SheetJS não consegue
+   ler com dense:true (ex.: REAIS ~94 MB comprimido / ~538 MB XML).
+   Reutiliza a mesma estratégia do parser de PDV: abre o ZIP, extrai o XML da aba,
+   faz split por <row> e processa célula a célula via regex, sem materializar
+   o documento DOM inteiro na memória.                                             */
+async function _parseDDDViaJSZip(buf, fileName, forceUnit, setProgress) {
+    setProgress = setProgress || _setProgress;
+    setProgress('Abrindo arquivo (modo alternativo)...');
+    await _yield();
+
+    const zip = await JSZip.loadAsync(buf);
+
+    /* SharedStrings — arquivo pequeno, carrega normal */
+    const ssFile = zip.file('xl/sharedStrings.xml');
+    const ssXml = ssFile ? await ssFile.async('string') : '';
+    const sharedStrings = [];
+    const tRe = /<t(?:\s[^>]*)?>([^<]*)<\/t>/g;
+    let tm;
+    while ((tm = tRe.exec(ssXml)) !== null) {
+        sharedStrings.push(tm[1]
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#xD;/g, ''));
+    }
+
+    const sheetKey = Object.keys(zip.files).find(k => /xl\/worksheets\/sheet\d+\.xml$/.test(k));
+    if (!sheetKey) throw new Error('Sheet não encontrada no ZIP.');
+
+    /* ── Estratégia: descomprimir em Uint8Array e decodificar em blocos de 16 MB ──
+       O XML descomprimido tem ~513 MB — acima do limite de string do V8 (~512 MB).
+       Processamos em janelas de texto sobrepostas para nunca montar a string inteira. */
+    setProgress('Descompactando planilha...');
+    await _yield();
+
+    /* JSZip async('uint8array') já descomprime — bytes prontos */
+    const xmlBytes = await zip.files[sheetKey].async('uint8array');
+    setProgress('Planilha carregada (' + Math.round(xmlBytes.length / 1024 / 1024) + ' MB). Processando...');
+    await _yield();
+
+    /* Decodifica o Uint8Array em fatias de 16 MB para evitar string de 513 MB */
+    const SLICE = 16 * 1024 * 1024; // 16 MB de texto por fatia
+    const decoder = new TextDecoder('utf-8');
+
+    /* Função: extrai todas as <row> completas de um bloco de texto.
+       'tail' = fragmento incompleto do bloco anterior que pode conter
+       o início de uma <row> que só termina no próximo bloco. */
+    const parseCells = (rowStr, ss) => {
+        const cells = {};
+        let pos = 0;
+        while (true) {
+            const cs = rowStr.indexOf('<c ', pos);
+            if (cs < 0) break;
+            const ce = rowStr.indexOf('>', cs);
+            if (ce < 0) break;
+            const ctag = rowStr.slice(cs, ce + 1);
+            const ri = ctag.indexOf(' r="');
+            if (ri < 0) { pos = ce + 1; continue; }
+            let colEnd = ri + 4;
+            while (colEnd < ctag.length && ctag[colEnd] >= 'A' && ctag[colEnd] <= 'Z') colEnd++;
+            const col = ctag.slice(ri + 4, colEnd);
+            const isShared = ctag.indexOf('t="s"') >= 0;
+            const vs = rowStr.indexOf('<v>', ce);
+            const nextC = rowStr.indexOf('<c ', ce + 1);
+            let val = '';
+            if (vs >= 0 && (nextC < 0 || vs < nextC)) {
+                const ve = rowStr.indexOf('</v>', vs);
+                if (ve >= 0) val = rowStr.slice(vs + 3, ve);
+            }
+            cells[col] = (isShared && val !== '') ? (ss[parseInt(val)] || '') : val;
+            pos = ce + 1;
+        }
+        return cells;
+    };
+
+    /* Primeira passagem: localiza o cabeçalho (row r="1") nos primeiros 2 MB */
+    const headerBytes = xmlBytes.slice(0, Math.min(2 * 1024 * 1024, xmlBytes.length));
+    const headerChunk = decoder.decode(headerBytes, { stream: false });
+    const rh = headerChunk.indexOf(' r="1"');
+    if (rh < 0) throw new Error('Linha de cabeçalho não encontrada.');
+    const hTagEnd = headerChunk.indexOf('>', rh);
+    const hRowEnd = headerChunk.indexOf('</row>', hTagEnd);
+    if (hTagEnd < 0 || hRowEnd < 0) throw new Error('Linha de cabeçalho malformada.');
+    const headerCells = parseCells(headerChunk.slice(hTagEnd + 1, hRowEnd), sharedStrings);
+
+    const colMap = {};
+    for (const [col, val] of Object.entries(headerCells)) colMap[col] = norm(String(val));
+    const colByPat = (patterns) => {
+        for (const [col, name] of Object.entries(colMap))
+            if (patterns.some(p => p.test(name))) return col;
+        return null;
+    };
+
+    const cRegional  = colByPat([/^regional$/, /regional/]);
+    const cDistrital = colByPat([/^distrital$/, /distrital/]);
+    const cSetor     = colByPat([/^setor(\s*\(gd\))?$/, /^gd$/, /^setor\s*gd$/]);
+    const cMercado   = colByPat([/^mercado$/, /^mercado\s*montado$/, /^mercado\s*terapeutico$/, /mercado/]);
+    const cProduto   = colByPat([/^produto$/, /^marca$/, /^produto\/marca$/, /^nome\s*(do\s*)?produto$/]);
+    const cCidade    = colByPat([/^cidade$/, /^municipio$/, /^munic[íi]pio$/, /cidade/]);
+    const cBrick     = colByPat([/^brick$/, /^cod\.?\s*brick$/, /^codigo\s*brick$/, /brick/]);
+    const cMAT       = colByPat([/^mat$/, /^mat\s*un\.?$/, /^mat\s*r\$?$/, /^mat\s*valor$/, /^mat\s*reais$/, /^mat\s*unidades?$/]);
+    const cMATAnt    = colByPat([/^mat\s+ant/, /^mat\s*anterior/]);
+    const cYTD       = colByPat([/^ytd$/, /^ytd\s*un\.?$/, /^ytd\s*r\$?$/, /^ytd\s*valor$/, /^ytd\s*unidades?$/]);
+    const cYTDAnt    = colByPat([/^ytd\s+ant/, /^ytd\s*anterior/]);
+    const cTRI       = colByPat([/^tri$/, /^tri\s*un\.?$/, /^tri\s*r\$?$/, /^tri\s*valor$/, /^tri\s*unidades?$/]);
+    const cTRIAnt    = colByPat([/^tri\s+ant/, /^tri\s*anterior/]);
+
+    if (!cMAT && !cYTD && !cTRI) throw new Error('Nenhuma coluna MAT/YTD/TRI encontrada. Colunas: ' + Object.values(colMap).join(' | '));
+    if (!cMercado) console.warn('[SUPERA JSZip] Coluna MERCADO não detectada.');
+
+    const unitMode = detectUnitMode({
+        fileName, sheetName: 'Sheet1',
+        matHeader: cMAT ? (colMap[cMAT] || '') : (cYTD ? (colMap[cYTD] || '') : ''),
+        forceUnit
+    });
+    console.log('[SUPERA JSZip] Colunas:', { MAT: cMAT, YTD: cYTD, TRI: cTRI, Mercado: cMercado, Brick: cBrick, Modo: unitMode });
+
+    /* Segunda passagem: processa todas as rows em blocos de 16 MB com tail overlap */
+    const agg = new Map();
+    const startsWithOne = v => !v || /^1/.test(String(v).replace(/\D/, ''));
+    let processed = 0, kept = 0, rowCount = 0;
+    let firstDataRow = true;
+    let tail = '';                    // fragmento incompleto do bloco anterior
+    const TAIL_MAX = 200 * 1024;      // mantém até 200 KB de tail (maior row possível)
+    const totalMB = Math.ceil(xmlBytes.length / 1024 / 1024);
+
+    for (let byteOffset = 0; byteOffset < xmlBytes.length; byteOffset += SLICE) {
+        const slice = xmlBytes.slice(byteOffset, byteOffset + SLICE);
+        const chunk = tail + decoder.decode(slice, { stream: byteOffset + SLICE < xmlBytes.length });
+        tail = '';
+
+        /* Percorre as <row> do chunk com indexOf */
+        let pos = 0;
+        while (true) {
+            const rs = chunk.indexOf('<row', pos);
+            if (rs < 0) { tail = chunk.slice(Math.max(0, chunk.length - TAIL_MAX)); break; }
+            const tagEnd = chunk.indexOf('>', rs);
+            if (tagEnd < 0) { tail = chunk.slice(rs); break; }
+            const rowEnd = chunk.indexOf('</row>', tagEnd);
+            if (rowEnd < 0) { tail = chunk.slice(rs); break; } // row cruza o bloco
+
+            const tag = chunk.slice(rs, tagEnd + 1);
+            pos = rowEnd + 6; // avança após </row>
+
+            /* número da row */
+            const ri = tag.indexOf(' r="');
+            if (ri < 0) continue;
+            let numEnd = ri + 4;
+            while (numEnd < tag.length && tag[numEnd] >= '0' && tag[numEnd] <= '9') numEnd++;
+            const rowNum = parseInt(tag.slice(ri + 4, numEnd));
+            if (rowNum <= 1) continue;
+
+            const rowStr = chunk.slice(tagEnd + 1, rowEnd);
+            const cells = parseCells(rowStr, sharedStrings);
+
+            if (firstDataRow) {
+                firstDataRow = false;
+                const chkReg  = cRegional  ? (cells[cRegional]  || '') : '';
+                const chkDist = cDistrital ? (cells[cDistrital] || '') : '';
+                const chkSet  = cSetor     ? (cells[cSetor]     || '') : '';
+                if (!startsWithOne(chkReg) || !startsWithOne(chkDist) || !startsWithOne(chkSet)) {
+                    showRegionalSulBlock(); return [];
+                }
+            }
+
+            const market    = cMercado   ? (cells[cMercado]   || '').trim() : '';
+            const product   = cProduto   ? (cells[cProduto]   || '').trim() : '';
+            const brickName = cBrick     ? (cells[cBrick]     || '').trim() : '';
+            const regional  = cRegional  ? (cells[cRegional]  || '').trim() : '';
+            const distrital = cDistrital ? (cells[cDistrital] || '').trim() : '';
+            const sector    = cSetor     ? (cells[cSetor]     || '').trim() : 'Geral';
+            const cidade    = cCidade    ? (cells[cCidade]    || '').trim() : '';
+
+            processed++;
+            if (!market || (!brickName && !product)) continue;
+
+            const mat    = parseNum(cMAT    ? cells[cMAT]    : 0);
+            const ytd    = parseNum(cYTD    ? cells[cYTD]    : 0);
+            const tri    = parseNum(cTRI    ? cells[cTRI]    : 0);
+            const matAnt = parseNum(cMATAnt ? cells[cMATAnt] : 0);
+            const ytdAnt = parseNum(cYTDAnt ? cells[cYTDAnt] : 0);
+            const triAnt = parseNum(cTRIAnt ? cells[cTRIAnt] : 0);
+            if (mat === 0 && ytd === 0 && tri === 0 && matAnt === 0 && ytdAnt === 0 && triAnt === 0) continue;
+
+            const key = regional+'|'+distrital+'|'+sector+'|'+market+'|'+product+'|'+brickName+'|'+cidade;
+            let bucket = agg.get(key);
+            if (!bucket) {
+                bucket = {
+                    regional, distrital, sector, market, product, cidade,
+                    brickName, brickCode: brickName, unitMode, role: productRole(product),
+                    data: {
+                        MAT: { current: 0, previous: 0, growth: null },
+                        YTD: { current: 0, previous: 0, growth: null },
+                        TRI: { current: 0, previous: 0, growth: null }
+                    }
+                };
+                agg.set(key, bucket);
+                kept++;
+            }
+            bucket.data.MAT.current  += mat;    bucket.data.MAT.previous  += matAnt;
+            bucket.data.YTD.current  += ytd;    bucket.data.YTD.previous  += ytdAnt;
+            bucket.data.TRI.current  += tri;    bucket.data.TRI.previous  += triAnt;
+            rowCount++;
+        }
+
+        const pct = Math.round(byteOffset / xmlBytes.length * 100);
+        setProgress('Lendo (alternativo)... ' + pct + '% — ' + processed.toLocaleString('pt-BR') + ' linhas, ' + kept.toLocaleString('pt-BR') + ' bricks');
+        await _yield();
+    }
+
+    const result = [];
+    for (const b of agg.values()) {
+        ['MAT','YTD','TRI'].forEach(p => {
+            const d = b.data[p];
+            d.growth = d.previous !== 0 ? (d.current / d.previous - 1) : null;
+        });
+        result.push(b);
+    }
+    setProgress('Aba Sheet1 (alternativo): ' + kept.toLocaleString('pt-BR') + ' bricks únicos a partir de ' + processed.toLocaleString('pt-BR') + ' linhas.');
+    await _yield();
+    return result;
+}
+
 async function parseFiles(files, forceUnit) {
     if (typeof XLSX === 'undefined') throw new Error('Biblioteca XLSX não carregada.');
 
@@ -312,7 +533,22 @@ async function parseFiles(files, forceUnit) {
             const buf = await file.arrayBuffer();
             /* dense:true é obrigatório para planilhas grandes (>~600k linhas);
                sem ele, SheetJS retorna Sheets[name]=undefined silenciosamente. */
-            const wb = XLSX.read(buf, { type: 'array', raw: true, dense: true, cellDates: false, cellNF: false, cellText: false });
+            const wb = XLSX.read(buf, { type: 'array', raw: false, dense: true, cellDates: false, cellNF: false, cellText: false });
+
+            /* v3.20 — fallback JSZip para arquivos muito grandes (>~70 MB) onde
+               o SheetJS retorna ws=undefined mesmo com dense:true, ou onde o
+               arquivo é grande demais e o SheetJS perde dados silenciosamente. */
+            const allWsUndefined = wb.SheetNames.length > 0 && wb.SheetNames.every(n => !wb.Sheets[n]);
+            const isLargeFile = buf.byteLength > 70 * 1024 * 1024; // >70 MB
+            if ((allWsUndefined || isLargeFile) && typeof JSZip !== 'undefined') {
+                console.warn('[SUPERA] SheetJS não conseguiu ler', file.name, '— usando parser JSZip direto.');
+                _setProgress('Arquivo grande detectado, usando parser alternativo...');
+                await _yield();
+                const jzResult = await _parseDDDViaJSZip(buf, file.name, forceUnit, _setProgress);
+                for (const b of jzResult) rowsByMode[b.unitMode].push(b);
+                console.log('[SUPERA] JSZip fallback:', jzResult.length, 'buckets para', file.name);
+                continue;
+            }
 
             for (const sheetName of wb.SheetNames) {
                 const ws = wb.Sheets[sheetName];
@@ -321,7 +557,7 @@ async function parseFiles(files, forceUnit) {
                 await _yield();
 
                 /* AOA evita criar objeto por linha; muito mais leve em memória. */
-                const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true, blankrows: false });
+                const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: false });
                 if (!aoa.length) continue;
                 const headers = aoa[0].map(h => String(h || '').trim());
                 if (!headers.length) continue;

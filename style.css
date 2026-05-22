@@ -4163,6 +4163,41 @@ td.pdv-growth-neg {
     vertical-align: middle;
 }
 .pdv-ctx-dist { background: linear-gradient(135deg, #1d4ed8, #3b82f6); color: #fff; }
+.pdv-ctx-dist-local { background: linear-gradient(135deg, #0369a1, #0ea5e9); color: #fff; font-size: 11px; }
+
+/* Seletor de Distrital local na filterbar da aba PDV */
+.pdv-dist-label { font-weight: 700 !important; color: #0369a1 !important; }
+.pdv-dist-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: #f0f9ff;
+    border: 1.5px solid #7dd3fc;
+    border-radius: 8px;
+    padding: 1px 5px 1px 4px;
+}
+.pdv-dist-select {
+    border: none !important;
+    background: transparent !important;
+    font-weight: 600;
+    color: #0369a1;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+    padding: 3px 2px !important;
+    max-width: 200px;
+}
+.pdv-dist-select.pdv-dist-active {
+    color: #0c4a6e !important;
+    font-weight: 700;
+}
+.pdv-dist-select option { color: #111; background: #fff; }
+.pdv-dist-clear {
+    background: none; border: none; color: #64748b;
+    cursor: pointer; font-size: 12px; font-weight: 700;
+    padding: 0 1px; line-height: 1; transition: color .15s;
+}
+.pdv-dist-clear:hover { color: #ef4444; }
 .pdv-ctx-setor { background: linear-gradient(135deg, #059669, #10b981); color: #fff; }
 .pdv-ctx-reg { background: linear-gradient(135deg, #7c3aed, #a78bfa); color: #fff; }
 
@@ -5150,4 +5185,9 @@ td.pdv-growth-neg {
     background: var(--acc, #1e40af);
     color: #fff;
     border-color: var(--acc, #1e40af);
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
 }
