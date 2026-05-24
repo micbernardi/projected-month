@@ -1232,6 +1232,7 @@ body {
 
 .modal-body {
     overflow-y: auto;
+    overflow-x: auto;
     padding: 0;          /* remove padding aqui — vai nas tabelas */
     flex: 1;
     position: relative;  /* scroll container para sticky funcionar */
@@ -1281,7 +1282,9 @@ body {
 }
 
 .modal-tbl tbody td.r {
-    text-align: right
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .modal-tbl tbody td.c {
@@ -1694,6 +1697,15 @@ body {
     background: #f7f9ff !important;
     padding: 14px 18px !important;
     border-bottom: 1px solid var(--brd);
+    overflow-x: auto;
+    max-width: 0;
+    min-width: 0;
+}
+
+/* Wrapper scrollável para o rank-tbl dentro da linha expandida */
+.concs-row .rank-tbl-scroll {
+    overflow-x: auto;
+    width: 100%;
 }
 
 .concs-title {
@@ -1779,7 +1791,7 @@ body {
 
 .rank-tbl {
     width: 100%;
-    table-layout: fixed;
+    table-layout: auto;
     border-collapse: collapse;
     background: #fff;
     border: 1px solid var(--brd);
@@ -1787,15 +1799,16 @@ body {
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
     font-size: 12.5px;
+    min-width: 500px;
 }
 
 /* Distribuição proporcional das colunas da tabela de ranking */
-.rank-tbl thead th:nth-child(1) { width: 5%; }   /* POS. */
-.rank-tbl thead th:nth-child(2) { width: 35%; }  /* MARCA */
-.rank-tbl thead th:nth-child(3) { width: 15%; }  /* ANTERIOR */
-.rank-tbl thead th:nth-child(4) { width: 15%; }  /* ATUAL */
-.rank-tbl thead th:nth-child(5) { width: 15%; }  /* EVOLUÇÃO */
-.rank-tbl thead th:nth-child(6) { width: 15%; }  /* SHARE */
+.rank-tbl thead th:nth-child(1) { width: 52px; }   /* POS. */
+.rank-tbl thead th:nth-child(2) { width: auto; }    /* MARCA — ocupa o restante */
+.rank-tbl thead th:nth-child(3) { width: 160px; }   /* ANTERIOR */
+.rank-tbl thead th:nth-child(4) { width: 160px; }   /* ATUAL */
+.rank-tbl thead th:nth-child(5) { width: 90px; }    /* EVOLUÇÃO */
+.rank-tbl thead th:nth-child(6) { width: 100px; }   /* SHARE */
 
 .rank-tbl thead th {
     background: var(--navy);
@@ -1822,6 +1835,9 @@ body {
     padding: 8px 12px;
     border-top: 1px solid #edf1f7;
     color: var(--txt);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .rank-tbl tbody td.c {
@@ -1831,6 +1847,7 @@ body {
 .rank-tbl tbody td.r {
     text-align: right;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 .rank-tbl tbody tr:hover td {
@@ -1884,6 +1901,7 @@ body {
     font-weight: 700;
     color: var(--navy);
     padding: 9px 12px;
+    white-space: nowrap;
 }
 .rank-total-label {
     font-size: 11px;

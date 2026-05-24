@@ -1132,14 +1132,14 @@ function renderResumo() {
             }).join('');
             html += `<tr class="concs-row"><td colspan="14" class="concs-wrap">
                 <div class="concs-title">🏆 Ranking neste mercado — ${pd} · ${UI.unitMode === 'RS' ? 'R$' : 'Unidades'}</div>
-                <table class="rank-tbl">
+                <div class="rank-tbl-scroll"><table class="rank-tbl">
                     <thead><tr>
-                        <th class="c" style="width:54px">POS.</th>
+                        <th class="c" style="width:52px">POS.</th>
                         <th>MARCA</th>
-                        <th class="r">${pd} ANTERIOR</th>
-                        <th class="r">${pd} ATUAL</th>
-                        <th class="r">EVOL.</th>
-                        <th class="r">SHARE ATUAL</th>
+                        <th class="r" style="width:160px">${pd} ANTERIOR</th>
+                        <th class="r" style="width:160px">${pd} ATUAL</th>
+                        <th class="r" style="width:90px">EVOL.</th>
+                        <th class="r" style="width:100px">SHARE ATUAL</th>
                     </tr></thead>
                     <tbody>${rankRows}</tbody>
                     <tfoot><tr class="rank-total-row">
@@ -1149,7 +1149,7 @@ function renderResumo() {
                         <td class="r ${totGCls}"><strong>${totGTxt}</strong></td>
                         <td class="r"><span class="rank-share">100%</span></td>
                     </tr></tfoot>
-                </table>
+                </table></div>
             </td></tr>`;
         }
     });
