@@ -1232,7 +1232,6 @@ body {
 
 .modal-body {
     overflow-y: auto;
-    overflow-x: auto;
     padding: 0;          /* remove padding aqui — vai nas tabelas */
     flex: 1;
     position: relative;  /* scroll container para sticky funcionar */
@@ -1282,9 +1281,7 @@ body {
 }
 
 .modal-tbl tbody td.r {
-    text-align: right;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
+    text-align: right
 }
 
 .modal-tbl tbody td.c {
@@ -1697,15 +1694,6 @@ body {
     background: #f7f9ff !important;
     padding: 14px 18px !important;
     border-bottom: 1px solid var(--brd);
-    overflow-x: auto;
-    max-width: 0;
-    min-width: 0;
-}
-
-/* Wrapper scrollável para o rank-tbl dentro da linha expandida */
-.concs-row .rank-tbl-scroll {
-    overflow-x: auto;
-    width: 100%;
 }
 
 .concs-title {
@@ -1791,7 +1779,7 @@ body {
 
 .rank-tbl {
     width: 100%;
-    table-layout: auto;
+    table-layout: fixed;
     border-collapse: collapse;
     background: #fff;
     border: 1px solid var(--brd);
@@ -1799,16 +1787,15 @@ body {
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
     font-size: 12.5px;
-    min-width: 500px;
 }
 
 /* Distribuição proporcional das colunas da tabela de ranking */
-.rank-tbl thead th:nth-child(1) { width: 52px; }   /* POS. */
-.rank-tbl thead th:nth-child(2) { width: auto; }    /* MARCA — ocupa o restante */
-.rank-tbl thead th:nth-child(3) { width: 160px; }   /* ANTERIOR */
-.rank-tbl thead th:nth-child(4) { width: 160px; }   /* ATUAL */
-.rank-tbl thead th:nth-child(5) { width: 90px; }    /* EVOLUÇÃO */
-.rank-tbl thead th:nth-child(6) { width: 100px; }   /* SHARE */
+.rank-tbl thead th:nth-child(1) { width: 5%; }   /* POS. */
+.rank-tbl thead th:nth-child(2) { width: 35%; }  /* MARCA */
+.rank-tbl thead th:nth-child(3) { width: 15%; }  /* ANTERIOR */
+.rank-tbl thead th:nth-child(4) { width: 15%; }  /* ATUAL */
+.rank-tbl thead th:nth-child(5) { width: 15%; }  /* EVOLUÇÃO */
+.rank-tbl thead th:nth-child(6) { width: 15%; }  /* SHARE */
 
 .rank-tbl thead th {
     background: var(--navy);
@@ -1835,9 +1822,6 @@ body {
     padding: 8px 12px;
     border-top: 1px solid #edf1f7;
     color: var(--txt);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .rank-tbl tbody td.c {
@@ -1847,7 +1831,6 @@ body {
 .rank-tbl tbody td.r {
     text-align: right;
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
 
 .rank-tbl tbody tr:hover td {
@@ -1901,7 +1884,6 @@ body {
     font-weight: 700;
     color: var(--navy);
     padding: 9px 12px;
-    white-space: nowrap;
 }
 .rank-total-label {
     font-size: 11px;
@@ -5203,6 +5185,118 @@ td.pdv-growth-neg {
     background: var(--acc, #1e40af);
     color: #fff;
     border-color: var(--acc, #1e40af);
+}
+
+/* ── Botão "+" de expansão de cidades no ranking ── */
+.rank-city-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid var(--navy4, #cbd2e0);
+    background: #fff;
+    color: var(--navy, #25395a);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    margin-right: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+    transition: background .13s, color .13s, border-color .13s;
+    font-family: inherit;
+}
+.rank-city-toggle:hover {
+    background: var(--navy, #25395a);
+    color: #fff;
+    border-color: var(--navy, #25395a);
+}
+.rank-city-toggle.rank-city-toggle-open {
+    background: var(--navy, #25395a);
+    color: #fff;
+    border-color: var(--navy, #25395a);
+}
+
+/* ── Painel de cidades expansível ── */
+.rank-city-panel td.rank-city-wrap {
+    padding: 0 12px 10px 42px !important;
+    background: #f0f5ff !important;
+    border-top: none !important;
+    border-bottom: 1px solid #d4e0f5 !important;
+}
+.rank-city-header {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--navy, #25395a);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 8px 0 6px;
+    opacity: .75;
+}
+
+/* ── Tabela de cidades ── */
+.rank-city-tbl {
+    width: auto;
+    min-width: 340px;
+    border-collapse: collapse;
+    font-size: 11.5px;
+    background: #fff;
+    border: 1px solid #d4e0f5;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15,23,42,.05);
+}
+.rank-city-tbl thead th {
+    background: #e8effe;
+    color: var(--navy, #25395a);
+    font-size: 9.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 5px 10px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid #c7d8f0;
+}
+.rank-city-tbl thead th.r { text-align: right; }
+.rank-city-tbl tbody td {
+    padding: 5px 10px;
+    border-bottom: 1px solid #edf2fb;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.rank-city-tbl tbody tr:last-child td { border-bottom: none; }
+.rank-city-tbl tbody tr:hover td { background: #eef4ff; }
+
+.rank-city-pos {
+    width: 28px;
+    color: var(--txt3, #94a3b8);
+    font-weight: 700;
+    font-size: 11px;
+}
+.rank-city-name {
+    font-weight: 600;
+    color: var(--txt, #1e293b);
+}
+.rank-city-val {
+    text-align: right;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--txt, #1e293b);
+}
+.rank-city-evol {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    min-width: 64px;
+}
+.rank-city-empty {
+    padding: 8px 10px !important;
+    color: var(--txt3, #94a3b8);
+    font-style: italic;
+    font-size: 11px;
+    text-align: center;
 }
 
 @keyframes spin {

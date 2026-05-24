@@ -946,6 +946,30 @@ function aggTopConcorrentes(rows, pd, limit) {
     return aggMarketRanking(rows, pd, limit).filter(c => c.role !== 'SUPERA');
 }
 
+/* ===== TOP CIDADES POR PRODUTO num mercado =====
+   Recebe as rows já filtradas do mercado, o nome do produto e o período.
+   Retorna as top N cidades ordenadas por volume atual. */
+function topCidadesPorProduto(rows, productName, pd, limit) {
+    limit = limit || 3;
+    var map = new Map();
+    rows.forEach(function(r) {
+        if (r.product !== productName) return;
+        var cidade = r.cidade || '(sem cidade)';
+        if (!map.has(cidade)) map.set(cidade, { cidade: cidade, cur: 0, prev: 0 });
+        var c = map.get(cidade);
+        c.cur  += r.data[pd].current  || 0;
+        c.prev += r.data[pd].previous || 0;
+    });
+    return [...map.values()]
+        .sort(function(a, b) { return b.cur - a.cur; })
+        .slice(0, limit)
+        .map(function(c) {
+            return Object.assign({}, c, {
+                growth: c.prev !== 0 ? (c.cur / c.prev - 1) : null
+            });
+        });
+}
+
 /* ===== RENDER RESUMO ===== */
 function renderResumo() {
     const el = $('tab-resumo');
@@ -1115,19 +1139,55 @@ function renderResumo() {
             const totG    = totPrev ? ((totCur / totPrev) - 1) : null;
             const totGCls = totG == null ? 'vnull' : (totG >= 0 ? 'vpos' : 'vneg');
             const totGTxt = totG == null ? '—' : ((totG >= 0 ? '+' : '') + (totG * 100).toFixed(1) + '%');
+            const mktKey  = m.market.replace(/'/g, "\\'");
             const rankRows = ranking.map((c, i) => {
                 const isSup = c.role === 'SUPERA';
                 const g = c.growth;
                 const gCls = g == null ? 'vnull' : (g >= 0 ? 'vpos' : 'vneg');
                 const gTxt = g == null ? '—' : ((g >= 0 ? '+' : '') + (g * 100).toFixed(1) + '%');
                 const displayName = isSup ? c.name.replace(/\s*\(SP0\)\s*/i, '').trim() : c.name;
+                const prodKey = c.name.replace(/'/g, "\\'");
+                const rowId = `city-exp-${i}-${mktKey.replace(/\W/g,'_')}`;
+
+                // Pré-calcula top 3 cidades para este produto
+                const cidades = topCidadesPorProduto(m.rows, c.name, pd, 3);
+                const cidadeRows = cidades.length === 0
+                    ? `<tr><td colspan="4" class="rank-city-empty">Sem dados de cidade</td></tr>`
+                    : cidades.map((ci, ci_i) => {
+                        const cgCls = ci.growth == null ? 'vnull' : (ci.growth >= 0 ? 'vpos' : 'vneg');
+                        const cgTxt = ci.growth == null ? '—' : ((ci.growth >= 0 ? '+' : '') + (ci.growth * 100).toFixed(1) + '%');
+                        return `<tr class="rank-city-row">
+                            <td class="rank-city-pos">${ci_i + 1}º</td>
+                            <td class="rank-city-name">📍 ${ci.cidade}</td>
+                            <td class="r rank-city-val">${fmtValue(ci.cur)}</td>
+                            <td class="r rank-city-evol ${cgCls}"><strong>${cgTxt}</strong></td>
+                        </tr>`;
+                    }).join('');
+
                 return `<tr class="rank-row${isSup ? ' rank-supera' : ''}">
                     <td class="c rank-pos">${i + 1}º</td>
-                    <td class="rank-name">${displayName}${isSup ? ' <span class="rank-sup-badge">SUPERA</span>' : ''}</td>
+                    <td class="rank-name">
+                        <button class="rank-city-toggle" data-target="${rowId}" title="Ver top cidades">+</button>
+                        ${displayName}${isSup ? ' <span class="rank-sup-badge">SUPERA</span>' : ''}
+                    </td>
                     <td class="r rank-prev">${fmtValue(c.prev)}</td>
                     <td class="r">${fmtValue(c.cur)}</td>
                     <td class="r ${gCls}"><strong>${gTxt}</strong></td>
                     <td class="r"><span class="rank-share">${c.share.toFixed(1)}%</span></td>
+                </tr>
+                <tr class="rank-city-panel" id="${rowId}" style="display:none">
+                    <td colspan="6" class="rank-city-wrap">
+                        <div class="rank-city-header">📍 Top cidades — ${displayName} · ${pd}</div>
+                        <table class="rank-city-tbl">
+                            <thead><tr>
+                                <th style="width:32px">#</th>
+                                <th>Cidade</th>
+                                <th class="r">${pd} Atual</th>
+                                <th class="r">Evol.</th>
+                            </tr></thead>
+                            <tbody>${cidadeRows}</tbody>
+                        </table>
+                    </td>
                 </tr>`;
             }).join('');
             html += `<tr class="concs-row"><td colspan="14" class="concs-wrap">
@@ -1163,6 +1223,20 @@ function renderResumo() {
             if (UI.sortKey === key) UI.sortDir = UI.sortDir === 'asc' ? 'desc' : 'asc';
             else { UI.sortKey = key; UI.sortDir = (key === 'market') ? 'asc' : 'desc'; }
             renderResumo();
+        });
+    });
+
+    // Ativa botões "+" de expansão de cidades
+    el.querySelectorAll('.rank-city-toggle').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const targetId = this.getAttribute('data-target');
+            const panel = document.getElementById(targetId);
+            if (!panel) return;
+            const isOpen = panel.style.display !== 'none';
+            panel.style.display = isOpen ? 'none' : 'table-row';
+            this.textContent = isOpen ? '+' : '−';
+            this.classList.toggle('rank-city-toggle-open', !isOpen);
         });
     });
 }
