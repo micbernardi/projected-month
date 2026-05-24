@@ -782,34 +782,24 @@ function getFilteredRows(extraSector) {
         - CRESCER    → Supera crescendo > 20% vs período anterior
         - ACOMPANHAR → Supera caindo < -10%
         - OPORTUNIDADE → caso contrário                                ===== */
-/* v7.0 — Recomendação por brick: critério único baseado em gap
+/* v7.1 — Recomendação por brick: critério por posição + share
    ────────────────────────────────────────────────────────────────
    Regra simples e consistente para TODOS os mercados, em R$ e Unidades:
      • Supera sem venda                              → ENTRAR
      • Posição 1ª                                    → LÍDER
      • Posição 2ª                                    → CRESCER
-     • Supera entrando (superaPrev = 0)              → OPORTUNIDADE
-     • gap p/ posição imediatamente acima ≤ 3× Supera → OPORTUNIDADE
-     • gap p/ posição imediatamente acima > 3× Supera → ACOMPANHAR
-
-   Usa sempre o gap para a posição ACIMA (não o gap para o líder),
-   o que torna o critério independente do tamanho do mercado e do
-   preço médio do produto — funciona igualmente em R$ e Unidades.
+     • Posição 3ª ou 4ª com share ≥ 2%              → OPORTUNIDADE
+     • Qualquer outra situação                       → ACOMPANHAR
 */
 function calcRecBrick(superaCur, superaPrev, concMax, growth, pos, gapLider, liderGrowth, shareBrick, gapProximo) {
     if (!superaCur || superaCur <= 0) return 'ENTRAR';
     if (pos === 1) return 'LÍDER';
     if (pos === 2) return 'CRESCER';
 
-    // Supera entrando no brick (sem histórico anterior) → sempre OPORTUNIDADE
-    if (!superaPrev || superaPrev <= 0) return 'OPORTUNIDADE';
+    // 3ª ou 4ª posição com share >= 2% → OPORTUNIDADE
+    if ((pos === 3 || pos === 4) && shareBrick >= 2) return 'OPORTUNIDADE';
 
-    // Gap para a posição imediatamente acima
-    // Fallback para gapLider apenas se gapProximo não estiver disponível
-    const gapRef = (gapProximo != null && gapProximo > 0) ? gapProximo : (gapLider || 0);
-    const alcancavel = gapRef <= superaCur * 3;  // gap ≤ 3× venda Supera
-
-    return alcancavel ? 'OPORTUNIDADE' : 'ACOMPANHAR';
+    return 'ACOMPANHAR';
 }
 function recColorVar(rec) {
     return ({
