@@ -3336,7 +3336,7 @@ function clearPDVData() {
     PDV.rowsByValueMode = { UN: [], RS: [] };
     PDV.pdvsByValueMode = { UN: [], RS: [] };
     try { localStorage.removeItem('SUPERA_PDV_DATA_v1'); } catch (e) { }
-    PDV.filter = { brick: [], cidade: [], setor: [], marca: [], classe: 'all', search: '', distrital: 'all' };
+    PDV.filter = { brick: [], cidade: [], setor: [], marca: [], classe: 'all', search: '', distrital: [] };
     PDV.viewMode = null; // null = usa UI.unitMode global
     toast('Base de PDVs limpa.');
     renderPDV();
@@ -3457,9 +3457,9 @@ function renderPDV() {
     const distritalArr = [...distritalSet].sort();
 
     // Filtro LOCAL de Distrital (filterbar da aba PDV - independente do header global)
-    const localDistrital = f.distrital && f.distrital !== 'all' ? f.distrital : null;
+    const localDistrital = (f.distrital && f.distrital.length) ? f.distrital : null; // array ou null
     const pdvsAfterDist = localDistrital
-        ? pdvsGlobal.filter(p => p.distritais && matchSector([...p.distritais], localDistrital))
+        ? pdvsGlobal.filter(p => p.distritais && localDistrital.some(d => matchSector([...p.distritais], d)))
         : pdvsGlobal;
 
     const totalPdvs = pdvsAfterDist.length;
@@ -3483,7 +3483,14 @@ function renderPDV() {
     const isSelected = (arr, v) => isAll(arr) || arr.includes(v);
     const labelFor = (key) => {
         const arr = f[key] || [];
-        if (isAll(arr)) return { txt: key === 'brick' ? 'Todos os Bricks' : key === 'cidade' ? 'Todas as Cidades' : key === 'setor' ? 'Todos os Setores' : 'Todas as Marcas', active: false };
+        if (isAll(arr)) return {
+            txt: key === 'distrital' ? 'Todas as Distritais'
+               : key === 'brick'    ? 'Todos os Bricks'
+               : key === 'cidade'   ? 'Todas as Cidades'
+               : key === 'setor'    ? 'Todos os Setores'
+               : 'Todas as Marcas',
+            active: false
+        };
         if (arr.length === 1) return { txt: arr[0].length > 22 ? arr[0].slice(0, 22) + '…' : arr[0], active: true };
         return { txt: `${arr.length} selecionados`, active: true };
     };
@@ -3513,24 +3520,10 @@ function renderPDV() {
         </div>`;
     };
 
-    // Monta opções de Distrital para o select local
-    const distritalOpts = distritalArr.map(d => {
-        const namePart = d.replace(/^\d+\s*-?\s*/, '').trim();
-        const lbl = namePart || d;
-        return `<option value="${d}" ${f.distrital === d ? 'selected' : ''}>${lbl}</option>`;
-    }).join('');
-
     let html = `
         <div class="pdv-filterbar">
             ${distritalArr.length > 1 ? `
-            <label class="pdv-dist-label">Distrital</label>
-            <div class="pdv-dist-wrap">
-                <select id="pdvFilterDistrital" class="pdv-dist-select${localDistrital ? ' pdv-dist-active' : ''}">
-                    <option value="all"${!localDistrital ? ' selected' : ''}>🌐 Todas</option>
-                    ${distritalOpts}
-                </select>
-                ${localDistrital ? `<button class="pdv-dist-clear" id="pdvDistClear" title="Ver todas as distritais">✕</button>` : ''}
-            </div>` : ''}
+            <label>Distrital</label>${mkDropdown('pdvFilterDistrital', 'distrital', new Set(distritalArr), 'Todas as Distritais')}` : ''}
             <label>Brick</label>${mkDropdown('pdvFilterBrick', 'brick', bricksSet, 'Todos os Bricks')}
             <label>Cidade</label>${mkDropdown('pdvFilterCidade', 'cidade', citySet, 'Todas as Cidades')}
             <label>Setor</label>${mkDropdown('pdvFilterSetor', 'setor', secSet, 'Todos os Setores')}
@@ -3548,7 +3541,11 @@ function renderPDV() {
         </div>`;
 
     // Banner DEPOIS da filterbar — inclui badges de contexto para filtros do header ativos
-    const localDistName = localDistrital ? (localDistrital.replace(/^\d+\s*-?\s*/, '').trim() || localDistrital) : null;
+    const localDistName = localDistrital
+        ? (localDistrital.length === 1
+            ? (localDistrital[0].replace(/^\d+\s*-?\s*/, '').trim() || localDistrital[0])
+            : `${localDistrital.length} distritais`)
+        : null;
     const _ctxBadges = [
         localDistrital ? `<span class="pdv-ctx-badge pdv-ctx-dist-local" title="Filtro de Distrital (aba PDV)">🏢 ${escapeHTML(localDistName)}</span>` : '',
         gDistrital ? `<span class="pdv-ctx-badge pdv-ctx-dist" title="Filtro de Distrital ativo">📍 ${escapeHTML(gDistrital)}</span>` : '',
@@ -3608,7 +3605,7 @@ function renderPDV() {
        quando filtramos por distrital/setor, os volumes devem refletir apenas
        os produtos pertencentes àquele recorte. */
     const matchProductSector = (prodSetor) => {
-        if (!gSector && !gDistrital && !localDistrital) return true;
+        if (!gSector && !gDistrital && !(localDistrital && localDistrital.length)) return true;
         const u = String(prodSetor || '').toUpperCase().trim();
         const uCode = extractCode(u);
         if (gSector) {
@@ -3616,10 +3613,12 @@ function renderPDV() {
             const tCode = extractCode(t);
             return (tCode && uCode && tCode === uCode) || u === t || u.includes(t) || t.includes(u);
         }
-        const activeDist = gDistrital || localDistrital;
-        if (activeDist) {
-            const distCode = extractCode(String(activeDist)).slice(0, 4);
-            return distCode && uCode && uCode.slice(0, 4) === distCode;
+        const activeDistArr = localDistrital || (gDistrital ? [gDistrital] : null);
+        if (activeDistArr) {
+            return activeDistArr.some(d => {
+                const distCode = extractCode(String(d)).slice(0, 4);
+                return distCode && uCode && uCode.slice(0, 4) === distCode;
+            });
         }
         return true;
     };
@@ -3653,7 +3652,7 @@ function renderPDV() {
 
     /* Reprojecta volumes pelo setor/distrital ativo (antes do filtro de marca,
        para que a projeção de setor já esteja incorporada nos totais) */
-    if (gSector || gDistrital || localDistrital) {
+    if (gSector || gDistrital || (localDistrital && localDistrital.length)) {
         filtered = filtered
             .map(p => projectBySector(p))
             .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
@@ -3811,25 +3810,7 @@ function renderPDV() {
     const setSel = (id, key) => { const s = $(id); if (s) { s.value = (f[key] && f[key] !== 'all') ? f[key] : 'all'; s.onchange = () => { PDV.filter[key] = s.value; renderPDV(); }; } };
     setSel('pdvFilterClasse', 'classe');
 
-    // Listener do seletor Distrital local
-    const distSel = $('pdvFilterDistrital');
-    if (distSel) {
-        distSel.onchange = () => {
-            PDV.filter.distrital = distSel.value;
-            PDV.filter.setor = []; // limpa setores ao trocar distrital
-            renderPDV();
-        };
-    }
-    const distClear = $('pdvDistClear');
-    if (distClear) {
-        distClear.onclick = () => {
-            PDV.filter.distrital = 'all';
-            PDV.filter.setor = [];
-            renderPDV();
-        };
-    }
-
-    // Multi-select dropdowns (Brick, Cidade, Setor, Marca)
+    // Multi-select dropdowns (Distrital, Brick, Cidade, Setor, Marca)
     // IMPORTANTE: renderPDV() só é chamado ao FECHAR o painel, nunca a cada checkbox.
     // Isso evita que o DOM seja recriado enquanto o usuário ainda está selecionando.
     const wireMultiSelect = (id, key) => {
@@ -3845,6 +3826,8 @@ function renderPDV() {
             const visible = itemCbs.filter(c => c.closest('.pdv-ms-item') && c.closest('.pdv-ms-item').style.display !== 'none');
             const selected = itemCbs.filter(c => c.checked).map(c => c.value);
             PDV.filter[key] = (selected.length === 0 || selected.length === itemCbs.length) ? [] : selected;
+            // Ao mudar distrital, reseta setor
+            if (key === 'distrital') PDV.filter.setor = [];
             panel.style.display = 'none';
             renderPDV();
         };
@@ -4458,8 +4441,8 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         const gSector = (typeof UI !== 'undefined' && UI.sector && UI.sector !== 'all') ? UI.sector : null;
         const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
         // Filtro LOCAL de distrital da aba PDV (seletor "Distrital" na filterbar)
-        const localDistFilter = (typeof PDV !== 'undefined' && PDV.filter && PDV.filter.distrital && PDV.filter.distrital !== 'all')
-            ? PDV.filter.distrital : null;
+        const localDistFilter = (typeof PDV !== 'undefined' && PDV.filter && PDV.filter.distrital && PDV.filter.distrital.length)
+            ? PDV.filter.distrital : null; // array
         // Distrital efetiva: local tem prioridade sobre global
         const activeDistrital = localDistFilter || gDistrital;
 
@@ -6388,6 +6371,8 @@ const SPRINT = {
     filterDistrital: [],   // [] = todos; array com strings = distritais selecionadas
     filterSetor:     [],   // [] = todos; array com strings = setores selecionados
     openPanel:       null, // 'dist' | 'setor' | null — painel aberto antes do re-render
+    diagDDD:         null,
+    diagMDTR:        null,
     subTab:    'evolucao',
     viewMode:  { l1: 'distrital', l2: 'distrital' },
     mdtrView:  { l1: 'distrital', l2: 'distrital' },
@@ -6399,36 +6384,71 @@ const SPRINT = {
 function sprintParseDDD(buffer) {
     const wb = XLSX.read(buffer, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    return XLSX.utils.sheet_to_json(ws, { defval: 0 }).map(r => ({
-        regional:     String(r['Regional']    || ''),
-        distrital:    String(r['Distrital']   || ''),
-        setor:        String(r['Setor']       || ''),
-        mercado:      String(r['Mercado']     || ''),
-        marca:        String(r['Marca']       || ''),
-        cidade:       String(r['Cidade']      || ''),
-        brick:        String(r['Brick']       || ''),
-        apresentacao: String(r['Apresentação'] || ''),
-        valor:        Number(r['Valor'])       || 0,
-        mes:          Number(r['Mês'])         || 0
-    }));
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: 0 });
+    const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+    const findKey = (...variants) => keys.find(k => variants.some(v => k.trim().toLowerCase() === v.toLowerCase())) || variants[0];
+    const kReg  = findKey('Regional','REGIONAL','regional');
+    const kDist = findKey('Distrital','DISTRITAL','distrital','GD');
+    const kSet  = findKey('Setor','SETOR','setor','PV');
+    const kMerc = findKey('Mercado','MERCADO','mercado','Market','Produto');
+    const kMar  = findKey('Marca','MARCA','marca');
+    const kCid  = findKey('Cidade','CIDADE','cidade','City');
+    const kBri  = findKey('Brick','BRICK','brick');
+    const kApre = findKey('Apresentação','Apresentacao','APRESENTAÇÃO','apresentacao');
+    const kVal  = findKey('Valor','VALOR','valor','Venda','Vendas','Rs','R$');
+    const kMes  = findKey('Mês','Mes','MÊS','MES','mes');
+    return rows.map(r => ({
+        regional:     _sprintPickCol(r, kReg),
+        distrital:    _sprintPickCol(r, kDist),
+        setor:        _sprintPickCol(r, kSet),
+        mercado:      _sprintPickCol(r, kMerc),
+        marca:        _sprintPickCol(r, kMar),
+        cidade:       _sprintPickCol(r, kCid),
+        brick:        _sprintPickCol(r, kBri),
+        apresentacao: _sprintPickCol(r, kApre),
+        valor:        Number(r[kVal]) || 0,
+        mes:          Number(r[kMes]) || 0
+    })).filter(r => r.valor > 0 && r.mes > 0);
 }
 
 /* ── Parse planilha MDTR (só nossas marcas, com PDV e bandeira) ── */
+function _sprintPickCol(r, ...keys) {
+    for (const k of keys) { if (r[k] !== undefined && r[k] !== 0 && r[k] !== '') return String(r[k]); }
+    return '';
+}
 function sprintParseMDTR(buffer) {
     const wb = XLSX.read(buffer, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    return XLSX.utils.sheet_to_json(ws, { defval: 0 }).map(r => ({
-        regional:     String(r['Regional']    || ''),
-        distrital:    String(r['Distrital']   || ''),
-        setor:        String(r['Setor']       || ''),
-        marca:        String(r['Marca']       || ''),
-        brick:        String(r['Brick']       || ''),
-        bandeira:     String(r['Bandeira']    || ''),
-        pdv:          String(r['PDV']         || ''),
-        apresentacao: String(r['Apresentação'] || ''),
-        valor:        Number(r['Valor'])       || 0,
-        mes:          Number(r['Mês'])         || 0
-    }));
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: 0 });
+    // Detecta nomes de colunas reais (case-insensitive) na primeira linha
+    const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+    const findKey = (...variants) => keys.find(k => variants.some(v => k.trim().toLowerCase() === v.toLowerCase())) || variants[0];
+    const kReg  = findKey('Regional','REGIONAL','regional');
+    const kDist = findKey('Distrital','DISTRITAL','distrital','GD','Gerente Distrital');
+    const kSet  = findKey('Setor','SETOR','setor','PV','Propagandista');
+    const kMar  = findKey('Marca','MARCA','marca','Produto','PRODUTO');
+    const kBri  = findKey('Brick','BRICK','brick');
+    const kBan  = findKey('Bandeira','BANDEIRA','bandeira','Rede','REDE','Farmácia','Farmacia');
+    const kPdv  = findKey('PDV','pdv','Pdv','CNPJ','cnpj','Nome PDV','NomePDV','Razão Social','Razao Social');
+    const kApre = findKey('Apresentação','Apresentacao','APRESENTAÇÃO','apresentacao','Apresentacão');
+    const kVal  = findKey('Valor','VALOR','valor','Venda','VENDA','Vendas','Rs','R$');
+    const kMes  = findKey('Mês','Mes','MÊS','MES','mes','Mês Referência','mês');
+    return rows.map(r => {
+        const distrital = _sprintPickCol(r, kDist) || _sprintPickCol(r, 'GD','Gerente Distrital','DISTRITAL');
+        const setor     = _sprintPickCol(r, kSet)  || _sprintPickCol(r, 'PV','Propagandista','SETOR');
+        return {
+            regional:     _sprintPickCol(r, kReg),
+            distrital,
+            setor,
+            marca:        _sprintPickCol(r, kMar),
+            brick:        _sprintPickCol(r, kBri),
+            bandeira:     _sprintPickCol(r, kBan),
+            pdv:          _sprintPickCol(r, kPdv),
+            apresentacao: _sprintPickCol(r, kApre),
+            valor:        Number(r[kVal])  || 0,
+            mes:          Number(r[kMes])  || 0
+        };
+    }).filter(r => r.valor > 0 && r.mes > 0);
 }
 
 /* ── Parse planilha de METAS ── */
@@ -6526,10 +6546,11 @@ function sprintAggregate(rows, months, dimension) {
     const map = new Map();
     rows.forEach(r => {
         if (!months.includes(r.mes)) return;
-        const key = dimension === 'distrital' ? r.distrital
+        const raw = dimension === 'distrital' ? r.distrital
                   : dimension === 'setor'     ? r.setor
                   : dimension === 'bandeira'  ? r.bandeira
                   : r.pdv;
+        const key = raw || `(sem ${dimension})`;
         if (!map.has(key)) map.set(key, { key, label: key, val: 0, byMonth: {} });
         const e = map.get(key);
         e.val += r.valor;
@@ -6662,14 +6683,14 @@ function renderSprint() {
             <div class="sprint-upload-icon">${hasDDD?'✅':'📁'}</div>
             <div class="sprint-upload-info">
                 <div class="sprint-upload-title">Planilha DDD (R$)</div>
-                <div class="sprint-upload-sub">${hasDDD?'Mercado completo carregado ✓':'Clique para carregar — supera + concorrência'}</div>
+                <div class="sprint-upload-sub">${hasDDD?(SPRINT.diagDDD||'Mercado completo carregado ✓'):'Clique para carregar — supera + concorrência'}</div>
             </div>
         </div>
         <div class="sprint-upload-card sprint-upload-card-mdtr ${hasMDTR?'loaded':''}" onclick="sprintTriggerUpload('mdtr')">
             <div class="sprint-upload-icon">${hasMDTR?'📊':'📊'}</div>
             <div class="sprint-upload-info">
                 <div class="sprint-upload-title">Planilha MDTR (R$)</div>
-                <div class="sprint-upload-sub">${hasMDTR?'Vendas por PDV carregadas ✓':'Clique para carregar — nossas marcas por PDV'}</div>
+                <div class="sprint-upload-sub">${hasMDTR?(SPRINT.diagMDTR||'Vendas por PDV carregadas ✓'):'Clique para carregar — nossas marcas por PDV'}</div>
             </div>
         </div>
         <div class="sprint-upload-card sprint-upload-card-metas ${hasMetas?'loaded':''}" onclick="sprintTriggerUpload('metas')">
@@ -7247,20 +7268,28 @@ function sprintBuildPDVView(loadedMonths) {
             const bMap = new Map();
             bRows.forEach(r => {
                 if (!r.pdv) return;
-                if (!bMap.has(r.pdv)) bMap.set(r.pdv, { key: r.pdv, label: r.pdv, bandeira: r.bandeira, setor: r.setor, distrital: r.distrital, base: 0, bMeses: new Set() });
+                if (!bMap.has(r.pdv)) bMap.set(r.pdv, { key: r.pdv, label: r.pdv, bandeira: r.bandeira, setor: r.setor, distrital: r.distrital, base: 0, bMeses: new Set(), bMarcas: new Map() });
                 const e = bMap.get(r.pdv);
                 e.base += r.valor;
                 e.bMeses.add(r.mes);
+                // detalhe por marca
+                if (!e.bMarcas.has(r.marca)) e.bMarcas.set(r.marca, { base: 0 });
+                e.bMarcas.get(r.marca).base += r.valor;
             });
             // Agrega sprint por PDV
             const sMap = new Map();
             sRows.forEach(r => {
                 if (!r.pdv) return;
-                if (!sMap.has(r.pdv)) sMap.set(r.pdv, { sprint: 0, byMonth: {}, sMeses: new Set() });
+                if (!sMap.has(r.pdv)) sMap.set(r.pdv, { sprint: 0, byMonth: {}, sMeses: new Set(), sMarcas: new Map() });
                 const e = sMap.get(r.pdv);
                 e.sprint   += r.valor;
                 e.byMonth[r.mes] = (e.byMonth[r.mes] || 0) + r.valor;
                 e.sMeses.add(r.mes);
+                // detalhe por marca
+                if (!e.sMarcas.has(r.marca)) e.sMarcas.set(r.marca, { sprint: 0, byMonth: {} });
+                const em = e.sMarcas.get(r.marca);
+                em.sprint += r.valor;
+                em.byMonth[r.mes] = (em.byMonth[r.mes] || 0) + r.valor;
             });
             // Merge
             const allKeys = new Set([...bMap.keys(), ...sMap.keys()]);
@@ -7271,9 +7300,17 @@ function sprintBuildPDVView(loadedMonths) {
                 const ticketMedio   = mesesPresente > 0 ? s.sprint / mesesPresente : 0;
                 // Significância: PDV é significativo se comprou em ≥2 meses do sprint OU valor base > 0
                 const sig = mesesPresente >= 2 ? 'alta' : mesesPresente === 1 ? (s.sprint >= 500 ? 'media' : 'baixa') : (b.base > 0 ? 'base' : 'nova');
+                // Monta detalhe de marcas para expand
+                const allMarcas = new Set([...(b.bMarcas||new Map()).keys(), ...(s.sMarcas||new Map()).keys()]);
+                const marcasDetail = [...allMarcas].map(m => ({
+                    marca: m,
+                    base:   (b.bMarcas||new Map()).get(m)?.base   || 0,
+                    sprint: (s.sMarcas||new Map()).get(m)?.sprint  || 0,
+                    byMonth:(s.sMarcas||new Map()).get(m)?.byMonth || {}
+                })).sort((a,b2) => b2.base - a.base);
                 return { key: k, label: b.label, bandeira: b.bandeira, setor: b.setor, distrital: b.distrital,
                          base: b.base, sprint: s.sprint, byMonth: s.byMonth,
-                         bMeses: b.bMeses.size, sMeses: mesesPresente, ticketMedio, sig };
+                         bMeses: b.bMeses.size, sMeses: mesesPresente, ticketMedio, sig, marcasDetail };
             });
         } else {
             // Agregação normal para distrital/setor/bandeira
@@ -7313,10 +7350,11 @@ function sprintBuildPDVView(loadedMonths) {
         const tEvol   = sprintFmtEvol(tBase, tSprint);
         const dimLabel = { distrital: 'Distrital', setor: 'Setor', bandeira: 'Bandeira', pdv: 'PDV' }[vm];
 
-        const thS = (key, lbl) => {
+        const thS = (key, lbl, align) => {
             const active = sort.key === key;
             const arr = active ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ' ↕';
-            return `<th class="r" onclick="mdtrSort('${line.id}','${key}')" style="cursor:pointer">${lbl}${arr}</th>`;
+            const cls = align || 'r';
+            return `<th class="${cls}" onclick="mdtrSort('${line.id}','${key}')" style="cursor:pointer">${lbl}${arr}</th>`;
         };
 
         const mHdrs   = loadedMonths.map(m => `<th class="r">${SPRINT.MONTH_LABELS[m]}-26</th>`).join('');
@@ -7341,6 +7379,7 @@ function sprintBuildPDVView(loadedMonths) {
                 <span class="sig-dot sig-nova"></span><span>PDV novo (sem histórico): ${sigCounts.nova}</span>
             </div>`;
 
+            const nCols = 4 + loadedMonths.length + 4; // pos + pdv + base + sprint + meses + ticket + sig + evol
             rowsH = merged.map((e, i) => {
                 const ev = hasSprint && (e.base > 0 || e.sprint > 0) ? sprintFmtEvol(e.base, e.sprint) : { txt: '—', cls: 'sprint-evol-neu' };
                 const mCells = loadedMonths.map(m => `<td class="r">${e.byMonth[m] ? sprintFmtRS(e.byMonth[m]) : '—'}</td>`).join('');
@@ -7348,8 +7387,30 @@ function sprintBuildPDVView(loadedMonths) {
                 const ticketFmt = e.ticketMedio > 0 ? sprintFmtRS(e.ticketMedio) : '—';
                 const mesesFmt  = e.sMeses > 0 ? `${e.sMeses}/${loadedMonths.length}` : '—';
                 const bandFmt   = e.bandeira ? `<small class="sprint-pdv-band">${e.bandeira}</small>` : '';
-                return `<tr>
-                    <td><span class="sprint-pos-badge">${i + 1}</span></td>
+                const rowId     = `pdv-det-${line.id}-${i}`;
+                const hasMarcas = e.marcasDetail && e.marcasDetail.length > 0;
+
+                // Sub-linhas de marcas
+                const marcaRows = hasMarcas ? e.marcasDetail.map(m => {
+                    const mEvol = hasSprint && m.base > 0 ? sprintFmtEvol(m.base, m.sprint) : { txt: '—', cls: 'sprint-evol-neu' };
+                    const mMCells = loadedMonths.map(mes => `<td class="r sprint-marca-cell">${m.byMonth[mes] ? sprintFmtRS(m.byMonth[mes]) : '—'}</td>`).join('');
+                    return `<tr class="sprint-marca-row" data-parent="${rowId}">
+                        <td class="c"></td>
+                        <td class="sprint-marca-name">
+                            <span class="sprint-marca-pill">${m.marca}</span>
+                        </td>
+                        <td class="r sprint-marca-cell">${m.base > 0 ? sprintFmtRS(m.base) : '—'}</td>
+                        <td class="r sprint-marca-cell">${hasSprint && m.sprint > 0 ? sprintFmtRS(m.sprint) : '—'}</td>
+                        ${mMCells}
+                        <td class="c">—</td><td class="r">—</td><td class="c">—</td>
+                        <td class="r sprint-marca-cell ${mEvol.cls}">${mEvol.txt}</td>
+                    </tr>`;
+                }).join('') : '';
+
+                return `<tr class="sprint-pdv-row" data-id="${rowId}">
+                    <td>
+                        ${hasMarcas ? `<button class="sprint-pdv-expand-btn" onclick="sprintTogglePDVDetail('${rowId}',this)" title="Ver produtos">+</button>` : `<span class="sprint-pos-badge">${i+1}</span>`}
+                    </td>
                     <td class="sprint-td-label" title="${e.label}">${e.label}${bandFmt}</td>
                     <td class="r">${e.base > 0 ? sprintFmtRS(e.base) : '—'}</td>
                     <td class="r">${hasSprint && e.sprint > 0 ? sprintFmtRS(e.sprint) : '—'}</td>
@@ -7358,7 +7419,7 @@ function sprintBuildPDVView(loadedMonths) {
                     <td class="r">${ticketFmt}</td>
                     <td class="c sprint-sig-cell"><span class="sprint-sig-badge sprint-sig-${e.sig}">${sigLabel}</span></td>
                     <td class="r ${ev.cls}">${ev.txt}</td>
-                </tr>`;
+                </tr>${marcaRows}`;
             }).join('');
 
             html += `<div class="sprint-section">
@@ -7374,18 +7435,18 @@ function sprintBuildPDVView(loadedMonths) {
                 ${theadExtra}
                 <div style="overflow-x:auto"><table class="sprint-tbl">
                     <thead><tr>
-                        <th style="width:30px">#</th><th>PDV / Bandeira</th>
+                        <th style="width:30px;text-align:center">#</th><th>PDV / Bandeira</th>
                         ${thS('base','Base J/F/M')}${thS('sprint','Sprint Acum.')}
                         ${mHdrs}
-                        ${thS('meses','Meses')}${thS('ticket','Ticket Médio')}${thS('sig','Significância')}${thS('evol','Evolução')}
+                        ${thS('meses','Meses')}${thS('ticket','Ticket Médio')}<th class="c" style="cursor:pointer" onclick="mdtrSort('${line.id}','sig')">Significância${sort.key==='sig'?(sort.dir==='desc'?' ↓':' ↑'):' ↕'}</th>${thS('evol','Evolução')}
                     </tr></thead>
                     <tbody>${rowsH || '<tr><td colspan="10" class="sprint-empty">Sem dados</td></tr>'}</tbody>
                     <tfoot><tr class="sprint-total-row">
-                        <td></td><td><strong>TOTAL (${merged.length} PDVs)</strong></td>
+                        <td class="c"></td><td><strong>TOTAL (${merged.length} PDVs)</strong></td>
                         <td class="r"><strong>${sprintFmtRS(tBase)}</strong></td>
                         <td class="r"><strong>${hasSprint ? sprintFmtRS(tSprint) : '—'}</strong></td>
                         ${mTotals}
-                        <td></td><td></td><td></td>
+                        <td class="c"></td><td class="r"></td><td class="c"></td>
                         <td class="r ${tEvol.cls}"><strong>${hasSprint ? tEvol.txt : '—'}</strong></td>
                     </tr></tfoot>
                 </table></div>
@@ -7471,8 +7532,12 @@ function sprintBindEvents() {
             const target = input.getAttribute('data-target');
             if (target === 'ddd') {
                 SPRINT.dddRows = sprintParseDDD(buf);
+                const dddDists = [...new Set(SPRINT.dddRows.map(r=>r.distrital).filter(Boolean))];
+                SPRINT.diagDDD = `${SPRINT.dddRows.length} linhas · ${dddDists.length} distrital(is): ${dddDists.slice(0,3).join(', ')}${dddDists.length>3?'...':''}`;
             } else if (target === 'mdtr') {
                 SPRINT.mdtrRows = sprintParseMDTR(buf);
+                const mdtrDists = [...new Set(SPRINT.mdtrRows.map(r=>r.distrital).filter(Boolean))];
+                SPRINT.diagMDTR = `${SPRINT.mdtrRows.length} linhas · ${mdtrDists.length} distrital(is): ${mdtrDists.slice(0,3).join(', ')}${mdtrDists.length>3?'...':''}`;
                 if (SPRINT.subTab !== 'pdv') SPRINT.subTab = 'pdv';
             } else if (target === 'metas') {
                 SPRINT.metasData = sprintParseMetasXLSX(buf);
@@ -7571,6 +7636,16 @@ function sprintOnSetorCheck() {
         if (allChk) allChk.checked = false;
     }
     renderSprint();
+}
+
+function sprintTogglePDVDetail(rowId, btn) {
+    const rows = document.querySelectorAll(`.sprint-marca-row[data-parent="${rowId}"]`);
+    if (!rows.length) return;
+    // Usa getComputedStyle para detectar corretamente display:none via CSS ou inline
+    const isOpen = getComputedStyle(rows[0]).display !== 'none';
+    rows.forEach(r => { r.style.display = isOpen ? 'none' : 'table-row'; });
+    btn.textContent = isOpen ? '+' : '−';
+    btn.classList.toggle('sprint-pdv-expand-open', !isOpen);
 }
 
 function sprintSetView(lineId, view)  { SPRINT.viewMode[lineId] = view;  renderSprint(); }

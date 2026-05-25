@@ -5764,6 +5764,7 @@ td.pdv-growth-neg {
 }
 .sprint-tbl thead th:last-child { border-right: none; cursor: default; }
 .sprint-tbl thead th.r { text-align: right; }
+.sprint-tbl thead th.c { text-align: center; }
 .sprint-tbl tbody td {
     padding: 5px 8px;
     border-bottom: 1px solid var(--s3);
@@ -5771,8 +5772,19 @@ td.pdv-growth-neg {
     vertical-align: middle;
     color: var(--txt);
     font-size: .72rem;
+    text-align: left;
 }
 .sprint-tbl tbody td.r {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.sprint-tbl tbody td.c {
+    text-align: center;
+}
+.sprint-tbl tfoot td {
+    text-align: left;
+}
+.sprint-tbl tfoot td.r {
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
@@ -5932,6 +5944,56 @@ td.pdv-growth-neg {
     white-space: nowrap;
 }
 
+
+
+/* ── Sprint: expand PDV / detalhe por marca ── */
+.sprint-pdv-expand-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--acc);
+    background: transparent;
+    color: var(--acc);
+    font-size: .75rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: background .15s, color .15s;
+    flex-shrink: 0;
+}
+.sprint-pdv-expand-btn:hover,
+.sprint-pdv-expand-btn.sprint-pdv-expand-open {
+    background: var(--acc);
+    color: #fff;
+}
+.sprint-marca-row {
+    display: none;
+    background: #f8faff !important;
+}
+.sprint-marca-row td {
+    border-bottom: 1px dashed var(--s3) !important;
+    padding: 3px 8px !important;
+}
+.sprint-marca-name {
+    padding-left: 28px !important;
+}
+.sprint-marca-pill {
+    display: inline-block;
+    font-size: .64rem;
+    font-weight: 700;
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 2px 8px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+.sprint-marca-cell {
+    font-size: .68rem !important;
+    color: var(--txt2) !important;
+}
 
 /* ── Sprint: status badges da sub-tab Metas ── */
 .sprint-status-badge {
