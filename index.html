@@ -179,13 +179,13 @@
             <div class="filter-bar" id="filterBar">
                 <span class="fbar-group" style="display:none">
                     <label class="fb-label">Regional</label>
-                    <select id="fbReg">
+                    <select id="fbReg" onchange="onFilterChange()">
                         <option value="all">Todas Regionais</option>
                     </select>
                 </span>
                 <span class="fbar-group" style="display:none">
                     <label class="fb-label">Distrital</label>
-                    <select id="fbDist">
+                    <select id="fbDist" onchange="onFilterChange()">
                         <option value="all">Todas Distritais</option>
                     </select>
                 </span>

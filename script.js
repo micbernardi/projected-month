@@ -1576,7 +1576,7 @@ function showVerModal(market) {
    Setor / Mercado / Recomendação / Busca. Ela atualiza UI.* e re-renderiza
    a aba ATIVA (não só o Resumo). Assim os filtros ficam globais. */
 function getActiveTab() {
-    const ids = ['resumo', 'brick', 'oport', 'entrar', 'graficos', 'pdv'];
+    const ids = ['resumo', 'brick', 'oport', 'entrar', 'graficos', 'lideranca', 'pdv', 'sprint'];
     for (const k of ids) {
         const el = $('tab-' + k);
         if (el && el.style.display !== 'none') return k;
@@ -1601,6 +1601,8 @@ function onFilterChange() {
     UI.market = $('fbMkt').value;
     UI.rec = $('fbRec').value;
     UI.search = $('fbSearch').value || '';
+    const _fbReg = $('fbReg'); if (_fbReg) UI.regional = _fbReg.value;
+    const _fbDist = $('fbDist'); if (_fbDist) UI.distrital = _fbDist.value;
     UI.expandedRows.clear();
     BRICK_PAGE = 1;
     // Reflete o setor selecionado nas abas (highlight da aba do setor)
@@ -2789,10 +2791,8 @@ function renderLideranca() {
     const mkts = aggMarkets(fRows, pd);
 
     // Mercados onde Supera encabeça o ranking consolidado.
-    // Exclui mercados sem concorrência real (liderança trivial).
-    const LIDERANCA_EXCLUIDOS = new Set([
-        'BENZETACIL', 'PEN VE ORAL', 'VAGICAND', 'BIOFLAC', 'PHOSFOENEMA'
-    ]);
+    // Exclui explicitamente mercados sem concorrência real (liderança trivial).
+    const LIDERANCA_EXCLUIDOS = new Set(['BENZETACIL', 'PEN VE ORAL', 'VAGICAND', 'BIOFLAC', 'PHOSFOENEMA']);
     const liderMkts = mkts.filter(m => {
         if (LIDERANCA_EXCLUIDOS.has(normU(m.market))) return false;
         const rk = aggMarketRanking(m.rows, pd);
@@ -2841,7 +2841,6 @@ function renderLideranca() {
                 <tr>
                     <th class="c">#</th>
                     <th>MERCADO</th>
-                    <th>PRODUTO SUPERA</th>
                     <th class="r">MKT TOTAL</th>
                     <th class="r">TOTAL SUPERA</th>
                     <th class="r">EVOL. SUPERA</th>
@@ -2853,15 +2852,6 @@ function renderLideranca() {
             <tbody>`;
 
         liderMkts.forEach((m, idx) => {
-            const superaLabel = (() => {
-                const lst = (MARKETS_BRANDS_MAP[normU(m.market)] || {}).supera || [];
-                // Exibe apenas o produto principal (lst[0]) — produtos adicionais no mesmo mercado
-                // (ex: IBANUNO dentro de HIXIZINE) não devem ser exibidos aqui
-                return lst.length
-                    ? lst[0].replace(/\s*\(SP0\)\s*/i, '').trim()
-                    : m.market;
-            })();
-
             const gTxt = m.superaGrowth == null ? '—'
                 : (m.superaGrowth >= 0 ? '+' : '') + (m.superaGrowth * 100).toFixed(1) + '%';
             const gCls = m.superaGrowth == null ? '' : m.superaGrowth >= 0 ? 'vpos' : 'vneg';
@@ -2883,7 +2873,6 @@ function renderLideranca() {
                         <strong>${m.market}</strong>
                         ${badge}
                     </td>
-                    <td class="lider-prod">${superaLabel}</td>
                     <td class="r">${fmtValue(m.current)}</td>
                     <td class="r lider-supera-val">${fmtValue(m.supera)}</td>
                     <td class="r ${gCls}">${gTxt}</td>
