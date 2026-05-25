@@ -2790,8 +2790,7 @@ function renderLideranca() {
     const fRows = getFilteredRows();
     const mkts = aggMarkets(fRows, pd);
 
-    // Mercados onde Supera encabeça o ranking consolidado.
-    // Exclui explicitamente mercados sem concorrência real (liderança trivial).
+    // Exclusão explícita de mercados sem concorrência real
     const LIDERANCA_EXCLUIDOS = new Set(['BENZETACIL', 'PEN VE ORAL', 'VAGICAND', 'BIOFLAC', 'PHOSFOENEMA']);
     const liderMkts = mkts.filter(m => {
         if (LIDERANCA_EXCLUIDOS.has(normU(m.market))) return false;
@@ -2799,13 +2798,12 @@ function renderLideranca() {
         return rk.length > 0 && rk[0].role === 'SUPERA';
     }).sort((a, b) => b.share - a.share);
 
-    const totalMktVolume  = liderMkts.reduce((s, m) => s + m.current, 0);
-    const totalSuperaVol  = liderMkts.reduce((s, m) => s + m.supera, 0);
-    const avgShare        = liderMkts.length
+    const totalMktVolume = liderMkts.reduce((s, m) => s + m.current, 0);
+    const totalSuperaVol = liderMkts.reduce((s, m) => s + m.supera, 0);
+    const avgShare       = liderMkts.length
         ? liderMkts.reduce((s, m) => s + m.share, 0) / liderMkts.length : 0;
     const unitLbl = UI.unitMode === 'RS' ? 'R$' : 'Un.';
 
-    /* ─── Cards de resumo ─── */
     let html = `
     <div class="lider-page">
         <div class="lider-header">
@@ -2837,16 +2835,26 @@ function renderLideranca() {
         html += `
         <div class="lider-tbl-wrap">
         <table class="lider-tbl">
+            <colgroup>
+                <col class="col-pos">
+                <col class="col-mkt">
+                <col class="col-mktval">
+                <col class="col-supval">
+                <col class="col-evol">
+                <col class="col-share">
+                <col class="col-bricks">
+                <col class="col-acao">
+            </colgroup>
             <thead>
                 <tr>
-                    <th class="c">#</th>
+                    <th class="col-c">#</th>
                     <th>MERCADO</th>
-                    <th class="r">MKT TOTAL</th>
-                    <th class="r">TOTAL SUPERA</th>
-                    <th class="r">EVOL. SUPERA</th>
-                    <th class="r">SHARE %</th>
-                    <th class="c">BRICKS</th>
-                    <th class="c">AÇÃO</th>
+                    <th class="col-r">MKT TOTAL</th>
+                    <th class="col-r">TOTAL SUPERA</th>
+                    <th class="col-r">EVOL. SUPERA</th>
+                    <th class="col-r">SHARE %</th>
+                    <th class="col-c">BRICKS</th>
+                    <th class="col-c">AÇÃO</th>
                 </tr>
             </thead>
             <tbody>`;
@@ -2855,8 +2863,6 @@ function renderLideranca() {
             const gTxt = m.superaGrowth == null ? '—'
                 : (m.superaGrowth >= 0 ? '+' : '') + (m.superaGrowth * 100).toFixed(1) + '%';
             const gCls = m.superaGrowth == null ? '' : m.superaGrowth >= 0 ? 'vpos' : 'vneg';
-
-            // Barra de share — verde para >= 50, amarela para 33–49, laranja para < 33
             const shareColor = m.share >= 50 ? 'var(--c-lider)'
                 : m.share >= 33 ? 'var(--c-crescer)' : 'var(--c-oport)';
             const barW = Math.min(m.share, 100).toFixed(1);
@@ -2868,15 +2874,15 @@ function renderLideranca() {
 
             html += `
                 <tr class="lider-row">
-                    <td class="c lider-pos">${idx + 1}º</td>
+                    <td class="col-c lider-pos">${idx + 1}º</td>
                     <td class="lider-mkt-name">
                         <strong>${m.market}</strong>
                         ${badge}
                     </td>
-                    <td class="r">${fmtValue(m.current)}</td>
-                    <td class="r lider-supera-val">${fmtValue(m.supera)}</td>
-                    <td class="r ${gCls}">${gTxt}</td>
-                    <td class="r">
+                    <td class="col-r">${fmtValue(m.current)}</td>
+                    <td class="col-r lider-supera-val">${fmtValue(m.supera)}</td>
+                    <td class="col-r ${gCls}">${gTxt}</td>
+                    <td class="col-r">
                         <div class="lider-share-cell">
                             <div class="lider-bar-track">
                                 <div class="lider-bar-fill" style="width:${barW}%;background:${shareColor}"></div>
@@ -2884,8 +2890,8 @@ function renderLideranca() {
                             <strong>${m.share.toFixed(1)}%</strong>
                         </div>
                     </td>
-                    <td class="c lider-bricks">${m.bricksCount}</td>
-                    <td class="c"><button class="ver-btn" onclick="switchTab('resumo');setTimeout(()=>showVerModal('${escStr(m.market)}'),120)">👁 Ver</button></td>
+                    <td class="col-c lider-bricks">${m.bricksCount}</td>
+                    <td class="col-c"><button class="ver-btn" onclick="switchTab('resumo');setTimeout(()=>showVerModal('${escStr(m.market)}'),120)">👁 Ver</button></td>
                 </tr>`;
         });
 
