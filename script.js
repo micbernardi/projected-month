@@ -782,24 +782,34 @@ function getFilteredRows(extraSector) {
         - CRESCER    → Supera crescendo > 20% vs período anterior
         - ACOMPANHAR → Supera caindo < -10%
         - OPORTUNIDADE → caso contrário                                ===== */
-/* v7.1 — Recomendação por brick: critério por posição + share
+/* v7.0 — Recomendação por brick: critério único baseado em gap
    ────────────────────────────────────────────────────────────────
    Regra simples e consistente para TODOS os mercados, em R$ e Unidades:
      • Supera sem venda                              → ENTRAR
      • Posição 1ª                                    → LÍDER
      • Posição 2ª                                    → CRESCER
-     • Posição 3ª ou 4ª com share ≥ 2%              → OPORTUNIDADE
-     • Qualquer outra situação                       → ACOMPANHAR
+     • Supera entrando (superaPrev = 0)              → OPORTUNIDADE
+     • gap p/ posição imediatamente acima ≤ 3× Supera → OPORTUNIDADE
+     • gap p/ posição imediatamente acima > 3× Supera → ACOMPANHAR
+
+   Usa sempre o gap para a posição ACIMA (não o gap para o líder),
+   o que torna o critério independente do tamanho do mercado e do
+   preço médio do produto — funciona igualmente em R$ e Unidades.
 */
 function calcRecBrick(superaCur, superaPrev, concMax, growth, pos, gapLider, liderGrowth, shareBrick, gapProximo) {
     if (!superaCur || superaCur <= 0) return 'ENTRAR';
     if (pos === 1) return 'LÍDER';
     if (pos === 2) return 'CRESCER';
 
-    // 3ª ou 4ª posição com share >= 2% → OPORTUNIDADE
-    if ((pos === 3 || pos === 4) && shareBrick >= 2) return 'OPORTUNIDADE';
+    // Supera entrando no brick (sem histórico anterior) → sempre OPORTUNIDADE
+    if (!superaPrev || superaPrev <= 0) return 'OPORTUNIDADE';
 
-    return 'ACOMPANHAR';
+    // Gap para a posição imediatamente acima
+    // Fallback para gapLider apenas se gapProximo não estiver disponível
+    const gapRef = (gapProximo != null && gapProximo > 0) ? gapProximo : (gapLider || 0);
+    const alcancavel = gapRef <= superaCur * 3;  // gap ≤ 3× venda Supera
+
+    return alcancavel ? 'OPORTUNIDADE' : 'ACOMPANHAR';
 }
 function recColorVar(rec) {
     return ({
@@ -2211,7 +2221,7 @@ function updateDistritalHeader() {
 }
 
 function switchTab(tn) {
-    ['resumo', 'brick', 'oport', 'entrar', 'graficos', 'pdv'].forEach(k => {
+    ['resumo', 'brick', 'oport', 'entrar', 'graficos', 'pdv', 'sprint'].forEach(k => {
         const v = $('tab-' + k);
         if (v) v.style.display = (k === tn) ? 'block' : 'none';
     });
@@ -2225,6 +2235,7 @@ function switchTab(tn) {
     if (tn === 'graficos') renderGraficos();
     if (tn === 'resumo') renderResumo();
     if (tn === 'pdv') renderPDV();
+    if (tn === 'sprint') renderSprint();
 }
 
 /* v5.8 — Reconstrói o select global #fbMkt conforme a aba ativa.
@@ -5958,12 +5969,11 @@ function projBuildRankCard(title, rows, isTop) {
     const card = document.createElement('div'); card.className = 'proj-rank-card';
     const head = document.createElement('div'); head.className = 'proj-rank-head';
     head.innerHTML = title + '<span class="proj-rank-toggle">▼</span>';
-    const medals = ['🥇', '🥈', '🥉'];
     const body = document.createElement('div');
     const isPdvCard   = rows.length > 0 && rows[0].type === 'pdv';
     const isBrickCard = rows.length > 0 && rows[0].type === 'brick';
     const tbody = rows.map((r, i) => {
-        const rank = isTop && i < 3 ? `<span>${medals[i]}</span>` : `<b>${i + 1}</b>`;
+        const rank = `<b>${i + 1}</b>`;
         const vc = r.varBRL >= 0 ? 'proj-val-pos' : 'proj-val-neg';
         const pc = (r.varPct != null && r.varPct >= 0) ? 'proj-val-pos' : 'proj-val-neg';
         let nameAttr = `title="${r.name}"`;
@@ -6346,3 +6356,1244 @@ async function projExportXLSX() {
 document.addEventListener('DOMContentLoaded', () => {
     projSetupSlots();
 });
+
+/* ════════════════════════════════════════
+   SPRINT DE OURO — módulo completo
+════════════════════════════════════════ */
+const SPRINT = {
+    LINES: [
+        {
+            id: 'l1', name: 'INFINITY',
+            label: 'ALONG-C + RISPERIDON SOL',
+            products: ['ALONG-C (SP0)', 'RISPERIDON (SP0)'],
+            mercados: ['ALONG-C', 'RISPERIDON SOL'],
+            color: 'l1'
+        },
+        {
+            id: 'l2', name: 'PRIME',
+            label: 'BARIAT XR + BARIAT XR CÁLCIO + MULTI-BI + MULTI-BI FIBRAS',
+            products: ['BARIAT XR (SP0)', 'BARIAT XR CALCIO (SP0)', 'MULTI-BI (SP0)', 'MULTI-BI FIBRAS (SP0)'],
+            mercados: ['BARIAT XR', 'BARIAT XR CALCIO', 'MULTI BI', 'MULTI BI FIBRAS'],
+            color: 'l2'
+        }
+    ],
+    BASE_MONTHS:   [202601, 202602, 202603],
+    SPRINT_MONTHS: [202605, 202606, 202607],
+    MONTH_LABELS:  { 202605: 'Mai', 202606: 'Jun', 202607: 'Jul' },
+
+    dddRows:   null,   // DDD: todos os produtos (supera + concorrência)
+    mdtrRows:  null,   // MDTR: só nossos produtos, com PDV/bandeira
+    metasData: null,   // metas/cotas da campanha
+
+    filterDistrital: [],   // [] = todos; array com strings = distritais selecionadas
+    filterSetor:     [],   // [] = todos; array com strings = setores selecionados
+    openPanel:       null, // 'dist' | 'setor' | null — painel aberto antes do re-render
+    subTab:    'evolucao',
+    viewMode:  { l1: 'distrital', l2: 'distrital' },
+    mdtrView:  { l1: 'distrital', l2: 'distrital' },
+    sortState: { l1: { key: 'base', dir: 'desc' }, l2: { key: 'base', dir: 'desc' } },
+    mdtrSort:  { l1: { key: 'base', dir: 'desc' }, l2: { key: 'base', dir: 'desc' } }
+};
+
+/* ── Parse planilha DDD (todos os meses, supera + concorrência) ── */
+function sprintParseDDD(buffer) {
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, { defval: 0 }).map(r => ({
+        regional:     String(r['Regional']    || ''),
+        distrital:    String(r['Distrital']   || ''),
+        setor:        String(r['Setor']       || ''),
+        mercado:      String(r['Mercado']     || ''),
+        marca:        String(r['Marca']       || ''),
+        cidade:       String(r['Cidade']      || ''),
+        brick:        String(r['Brick']       || ''),
+        apresentacao: String(r['Apresentação'] || ''),
+        valor:        Number(r['Valor'])       || 0,
+        mes:          Number(r['Mês'])         || 0
+    }));
+}
+
+/* ── Parse planilha MDTR (só nossas marcas, com PDV e bandeira) ── */
+function sprintParseMDTR(buffer) {
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, { defval: 0 }).map(r => ({
+        regional:     String(r['Regional']    || ''),
+        distrital:    String(r['Distrital']   || ''),
+        setor:        String(r['Setor']       || ''),
+        marca:        String(r['Marca']       || ''),
+        brick:        String(r['Brick']       || ''),
+        bandeira:     String(r['Bandeira']    || ''),
+        pdv:          String(r['PDV']         || ''),
+        apresentacao: String(r['Apresentação'] || ''),
+        valor:        Number(r['Valor'])       || 0,
+        mes:          Number(r['Mês'])         || 0
+    }));
+}
+
+/* ── Parse planilha de METAS ── */
+function sprintParseMetasXLSX(buffer) {
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const result = { pvInfinity: [], pvPrime: [], gdInfinity: [], gdPrime: [], gdMisto: [], gr: [] };
+    const sheetMap = {
+        'Meta PVs Infinity': 'pvInfinity', 'Meta PVs Prime':    'pvPrime',
+        'Meta GDs Infinity': 'gdInfinity', 'Meta GDs Prime':    'gdPrime',
+        'Meta GDs Mistos':   'gdMisto',    'Meta GRs':          'gr'
+    };
+    wb.SheetNames.forEach(sName => {
+        const key = sheetMap[sName];
+        if (!key) return;
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sName], { header: 1, defval: '' });
+        rows.slice(1).forEach(r => {
+            if (!r || r.length < 3) return;
+            const isPV = key === 'pvInfinity' || key === 'pvPrime';
+            const isGD = key === 'gdInfinity' || key === 'gdPrime' || key === 'gdMisto';
+            const isGR = key === 'gr';
+            if (isPV) {
+                const nome = String(r[3] || '').trim(), meta = parseFloat(r[5]) || 0;
+                if (nome && nome !== 'PROPAGANDISTA' && nome !== 'Total Geral' && meta > 0)
+                    result[key].push({ nome, meta, tamMkt: parseFloat(r[4])||0, grupo: r[0], gd: String(r[2]||'').trim(), linha: key==='pvInfinity'?'INFINITY':'PRIME' });
+            } else if (isGD) {
+                const nome = String(r[1] || '').trim(), meta = parseFloat(r[3]) || 0;
+                const linha = key==='gdInfinity'?'INFINITY':key==='gdPrime'?'PRIME':'MISTO';
+                if (nome && nome !== 'GERENTE DISTRITAL' && nome !== 'Total Geral' && meta > 0)
+                    result[key].push({ nome, meta, tamMkt: parseFloat(r[2])||0, grupo: r[0], linha });
+            } else if (isGR) {
+                const nome = String(r[1] || '').trim(), meta = parseFloat(r[3]) || 0;
+                if (nome && nome !== 'GERENTE DISTRITAL' && nome !== 'Total Geral' && meta > 0)
+                    result[key].push({ nome, meta, tamMkt: parseFloat(r[2])||0, grupo: r[0] });
+            }
+        });
+    });
+    return result;
+}
+
+/* ── Helpers de formatação ── */
+function sprintFmtRS(v) {
+    return 'R$\u00a0' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function sprintFmtEvol(base, sprint) {
+    if (!base) return { txt: '—', cls: 'sprint-evol-neu' };
+    const pct = (sprint / base - 1) * 100;
+    return { txt: (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%', cls: pct >= 0 ? 'sprint-evol-pos' : 'sprint-evol-neg' };
+}
+
+/* ── Filtros do Sprint (isolados do app principal) ── */
+function _sprintFilter(r) {
+    if (SPRINT.filterDistrital.length > 0 && !SPRINT.filterDistrital.includes(r.distrital)) return false;
+    if (SPRINT.filterSetor.length > 0     && !SPRINT.filterSetor.includes(r.setor))     return false;
+    return true;
+}
+
+/* Rows DDD filtrados por meses + produtos + filtros de distrital/setor */
+function sprintGetDDD(months, prodFilter) {
+    if (!SPRINT.dddRows) return [];
+    return SPRINT.dddRows.filter(r => {
+        if (!months.includes(r.mes)) return false;
+        if (prodFilter && !prodFilter.includes(r.marca)) return false;
+        return _sprintFilter(r);
+    });
+}
+
+/* Rows DDD filtrados por meses + mercados (para mkt share — inclui concorrentes) */
+function sprintGetDDDMkt(months, mercados) {
+    if (!SPRINT.dddRows) return [];
+    return SPRINT.dddRows.filter(r => {
+        if (!months.includes(r.mes)) return false;
+        if (!mercados.includes(r.mercado)) return false;
+        return _sprintFilter(r);
+    });
+}
+
+/* Rows MDTR filtrados */
+function sprintGetMDTR(months, prodFilter) {
+    if (!SPRINT.mdtrRows) return [];
+    return SPRINT.mdtrRows.filter(r => {
+        if (!months.includes(r.mes)) return false;
+        if (prodFilter && !prodFilter.includes(r.marca)) return false;
+        return _sprintFilter(r);
+    });
+}
+
+function sprintLoadedMonths() {
+    const src = SPRINT.dddRows || SPRINT.mdtrRows;
+    if (!src) return [];
+    const found = new Set(src.map(r => r.mes));
+    return SPRINT.SPRINT_MONTHS.filter(m => found.has(m));
+}
+
+function sprintAggregate(rows, months, dimension) {
+    const map = new Map();
+    rows.forEach(r => {
+        if (!months.includes(r.mes)) return;
+        const key = dimension === 'distrital' ? r.distrital
+                  : dimension === 'setor'     ? r.setor
+                  : dimension === 'bandeira'  ? r.bandeira
+                  : r.pdv;
+        if (!map.has(key)) map.set(key, { key, label: key, val: 0, byMonth: {} });
+        const e = map.get(key);
+        e.val += r.valor;
+        e.byMonth[r.mes] = (e.byMonth[r.mes] || 0) + r.valor;
+    });
+    return [...map.values()].sort((a, b) => b.val - a.val);
+}
+
+function sprintBuildFilters() {
+    const src = SPRINT.dddRows || SPRINT.mdtrRows;
+    if (!src) return;
+
+    // ── Distrital multi-select ──
+    const distritais = [...new Set(src.map(r => r.distrital))].sort();
+    const dPanel = document.getElementById('sprint-dist-checkboxes');
+    const dBadge = document.getElementById('sprint-dist-badge');
+    if (dPanel) {
+        const fd = SPRINT.filterDistrital;
+        const isNoneD = fd.length === 1 && fd[0] === '__none__';
+        const isAllD  = fd.length === 0;
+        dPanel.innerHTML = distritais.map(d => {
+            const checked = isAllD || (!isNoneD && fd.includes(d));
+            return `<label class="sprint-setor-chk"><input type="checkbox" value="${d}" ${checked?'checked':''} onchange="sprintOnDistCheck()">${d}</label>`;
+        }).join('');
+        // Atualiza o checkbox "Todas"
+        const dAllChk = document.getElementById('sprint-dist-all-chk');
+        if (dAllChk) dAllChk.checked = isAllD;
+    }
+    if (dBadge) {
+        const fd = SPRINT.filterDistrital;
+        const isNoneD = fd.length === 1 && fd[0] === '__none__';
+        const isAllD  = fd.length === 0;
+        dBadge.textContent = isAllD ? 'Todas' : isNoneD ? 'Nenhuma' : fd.length + ' selecionada(s)';
+    }
+
+    // ── Setor multi-select (filtrado pelas distritais selecionadas) ──
+    // Usa todas as fontes disponíveis para garantir que os setores apareçam
+    const allSrc = [...(SPRINT.dddRows||[]), ...(SPRINT.mdtrRows||[])];
+    const isNoneD2 = SPRINT.filterDistrital.length === 1 && SPRINT.filterDistrital[0] === '__none__';
+    const setores = [...new Set(allSrc.filter(r =>
+        r.setor && (SPRINT.filterDistrital.length === 0 || (!isNoneD2 && SPRINT.filterDistrital.includes(r.distrital)))
+    ).map(r => r.setor))].sort();
+    const sPanel = document.getElementById('sprint-setor-checkboxes');
+    const sBadge = document.getElementById('sprint-setor-badge');
+    if (sPanel) {
+        const fs = SPRINT.filterSetor;
+        const isNoneS = fs.length === 1 && fs[0] === '__none__';
+        const isAllS  = fs.length === 0;
+        sPanel.innerHTML = setores.map(s => {
+            const checked = isAllS || (!isNoneS && fs.includes(s));
+            return `<label class="sprint-setor-chk"><input type="checkbox" value="${s}" ${checked?'checked':''} onchange="sprintOnSetorCheck()">${s}</label>`;
+        }).join('');
+        // Atualiza o checkbox "Todos"
+        const sAllChk = document.getElementById('sprint-setor-all-chk');
+        if (sAllChk) sAllChk.checked = isAllS;
+    }
+    if (sBadge) {
+        const fs = SPRINT.filterSetor;
+        const isNoneS = fs.length === 1 && fs[0] === '__none__';
+        const isAllS  = fs.length === 0;
+        sBadge.textContent = isAllS ? 'Todos' : isNoneS ? 'Nenhum' : fs.length + ' selecionado(s)';
+    }
+
+    // Re-abre o painel que estava aberto antes do re-render
+    if (SPRINT.openPanel) {
+        const panelId = SPRINT.openPanel === 'dist' ? 'sprint-dist-panel' : 'sprint-setor-panel';
+        const p = document.getElementById(panelId);
+        if (p) p.style.display = 'block';
+    }
+}
+
+/* ══════════════════════════════════════════
+   RENDER PRINCIPAL
+══════════════════════════════════════════ */
+function renderSprint() {
+    const el = document.getElementById('tab-sprint');
+    if (!el) return;
+
+    const hasDDD   = !!SPRINT.dddRows;
+    const hasMDTR  = !!SPRINT.mdtrRows;
+    const hasMetas = !!SPRINT.metasData;
+    const loadedMonths = sprintLoadedMonths();
+    const hasSprint = loadedMonths.length > 0;
+    const pct = loadedMonths.length / 3 * 100;
+
+    let html = `<div class="sprint-wrap">`;
+
+    // ── Header ──
+    html += `<div class="sprint-header">
+        <div class="sprint-title">
+            <span style="font-size:1.4rem">🏅</span>
+            <div>
+                <h2>Sprint de Ouro</h2>
+                <div class="sprint-badge-period">Base: Jan/Fev/Mar-26 · Sprint: Mai/Jun/Jul-26</div>
+            </div>
+        </div>
+        <div class="sprint-controls">
+            <div class="sprint-filter-grp" style="position:relative">
+                <span class="sprint-filter-label">Distrital</span>
+                <div class="sprint-multisel-wrap" id="sprint-dist-wrap">
+                    <button class="sprint-multisel-btn" onclick="sprintToggleDistPanel(event)">
+                        <span id="sprint-dist-badge">Todas</span>
+                        <span class="sprint-multisel-arrow">▾</span>
+                    </button>
+                    <div class="sprint-multisel-panel" id="sprint-dist-panel" style="display:none">
+                        <label class="sprint-setor-chk sprint-setor-all"><input type="checkbox" id="sprint-dist-all-chk" checked onchange="sprintOnDistAll(this)"> Todas as Distritais</label>
+                        <div id="sprint-dist-checkboxes"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="sprint-filter-grp" style="position:relative">
+                <span class="sprint-filter-label">Setor</span>
+                <div class="sprint-multisel-wrap" id="sprint-setor-wrap">
+                    <button class="sprint-multisel-btn" onclick="sprintToggleSetorPanel(event)">
+                        <span id="sprint-setor-badge">Todos</span>
+                        <span class="sprint-multisel-arrow">▾</span>
+                    </button>
+                    <div class="sprint-multisel-panel" id="sprint-setor-panel" style="display:none">
+                        <label class="sprint-setor-chk sprint-setor-all"><input type="checkbox" id="sprint-setor-all-chk" checked onchange="sprintOnSetorAll(this)"> Todos os Setores</label>
+                        <div id="sprint-setor-checkboxes"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    // ── 3 upload cards ──
+    html += `<div class="sprint-upload-row">
+        <div class="sprint-upload-card ${hasDDD?'loaded':''}" onclick="sprintTriggerUpload('ddd')">
+            <div class="sprint-upload-icon">${hasDDD?'✅':'📁'}</div>
+            <div class="sprint-upload-info">
+                <div class="sprint-upload-title">Planilha DDD (R$)</div>
+                <div class="sprint-upload-sub">${hasDDD?'Mercado completo carregado ✓':'Clique para carregar — supera + concorrência'}</div>
+            </div>
+        </div>
+        <div class="sprint-upload-card sprint-upload-card-mdtr ${hasMDTR?'loaded':''}" onclick="sprintTriggerUpload('mdtr')">
+            <div class="sprint-upload-icon">${hasMDTR?'📊':'📊'}</div>
+            <div class="sprint-upload-info">
+                <div class="sprint-upload-title">Planilha MDTR (R$)</div>
+                <div class="sprint-upload-sub">${hasMDTR?'Vendas por PDV carregadas ✓':'Clique para carregar — nossas marcas por PDV'}</div>
+            </div>
+        </div>
+        <div class="sprint-upload-card sprint-upload-card-metas ${hasMetas?'loaded':''}" onclick="sprintTriggerUpload('metas')">
+            <div class="sprint-upload-icon">🎯</div>
+            <div class="sprint-upload-info">
+                <div class="sprint-upload-title">Planilha de Metas</div>
+                <div class="sprint-upload-sub">${hasMetas?'Cotas carregadas ✓':'Clique para carregar as cotas da campanha'}</div>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="sprint-fileInput" accept=".xlsx,.xls" hidden>`;
+
+    // ── Progresso ──
+    html += `<div class="sprint-progress-wrap">
+        <div class="sprint-progress-top">
+            <span class="sprint-progress-title">⏱ Progresso da Campanha</span>
+            <div class="sprint-progress-months">
+                ${SPRINT.SPRINT_MONTHS.map(m => `<span class="sprint-month-pip ${loadedMonths.includes(m)?'loaded':''}">${SPRINT.MONTH_LABELS[m]}</span>`).join('')}
+            </div>
+        </div>
+        <div class="sprint-progress-bar-bg"><div class="sprint-progress-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+
+    if (!hasDDD && !hasMDTR && !hasMetas) {
+        html += `<div class="sprint-empty"><div class="sprint-empty-icon">📂</div>Carregue ao menos uma planilha para começar.</div></div>`;
+        el.innerHTML = html;
+        sprintBindEvents();
+        return;
+    }
+
+    // ── Sub-tabs ──
+    const st = SPRINT.subTab;
+    html += `<div class="sprint-subtabs">
+        <button class="sprint-subtab-btn ${st==='evolucao'?'active':''}${!hasDDD?' disabled':''}" onclick="sprintSetSubTab('evolucao')">📊 Evolução DDD</button>
+        <button class="sprint-subtab-btn ${st==='metas'?'active':''}${!hasMetas?' disabled':''}" onclick="sprintSetSubTab('metas')">🎯 Metas</button>
+        <button class="sprint-subtab-btn ${st==='mktshare'?'active':''}${!hasDDD?' disabled':''}" onclick="sprintSetSubTab('mktshare')">📈 Mkt Share</button>
+        <button class="sprint-subtab-btn ${st==='oportunidades'?'active':''}${!hasDDD?' disabled':''}" onclick="sprintSetSubTab('oportunidades')">🔍 Oportunidades</button>
+        <button class="sprint-subtab-btn ${st==='pdv'?'active':''}${!hasMDTR?' disabled':''}" onclick="sprintSetSubTab('pdv')">🏪 PDVs (MDTR)</button>
+    </div>`;
+
+    // ── KPI cards (só quando DDD carregado) ──
+    if (hasDDD) {
+        html += `<div class="sprint-lines-row">`;
+        SPRINT.LINES.forEach(line => {
+            const bTotal = sprintGetDDD(SPRINT.BASE_MONTHS, line.products).reduce((s,r)=>s+r.valor,0);
+            const sTotal = sprintGetDDD(loadedMonths,       line.products).reduce((s,r)=>s+r.valor,0);
+            const evol   = sprintFmtEvol(bTotal, sTotal);
+            const proj   = loadedMonths.length > 0 ? (sTotal/loadedMonths.length)*3 : null;
+            const metaTotal = (() => {
+                if (!hasMetas) return 0;
+                const list = line.id==='l1' ? SPRINT.metasData.pvInfinity : SPRINT.metasData.pvPrime;
+                const fd = SPRINT.filterDistrital; // array
+                const fs = SPRINT.filterSetor;     // array
+                if (fd.length === 0 && fs.length === 0) return list.reduce((s,r)=>s+r.meta,0);
+                return list.filter(item => {
+                    const pvCode = item.nome.split(' - ')[0].trim();
+                    if (fs.length > 0) {
+                        return fs.some(s => s.startsWith(pvCode));
+                    }
+                    if (fd.length > 0) {
+                        return fd.some(d => {
+                            const fdCode = d.split(' - ')[0].trim();
+                            return pvCode.slice(0, 4) === fdCode.slice(0, 4);
+                        });
+                    }
+                    return true;
+                }).reduce((s,r)=>s+r.meta,0);
+            })();
+            const ating = metaTotal > 0 ? sTotal/metaTotal*100 : null;
+
+            html += `<div class="sprint-line-card">
+                <div class="sprint-line-header ${line.color}">
+                    <div>
+                        <div class="sprint-line-title">🏅 ${line.name}</div>
+                        <div class="sprint-line-products">${line.label}</div>
+                    </div>
+                    ${metaTotal>0?`<div class="sprint-line-meta-badge">Meta: ${sprintFmtRS(metaTotal)}</div>`:''}
+                </div>
+                <div class="sprint-line-kpis">
+                    <div class="sprint-line-kpi">
+                        <div class="sprint-kpi-label">Base 1TRI/26</div>
+                        <div class="sprint-kpi-value">${sprintFmtRS(bTotal)}</div>
+                        <div class="sprint-kpi-sub">Jan+Fev+Mar — Supera</div>
+                    </div>
+                    <div class="sprint-line-kpi">
+                        <div class="sprint-kpi-label">Sprint Acum.</div>
+                        <div class="sprint-kpi-value ${hasSprint?'':'neutral'}">${hasSprint?sprintFmtRS(sTotal):'—'}</div>
+                        <div class="sprint-kpi-sub">${loadedMonths.length} de 3 meses</div>
+                    </div>
+                    <div class="sprint-line-kpi">
+                        <div class="sprint-kpi-label">${ating!==null?'Atingimento':'Evolução'}</div>
+                        <div class="sprint-kpi-value ${ating!==null?(ating>=100?'pos':ating>=70?'neutral':'neg'):(hasSprint?evol.cls:'neutral')}">
+                            ${ating!==null?ating.toFixed(1)+'%':(hasSprint?evol.txt:'—')}
+                        </div>
+                        <div class="sprint-kpi-sub">${ating!==null?'vs meta':'vs base'}</div>
+                    </div>
+                    <div class="sprint-line-kpi">
+                        <div class="sprint-kpi-label">Projeção TRI</div>
+                        <div class="sprint-kpi-value neutral">${proj!==null?sprintFmtRS(proj):'—'}</div>
+                        <div class="sprint-kpi-sub">se mantiver ritmo</div>
+                    </div>
+                </div>
+            </div>`;
+        });
+        html += `</div>`;
+    }
+
+    // ── Conteúdo da sub-tab ──
+    if (st === 'evolucao') {
+        if (!hasDDD) html += sprintEmptyMsg('📁', 'Carregue a planilha DDD para ver a evolução de vendas.');
+        else SPRINT.LINES.forEach(line => {
+            const bR = sprintGetDDD(SPRINT.BASE_MONTHS, line.products);
+            const sR = sprintGetDDD(loadedMonths,       line.products);
+            html += sprintBuildEvolTable(line, bR, sR, SPRINT.viewMode[line.id], loadedMonths);
+        });
+    } else if (st === 'metas') {
+        if (!hasMetas) html += sprintEmptyMsg('🎯', 'Carregue a planilha de Metas para ver esta seção.');
+        else html += sprintBuildMetasView(loadedMonths);
+    } else if (st === 'mktshare') {
+        if (!hasDDD) html += sprintEmptyMsg('📈', 'Carregue a planilha DDD para ver o Mkt Share.');
+        else html += sprintBuildMktShareView();
+    } else if (st === 'oportunidades') {
+        if (!hasDDD) html += sprintEmptyMsg('🔍', 'Carregue a planilha DDD para ver as Oportunidades.');
+        else html += sprintBuildOportunidadesView();
+    } else if (st === 'pdv') {
+        if (!hasMDTR) html += sprintEmptyMsg('🏪', 'Carregue a planilha MDTR para ver os PDVs.');
+        else html += sprintBuildPDVView(loadedMonths);
+    }
+
+    html += `</div>`;
+    el.innerHTML = html;
+    sprintBuildFilters();
+    sprintBindEvents();
+}
+
+function sprintEmptyMsg(icon, msg) {
+    return `<div class="sprint-empty"><div class="sprint-empty-icon">${icon}</div>${msg}</div>`;
+}
+
+/* ══════════════════════════════════════════
+   SUB-TAB: EVOLUÇÃO DE VENDAS (DDD)
+══════════════════════════════════════════ */
+function sprintBuildEvolTable(line, bRows, sRows, viewMode, loadedMonths) {
+    const dim = viewMode;
+    const baseAgg   = sprintAggregate(bRows, SPRINT.BASE_MONTHS, dim);
+    const sprintAgg = sprintAggregate(sRows, loadedMonths,       dim);
+    const spMap = new Map(sprintAgg.map(e => [e.key, e]));
+    const sort = SPRINT.sortState[line.id];
+
+    let merged = baseAgg.map(e => {
+        const sp = spMap.get(e.key) || { val: 0, byMonth: {} };
+        return { key: e.key, label: e.label, base: e.val, sprint: sp.val, byMonth: sp.byMonth };
+    });
+    merged.sort((a,b) => {
+        const va = sort.key==='base' ? a.base : sort.key==='sprint' ? a.sprint : (a.base?a.sprint/a.base-1:0);
+        const vb = sort.key==='base' ? b.base : sort.key==='sprint' ? b.sprint : (b.base?b.sprint/b.base-1:0);
+        return sort.dir==='desc' ? vb-va : va-vb;
+    });
+
+    const tBase   = merged.reduce((s,e)=>s+e.base,0);
+    const tSprint = merged.reduce((s,e)=>s+e.sprint,0);
+    const tEvol   = sprintFmtEvol(tBase, tSprint);
+    const has     = loadedMonths.length > 0;
+    const dimLabel = {distrital:'Distrital', setor:'Setor', pdv:'PDV (Brick)'}[dim];
+
+    const thS = (key,lbl) => {
+        const active = sort.key===key;
+        const arr = active?(sort.dir==='desc'?' ↓':' ↑'):' ↕';
+        return `<th class="r" onclick="sprintSort('${line.id}','${key}')" style="cursor:pointer">${lbl}${arr}</th>`;
+    };
+
+    const mHdrs  = loadedMonths.map(m=>`<th class="r">${SPRINT.MONTH_LABELS[m]}-26</th>`).join('');
+    const mTotals = loadedMonths.map(m=>{
+        const tot = merged.reduce((s,e)=>s+(e.byMonth[m]||0),0);
+        return `<td class="r">${sprintFmtRS(tot)}</td>`;
+    }).join('');
+
+    const rows = merged.map((e,i)=>{
+        const ev = has ? sprintFmtEvol(e.base,e.sprint) : {txt:'—',cls:'sprint-evol-neu'};
+        const pCls = '';
+        const mCells = loadedMonths.map(m=>`<td class="r">${e.byMonth[m]?sprintFmtRS(e.byMonth[m]):'—'}</td>`).join('');
+        return `<tr>
+            <td><span class="sprint-pos-badge ${pCls}">${i+1}</span></td>
+            <td class="sprint-td-label" title="${e.label}">${e.label}</td>
+            <td class="r">${sprintFmtRS(e.base)}</td>
+            <td class="r">${has?sprintFmtRS(e.sprint):'—'}</td>
+            ${mCells}
+            <td class="r ${ev.cls}">${ev.txt}</td>
+        </tr>`;
+    }).join('');
+
+    return `<div class="sprint-section">
+        <div class="sprint-section-header ${line.color}">
+            <span class="sprint-section-title">🏅 ${line.name} — ${line.label}</span>
+            <div class="sprint-view-tabs">
+                <button class="sprint-view-btn ${dim==='distrital'?'active':''}" onclick="sprintSetView('${line.id}','distrital')">Distrital</button>
+                <button class="sprint-view-btn ${dim==='setor'    ?'active':''}" onclick="sprintSetView('${line.id}','setor')">Setor</button>
+                <button class="sprint-view-btn ${dim==='pdv'      ?'active':''}" onclick="sprintSetView('${line.id}','pdv')">Brick</button>
+            </div>
+        </div>
+        <div style="overflow-x:auto"><table class="sprint-tbl">
+            <thead><tr>
+                <th style="width:32px">#</th><th>${dimLabel}</th>
+                ${thS('base','Base J/F/M')}${thS('sprint','Sprint Acum.')}
+                ${mHdrs}${thS('evol','Evolução')}
+            </tr></thead>
+            <tbody>${rows||'<tr><td colspan="8" class="sprint-empty">Sem dados</td></tr>'}</tbody>
+            <tfoot><tr class="sprint-total-row">
+                <td></td><td><strong>TOTAL</strong></td>
+                <td class="r"><strong>${sprintFmtRS(tBase)}</strong></td>
+                <td class="r"><strong>${has?sprintFmtRS(tSprint):'—'}</strong></td>
+                ${mTotals}
+                <td class="r ${tEvol.cls}"><strong>${has?tEvol.txt:'—'}</strong></td>
+            </tr></tfoot>
+        </table></div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════════
+   SUB-TAB: METAS
+══════════════════════════════════════════ */
+function sprintBuildMetasView(loadedMonths) {
+    const metas = SPRINT.metasData;
+    const has   = loadedMonths.length > 0;
+    let html    = '';
+
+    const realByCode = (code, prodList, bySetor) => {
+        if (!SPRINT.dddRows && !SPRINT.mdtrRows) return 0;
+        const src = SPRINT.dddRows || SPRINT.mdtrRows;
+        return src.filter(r =>
+            loadedMonths.includes(r.mes) &&
+            prodList.includes(r.marca) &&
+            (bySetor ? r.setor.startsWith(code) : r.distrital.startsWith(code)) &&
+            _sprintFilter(r)
+        ).reduce((s,r)=>s+r.valor,0);
+    };
+    const baseByCode = (code, prodList, bySetor) => {
+        if (!SPRINT.dddRows && !SPRINT.mdtrRows) return 0;
+        const src = SPRINT.dddRows || SPRINT.mdtrRows;
+        return src.filter(r =>
+            SPRINT.BASE_MONTHS.includes(r.mes) &&
+            prodList.includes(r.marca) &&
+            (bySetor ? r.setor.startsWith(code) : r.distrital.startsWith(code)) &&
+            _sprintFilter(r)
+        ).reduce((s,r)=>s+r.valor,0);
+    };
+
+    // Filtra a lista de itens pelo filtro ativo de distrital/setor
+    const filterMetaList = (list, bySetor) => {
+        const fd = SPRINT.filterDistrital; // array
+        const fs = SPRINT.filterSetor;     // array
+        if (fd.length === 0 && fs.length === 0) return list;
+        return list.filter(item => {
+            const pvCode = item.nome.split(' - ')[0].trim();
+            if (bySetor) {
+                if (fs.length > 0) {
+                    return fs.some(s => s.startsWith(pvCode));
+                }
+                if (fd.length > 0) {
+                    return fd.some(d => {
+                        const fdCode = d.split(' - ')[0].trim();
+                        return pvCode.slice(0, 4) === fdCode.slice(0, 4);
+                    });
+                }
+            } else {
+                if (fd.length > 0) {
+                    return fd.some(d => {
+                        const fdCode = d.split(' - ')[0].trim();
+                        return pvCode === fdCode;
+                    });
+                }
+            }
+            return true;
+        });
+    };
+
+    [
+        {title:'🟦 INFINITY — Por Propagandista', list:metas.pvInfinity, prodList:SPRINT.LINES[0].products, color:'l1', bySetor:true},
+        {title:'🟠 PRIME — Por Propagandista',    list:metas.pvPrime,    prodList:SPRINT.LINES[1].products, color:'l2', bySetor:true},
+        {title:'🟦 INFINITY — Por Distrital',     list:metas.gdInfinity, prodList:SPRINT.LINES[0].products, color:'l1', bySetor:false},
+        {title:'🟠 PRIME — Por Distrital',        list:metas.gdPrime,    prodList:SPRINT.LINES[1].products, color:'l2', bySetor:false},
+        {title:'⚡ MISTOS — Por Distrital',       list:metas.gdMisto,    prodList:[...SPRINT.LINES[0].products,...SPRINT.LINES[1].products], color:'l3', bySetor:false},
+    ].forEach(sec => {
+        if (!sec.list || !sec.list.length) return;
+        // Aplica filtro de distrital/setor à lista de itens
+        const filteredList = filterMetaList(sec.list, sec.bySetor);
+        if (!filteredList.length) return;
+        const totMeta = filteredList.reduce((s,r)=>s+r.meta,0);
+        let totReal=0, totBase=0, cntOk=0;
+        const isPV = sec.bySetor;
+
+        const nMeses = loadedMonths.length; // 0, 1, 2 ou 3
+        const isComplete = nMeses === 3;
+
+        const rowsH = filteredList.map((item,i) => {
+            const code = item.nome.split(' - ')[0].trim();
+            const real = realByCode(code, sec.prodList, sec.bySetor);
+            const base = baseByCode(code, sec.prodList, sec.bySetor);
+            totReal += real; totBase += base;
+
+            // Atingimento real (% da meta já realizado)
+            const at = item.meta>0 ? real/item.meta*100 : 0;
+
+            // Projeção trimestral com base no ritmo atual
+            const proj = nMeses>0 ? (real/nMeses)*3 : 0;
+            const projAt = item.meta>0 ? proj/item.meta*100 : 0;
+
+            // Status: completo = real vs meta; parcial = projeção vs meta
+            let statusTxt, aCls;
+            if (!has) {
+                statusTxt = '⏳ Aguardando';
+                aCls = 'sprint-evol-neu';
+            } else if (isComplete) {
+                // Sprint encerrado — compara real com meta
+                if (at >= 100) { statusTxt = '✅ Bateu';        aCls = 'sprint-ating-ok'; }
+                else if (at >= 70) { statusTxt = '⚠️ Quase';   aCls = 'sprint-ating-med'; }
+                else               { statusTxt = '❌ Não Bateu'; aCls = 'sprint-ating-low'; }
+            } else {
+                // Sprint em andamento — compara projeção com meta
+                if (projAt >= 100) { statusTxt = '🟢 No Ritmo';      aCls = 'sprint-ating-ok'; }
+                else if (projAt >= 70) { statusTxt = '🟡 Risco';      aCls = 'sprint-ating-med'; }
+                else                   { statusTxt = '🔴 Fora do Ritmo'; aCls = 'sprint-ating-low'; }
+            }
+
+            if (at >= 100) cntOk++;
+            const diff = real - item.meta;
+            const dCls = diff>=0?'sprint-evol-pos':'sprint-evol-neg';
+            const projFmt = nMeses>0 ? sprintFmtRS(proj) : '—';
+            const projAtFmt = nMeses>0 ? projAt.toFixed(1)+'%' : '—';
+            const atFmt = has ? at.toFixed(1)+'%' : '—';
+
+            return `<tr>
+                <td><span class="sprint-pos-badge">${i+1}</span></td>
+                <td class="sprint-td-label" title="${item.nome}">${item.nome}</td>
+                ${isPV?`<td class="sprint-td-small" title="${item.gd||''}">${item.gd||'—'}</td>`:''}
+                <td class="r sprint-td-small">${item.grupo||'—'}</td>
+                <td class="r">${sprintFmtRS(base)}</td>
+                <td class="r sprint-meta-col"><strong>${sprintFmtRS(item.meta)}</strong></td>
+                <td class="r">${has?sprintFmtRS(real):'—'}</td>
+                <td class="r">${isComplete?'—':projFmt}</td>
+                <td class="r"><span class="${aCls}">${isComplete?atFmt:projAtFmt}</span></td>
+                <td class="r ${has?dCls:''}">${has?(diff>=0?'+':'')+sprintFmtRS(diff):'—'}</td>
+                <td class="c"><span class="sprint-status-badge sprint-status-${aCls.replace('sprint-ating-','')}">${has?statusTxt:'⏳'}</span></td>
+            </tr>`;
+        }).join('');
+
+        const totAt = totMeta>0?totReal/totMeta*100:0;
+        const totDiff = totReal-totMeta;
+        const statusLegend = !has ? '' : isComplete
+            ? `<div class="sprint-status-legend">Sprint encerrado · Status baseado no <strong>realizado vs meta</strong></div>`
+            : `<div class="sprint-status-legend">Sprint em andamento (${nMeses}/3 meses) · Status baseado na <strong>projeção trimestral</strong> (ritmo atual × 3)</div>`;
+
+        html += `<div class="sprint-section">
+            <div class="sprint-section-header ${sec.color}">
+                <span class="sprint-section-title">${sec.title}</span>
+                <span class="sprint-meta-total">Meta: ${sprintFmtRS(totMeta)}</span>
+            </div>
+            ${statusLegend}
+            <div style="overflow-x:auto"><table class="sprint-tbl">
+                <thead><tr>
+                    <th style="width:30px">#</th><th>${isPV?'Propagandista':'Distrital'}</th>
+                    ${isPV?'<th>Distrital</th>':''}
+                    <th class="r">Grupo</th>
+                    <th class="r">Base 1TRI/26</th>
+                    <th class="r sprint-meta-col">Meta</th>
+                    <th class="r">Realiz. Sprint</th>
+                    <th class="r">Proj. TRI</th>
+                    <th class="r">Ating./Proj.%</th>
+                    <th class="r">Falta/Sobra</th>
+                    <th class="c">Status</th>
+                </tr></thead>
+                <tbody>${rowsH}</tbody>
+                <tfoot><tr class="sprint-total-row">
+                    <td></td><td><strong>TOTAL</strong></td>${isPV?'<td></td>':''}<td></td>
+                    <td class="r"><strong>${sprintFmtRS(totBase)}</strong></td>
+                    <td class="r sprint-meta-col"><strong>${sprintFmtRS(totMeta)}</strong></td>
+                    <td class="r"><strong>${has?sprintFmtRS(totReal):'—'}</strong></td>
+                    <td></td>
+                    <td class="r"><strong>${has?totAt.toFixed(1)+'%':'—'}</strong></td>
+                    <td class="r ${totDiff>=0?'sprint-evol-pos':'sprint-evol-neg'}"><strong>${has?(totDiff>=0?'+':'')+sprintFmtRS(totDiff):'—'}</strong></td>
+                    <td><strong>${has?cntOk+'/'+filteredList.length+(isComplete?' bateram':' no ritmo'):'—'}</strong></td>
+                </tr></tfoot>
+            </table></div>
+        </div>`;
+    });
+    return html;
+}
+
+/* ══════════════════════════════════════════
+   SUB-TAB: MKT SHARE
+══════════════════════════════════════════ */
+function sprintBuildMktShareView() {
+    let html = '';
+    SPRINT.LINES.forEach(line => {
+        const map = new Map();
+        sprintGetDDDMkt(SPRINT.BASE_MONTHS, line.mercados).forEach(r => {
+            if (!map.has(r.setor)) map.set(r.setor, {setor:r.setor, distrital:r.distrital, supera:0, total:0});
+            const e = map.get(r.setor);
+            e.total += r.valor;
+            if (line.products.includes(r.marca)) e.supera += r.valor;
+        });
+        const rows2 = [...map.values()]
+            .map(e=>({...e, concor:e.total-e.supera, ms:e.total>0?e.supera/e.total*100:0}))
+            .sort((a,b)=>b.ms-a.ms);
+        if (!rows2.length) return;
+
+        const avg = rows2.reduce((s,r)=>s+r.ms,0)/rows2.length;
+        const rowsH = rows2.map((r,i)=>{
+            const barColor = r.ms>=50?'#059669':r.ms>=30?'#d97706':'#dc2626';
+            const pCls = '';
+            return `<tr>
+                <td><span class="sprint-pos-badge ${pCls}">${i+1}</span></td>
+                <td class="sprint-td-small">${r.distrital}</td>
+                <td class="sprint-td-label" title="${r.setor}">${r.setor}</td>
+                <td class="r">${sprintFmtRS(r.supera)}</td>
+                <td class="r">${sprintFmtRS(r.concor)}</td>
+                <td class="r">${sprintFmtRS(r.total)}</td>
+                <td style="min-width:140px">
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <div style="flex:1;background:var(--s3);border-radius:4px;height:8px;overflow:hidden">
+                            <div style="width:${Math.min(r.ms,100)}%;height:100%;background:${barColor};border-radius:4px"></div>
+                        </div>
+                        <span style="font-size:.72rem;font-weight:800;color:${barColor};min-width:38px">${r.ms.toFixed(1)}%</span>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+
+        html += `<div class="sprint-section">
+            <div class="sprint-section-header ${line.color}">
+                <span class="sprint-section-title">${line.name==='INFINITY'?'🟦':'🟠'} ${line.name} — Mkt Share por Setor (Base 1TRI/26)</span>
+                <span class="sprint-meta-total">Média: ${avg.toFixed(1)}%</span>
+            </div>
+            <div style="overflow-x:auto"><table class="sprint-tbl">
+                <thead><tr>
+                    <th style="width:30px">#</th><th>Distrital</th><th>Setor</th>
+                    <th class="r">Supera (R$)</th><th class="r">Concorrência (R$)</th>
+                    <th class="r">Total Mercado (R$)</th><th>Mkt Share</th>
+                </tr></thead>
+                <tbody>${rowsH}</tbody>
+            </table></div>
+        </div>`;
+    });
+    return html;
+}
+
+/* ══════════════════════════════════════════
+   SUB-TAB: OPORTUNIDADES
+   Mostra os maiores mercados DDD por brick/cidade,
+   rankeados pela quantidade de concorrência,
+   com breakdown dos concorrentes presentes.
+══════════════════════════════════════════ */
+function sprintBuildOportunidadesView() {
+    let html = '';
+
+    SPRINT.LINES.forEach(line => {
+        // Agrupa por BRICK (mercado físico = PDV/cidade)
+        // para cada brick: total mercado, nossa venda, concorrência, lista de concorrentes
+        const map = new Map();
+        sprintGetDDDMkt(SPRINT.BASE_MONTHS, line.mercados).forEach(r => {
+            const k = r.brick;
+            if (!map.has(k)) map.set(k, {
+                brick: k, setor: r.setor, distrital: r.distrital,
+                supera: 0, total: 0,
+                concorMap: new Map()  // marca -> valor
+            });
+            const e = map.get(k);
+            e.total += r.valor;
+            if (line.products.includes(r.marca)) {
+                e.supera += r.valor;
+            } else {
+                e.concorMap.set(r.marca, (e.concorMap.get(r.marca)||0) + r.valor);
+            }
+        });
+
+        // Filtra bricks onde existe concorrência (oportunidade real)
+        const rows2 = [...map.values()]
+            .map(e => {
+                const concor = e.total - e.supera;
+                const ms     = e.total > 0 ? e.supera/e.total*100 : 0;
+                // Top concorrentes deste brick
+                const topConc = [...e.concorMap.entries()]
+                    .sort((a,b)=>b[1]-a[1])
+                    .slice(0,3)
+                    .map(([m,v])=>({
+                        nome: m.replace(/\s*\([^)]+\)/,'').trim(),
+                        valor: v
+                    }));
+                const prio = ms<25&&concor>50000?'alta' : ms<40&&concor>20000?'media' : concor>5000?'baixa':null;
+                return { ...e, concor, ms, topConc, prio };
+            })
+            .filter(e => e.prio !== null && e.concor > 0)
+            .sort((a,b) => b.concor - a.concor)
+            .slice(0, 100);  // top 100 oportunidades
+
+        if (!rows2.length) return;
+
+        const countAlta  = rows2.filter(r=>r.prio==='alta').length;
+        const countMedia = rows2.filter(r=>r.prio==='media').length;
+        const totalConcor= rows2.reduce((s,r)=>s+r.concor,0);
+
+        const prioLabel  = {alta:'🔴 Alta', media:'🟡 Média', baixa:'🟢 Baixa'};
+        const prioOrder  = {alta:0, media:1, baixa:2};
+
+        const rowsH = rows2.map((r,i)=>{
+            const pCls = '';
+            const concBars = r.topConc.map(c=>`
+                <div class="sprint-conc-bar">
+                    <span class="sprint-conc-name">${c.nome}</span>
+                    <div class="sprint-conc-bar-track">
+                        <div class="sprint-conc-bar-fill" style="width:${Math.min(c.valor/r.concor*100,100).toFixed(1)}%"></div>
+                    </div>
+                    <span class="sprint-conc-val">${sprintFmtRS(c.valor)}</span>
+                </div>`).join('');
+            return `<tr>
+                <td><span class="sprint-pos-badge ${pCls}">${i+1}</span></td>
+                <td class="sprint-td-small">${r.distrital}</td>
+                <td class="sprint-td-small">${r.setor}</td>
+                <td class="sprint-td-label" title="${r.brick}">${r.brick}</td>
+                <td class="r">${sprintFmtRS(r.supera)}</td>
+                <td class="r sprint-concor-val">${sprintFmtRS(r.concor)}</td>
+                <td class="r">${sprintFmtRS(r.total)}</td>
+                <td class="r" style="font-size:.72rem;font-weight:700;color:${r.ms>=50?'#059669':r.ms>=30?'#d97706':'#dc2626'}">${r.ms.toFixed(1)}%</td>
+                <td>${concBars}</td>
+                <td class="r sprint-td-small">${prioLabel[r.prio]}</td>
+            </tr>`;
+        }).join('');
+
+        html += `<div class="sprint-section">
+            <div class="sprint-section-header ${line.color}">
+                <span class="sprint-section-title">${line.name==='INFINITY'?'🟦':'🟠'} ${line.name} — Top Oportunidades por Brick (Base 1TRI/26)</span>
+                <span class="sprint-meta-total">🔴 ${countAlta} · 🟡 ${countMedia} · Concorr. total: ${sprintFmtRS(totalConcor)}</span>
+            </div>
+            <div class="sprint-oport-legend">
+                <span>🔴 <strong>Alta:</strong> MS &lt; 25% e concorrência &gt; R$50k</span>
+                <span>🟡 <strong>Média:</strong> MS &lt; 40% e concorrência &gt; R$20k</span>
+                <span>🟢 <strong>Baixa:</strong> demais bricks com concorrência &gt; R$5k</span>
+            </div>
+            <div style="overflow-x:auto"><table class="sprint-tbl">
+                <thead><tr>
+                    <th style="width:30px">#</th>
+                    <th>Distrital</th><th>Setor</th><th>Brick / Cidade</th>
+                    <th class="r">Supera (R$)</th>
+                    <th class="r">Concorrência (R$)</th>
+                    <th class="r">Total Mkt (R$)</th>
+                    <th class="r">Mkt Share</th>
+                    <th>Top Concorrentes</th>
+                    <th class="r">Prio.</th>
+                </tr></thead>
+                <tbody>${rowsH}</tbody>
+            </table></div>
+        </div>`;
+    });
+
+    return html;
+}
+
+/* ══════════════════════════════════════════
+   SUB-TAB: PDVs (MDTR)
+══════════════════════════════════════════ */
+function sprintBuildPDVView(loadedMonths) {
+    const hasSprint = loadedMonths.length > 0;
+    let html = '';
+
+    SPRINT.LINES.forEach(line => {
+        const bRows = sprintGetMDTR(SPRINT.BASE_MONTHS, line.products);
+        const sRows = sprintGetMDTR(loadedMonths,       line.products);
+        const vm    = SPRINT.mdtrView[line.id];
+
+        // ── Agrega por dimensão ──
+        // Para PDV: agrega com detalhes de significância
+        let merged;
+        if (vm === 'pdv') {
+            // Agrega base por PDV
+            const bMap = new Map();
+            bRows.forEach(r => {
+                if (!r.pdv) return;
+                if (!bMap.has(r.pdv)) bMap.set(r.pdv, { key: r.pdv, label: r.pdv, bandeira: r.bandeira, setor: r.setor, distrital: r.distrital, base: 0, bMeses: new Set() });
+                const e = bMap.get(r.pdv);
+                e.base += r.valor;
+                e.bMeses.add(r.mes);
+            });
+            // Agrega sprint por PDV
+            const sMap = new Map();
+            sRows.forEach(r => {
+                if (!r.pdv) return;
+                if (!sMap.has(r.pdv)) sMap.set(r.pdv, { sprint: 0, byMonth: {}, sMeses: new Set() });
+                const e = sMap.get(r.pdv);
+                e.sprint   += r.valor;
+                e.byMonth[r.mes] = (e.byMonth[r.mes] || 0) + r.valor;
+                e.sMeses.add(r.mes);
+            });
+            // Merge
+            const allKeys = new Set([...bMap.keys(), ...sMap.keys()]);
+            merged = [...allKeys].map(k => {
+                const b = bMap.get(k) || { key: k, label: k, bandeira: '', setor: '', distrital: '', base: 0, bMeses: new Set() };
+                const s = sMap.get(k) || { sprint: 0, byMonth: {}, sMeses: new Set() };
+                const mesesPresente = s.sMeses.size;
+                const ticketMedio   = mesesPresente > 0 ? s.sprint / mesesPresente : 0;
+                // Significância: PDV é significativo se comprou em ≥2 meses do sprint OU valor base > 0
+                const sig = mesesPresente >= 2 ? 'alta' : mesesPresente === 1 ? (s.sprint >= 500 ? 'media' : 'baixa') : (b.base > 0 ? 'base' : 'nova');
+                return { key: k, label: b.label, bandeira: b.bandeira, setor: b.setor, distrital: b.distrital,
+                         base: b.base, sprint: s.sprint, byMonth: s.byMonth,
+                         bMeses: b.bMeses.size, sMeses: mesesPresente, ticketMedio, sig };
+            });
+        } else {
+            // Agregação normal para distrital/setor/bandeira
+            const baseAgg   = sprintAggregate(bRows, SPRINT.BASE_MONTHS, vm);
+            const sprintAgg = sprintAggregate(sRows, loadedMonths, vm);
+            const spMap = new Map(sprintAgg.map(e => [e.key, e]));
+            merged = baseAgg.map(e => {
+                const sp = spMap.get(e.key) || { val: 0, byMonth: {} };
+                return { key: e.key, label: e.label, base: e.val, sprint: sp.val, byMonth: sp.byMonth };
+            });
+            sprintAgg.forEach(e => {
+                if (!merged.find(m => m.key === e.key))
+                    merged.push({ key: e.key, label: e.label, base: 0, sprint: e.val, byMonth: e.byMonth });
+            });
+        }
+
+        // Ordenação
+        const sort = SPRINT.mdtrSort[line.id];
+        merged.sort((a, b) => {
+            let va, vb;
+            if (vm === 'pdv') {
+                const sigOrd = { alta: 4, media: 3, baixa: 2, base: 1, nova: 0 };
+                if (sort.key === 'sig')    { va = sigOrd[a.sig]||0;    vb = sigOrd[b.sig]||0; }
+                else if (sort.key === 'meses') { va = a.sMeses;        vb = b.sMeses; }
+                else if (sort.key === 'ticket'){ va = a.ticketMedio;   vb = b.ticketMedio; }
+                else if (sort.key === 'sprint'){ va = a.sprint;        vb = b.sprint; }
+                else                           { va = a.base;          vb = b.base; }
+            } else {
+                va = sort.key==='base' ? a.base : sort.key==='sprint' ? a.sprint : (a.base ? a.sprint/a.base-1 : Infinity);
+                vb = sort.key==='base' ? b.base : sort.key==='sprint' ? b.sprint : (b.base ? b.sprint/b.base-1 : Infinity);
+            }
+            return sort.dir === 'desc' ? vb - va : va - vb;
+        });
+
+        const tBase   = merged.reduce((s, e) => s + e.base, 0);
+        const tSprint = merged.reduce((s, e) => s + e.sprint, 0);
+        const tEvol   = sprintFmtEvol(tBase, tSprint);
+        const dimLabel = { distrital: 'Distrital', setor: 'Setor', bandeira: 'Bandeira', pdv: 'PDV' }[vm];
+
+        const thS = (key, lbl) => {
+            const active = sort.key === key;
+            const arr = active ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ' ↕';
+            return `<th class="r" onclick="mdtrSort('${line.id}','${key}')" style="cursor:pointer">${lbl}${arr}</th>`;
+        };
+
+        const mHdrs   = loadedMonths.map(m => `<th class="r">${SPRINT.MONTH_LABELS[m]}-26</th>`).join('');
+        const mTotals = loadedMonths.map(m => {
+            const tot = merged.reduce((s, e) => s + (e.byMonth[m] || 0), 0);
+            return `<td class="r">${sprintFmtRS(tot)}</td>`;
+        }).join('');
+
+        let theadExtra = '', rowsH;
+
+        if (vm === 'pdv') {
+            // Legenda de significância
+            const sigCounts = { alta: 0, media: 0, baixa: 0, base: 0, nova: 0 };
+            merged.forEach(e => { if (sigCounts[e.sig] !== undefined) sigCounts[e.sig]++; });
+
+            theadExtra = `
+            <div class="sprint-pdv-sig-legend">
+                <span class="sig-dot sig-alta"></span><span>Alta (≥2 meses): ${sigCounts.alta}</span>
+                <span class="sig-dot sig-media"></span><span>Média (1 mês, ≥R$500): ${sigCounts.media}</span>
+                <span class="sig-dot sig-baixa"></span><span>Baixa (1 mês, &lt;R$500): ${sigCounts.baixa}</span>
+                <span class="sig-dot sig-base"></span><span>Só base (não comprou no sprint): ${sigCounts.base}</span>
+                <span class="sig-dot sig-nova"></span><span>PDV novo (sem histórico): ${sigCounts.nova}</span>
+            </div>`;
+
+            rowsH = merged.map((e, i) => {
+                const ev = hasSprint && (e.base > 0 || e.sprint > 0) ? sprintFmtEvol(e.base, e.sprint) : { txt: '—', cls: 'sprint-evol-neu' };
+                const mCells = loadedMonths.map(m => `<td class="r">${e.byMonth[m] ? sprintFmtRS(e.byMonth[m]) : '—'}</td>`).join('');
+                const sigLabel = { alta: '🟢 Alta', media: '🟡 Média', baixa: '🔴 Baixa', base: '⚫ Base', nova: '🔵 Novo' }[e.sig] || '—';
+                const ticketFmt = e.ticketMedio > 0 ? sprintFmtRS(e.ticketMedio) : '—';
+                const mesesFmt  = e.sMeses > 0 ? `${e.sMeses}/${loadedMonths.length}` : '—';
+                const bandFmt   = e.bandeira ? `<small class="sprint-pdv-band">${e.bandeira}</small>` : '';
+                return `<tr>
+                    <td><span class="sprint-pos-badge">${i + 1}</span></td>
+                    <td class="sprint-td-label" title="${e.label}">${e.label}${bandFmt}</td>
+                    <td class="r">${e.base > 0 ? sprintFmtRS(e.base) : '—'}</td>
+                    <td class="r">${hasSprint && e.sprint > 0 ? sprintFmtRS(e.sprint) : '—'}</td>
+                    ${mCells}
+                    <td class="r">${mesesFmt}</td>
+                    <td class="r">${ticketFmt}</td>
+                    <td class="c sprint-sig-cell"><span class="sprint-sig-badge sprint-sig-${e.sig}">${sigLabel}</span></td>
+                    <td class="r ${ev.cls}">${ev.txt}</td>
+                </tr>`;
+            }).join('');
+
+            html += `<div class="sprint-section">
+                <div class="sprint-section-header ${line.color}">
+                    <span class="sprint-section-title">${line.name === 'INFINITY' ? '🟦' : '🟠'} ${line.name} — Vendas por PDV (MDTR)</span>
+                    <div class="sprint-view-tabs">
+                        <button class="sprint-view-btn ${vm==='distrital'?'active':''}" onclick="mdtrSetView('${line.id}','distrital')">Distrital</button>
+                        <button class="sprint-view-btn ${vm==='setor'    ?'active':''}" onclick="mdtrSetView('${line.id}','setor')">Setor</button>
+                        <button class="sprint-view-btn ${vm==='bandeira' ?'active':''}" onclick="mdtrSetView('${line.id}','bandeira')">Bandeira</button>
+                        <button class="sprint-view-btn ${vm==='pdv'      ?'active':''}" onclick="mdtrSetView('${line.id}','pdv')">PDV</button>
+                    </div>
+                </div>
+                ${theadExtra}
+                <div style="overflow-x:auto"><table class="sprint-tbl">
+                    <thead><tr>
+                        <th style="width:30px">#</th><th>PDV / Bandeira</th>
+                        ${thS('base','Base J/F/M')}${thS('sprint','Sprint Acum.')}
+                        ${mHdrs}
+                        ${thS('meses','Meses')}${thS('ticket','Ticket Médio')}${thS('sig','Significância')}${thS('evol','Evolução')}
+                    </tr></thead>
+                    <tbody>${rowsH || '<tr><td colspan="10" class="sprint-empty">Sem dados</td></tr>'}</tbody>
+                    <tfoot><tr class="sprint-total-row">
+                        <td></td><td><strong>TOTAL (${merged.length} PDVs)</strong></td>
+                        <td class="r"><strong>${sprintFmtRS(tBase)}</strong></td>
+                        <td class="r"><strong>${hasSprint ? sprintFmtRS(tSprint) : '—'}</strong></td>
+                        ${mTotals}
+                        <td></td><td></td><td></td>
+                        <td class="r ${tEvol.cls}"><strong>${hasSprint ? tEvol.txt : '—'}</strong></td>
+                    </tr></tfoot>
+                </table></div>
+            </div>`;
+
+        } else {
+            // View normal (distrital/setor/bandeira)
+            rowsH = merged.map((e, i) => {
+                const ev = hasSprint ? sprintFmtEvol(e.base, e.sprint) : { txt: '—', cls: 'sprint-evol-neu' };
+                const pCls = '';
+                const isNovo = e.base === 0 && e.sprint > 0;
+                const mCells = loadedMonths.map(m => `<td class="r">${e.byMonth[m] ? sprintFmtRS(e.byMonth[m]) : '—'}</td>`).join('');
+                return `<tr${isNovo ? ' class="sprint-row-new"' : ''}>
+                    <td><span class="sprint-pos-badge ${pCls}">${i + 1}</span></td>
+                    <td class="sprint-td-label" title="${e.label}">${e.label}${isNovo ? ' <span class="sprint-novo-badge">NOVO</span>' : ''}</td>
+                    <td class="r">${e.base > 0 ? sprintFmtRS(e.base) : '—'}</td>
+                    <td class="r">${hasSprint ? sprintFmtRS(e.sprint) : '—'}</td>
+                    ${mCells}
+                    <td class="r ${ev.cls}">${ev.txt}</td>
+                </tr>`;
+            }).join('');
+
+            html += `<div class="sprint-section">
+                <div class="sprint-section-header ${line.color}">
+                    <span class="sprint-section-title">${line.name === 'INFINITY' ? '🟦' : '🟠'} ${line.name} — Vendas por ${dimLabel} (MDTR)</span>
+                    <div class="sprint-view-tabs">
+                        <button class="sprint-view-btn ${vm==='distrital'?'active':''}" onclick="mdtrSetView('${line.id}','distrital')">Distrital</button>
+                        <button class="sprint-view-btn ${vm==='setor'    ?'active':''}" onclick="mdtrSetView('${line.id}','setor')">Setor</button>
+                        <button class="sprint-view-btn ${vm==='bandeira' ?'active':''}" onclick="mdtrSetView('${line.id}','bandeira')">Bandeira</button>
+                        <button class="sprint-view-btn ${vm==='pdv'      ?'active':''}" onclick="mdtrSetView('${line.id}','pdv')">PDV</button>
+                    </div>
+                </div>
+                <div style="overflow-x:auto"><table class="sprint-tbl">
+                    <thead><tr>
+                        <th style="width:30px">#</th><th>${dimLabel}</th>
+                        ${thS('base','Base J/F/M')}${thS('sprint','Sprint Acum.')}
+                        ${mHdrs}${thS('evol','Evolução')}
+                    </tr></thead>
+                    <tbody>${rowsH || '<tr><td colspan="8" class="sprint-empty">Sem dados</td></tr>'}</tbody>
+                    <tfoot><tr class="sprint-total-row">
+                        <td></td><td><strong>TOTAL</strong></td>
+                        <td class="r"><strong>${sprintFmtRS(tBase)}</strong></td>
+                        <td class="r"><strong>${hasSprint ? sprintFmtRS(tSprint) : '—'}</strong></td>
+                        ${mTotals}
+                        <td class="r ${tEvol.cls}"><strong>${hasSprint ? tEvol.txt : '—'}</strong></td>
+                    </tr></tfoot>
+                </table></div>
+            </div>`;
+        }
+    });
+    return html;
+}
+
+/* ══════════════════════════════════════════
+   EVENTOS / BIND / CALLBACKS
+══════════════════════════════════════════ */
+let _sprintSetorPanelClose = null;
+function sprintBindEvents() {
+    // Fecha os painéis de distrital/setor ao clicar fora
+    document.removeEventListener('click', _sprintSetorPanelClose);
+    _sprintSetorPanelClose = function(e) {
+        let closed = false;
+        [['sprint-dist-wrap','sprint-dist-panel'],['sprint-setor-wrap','sprint-setor-panel']].forEach(([wId,pId]) => {
+            const wrap  = document.getElementById(wId);
+            const panel = document.getElementById(pId);
+            if (panel && wrap && !wrap.contains(e.target) && panel.style.display !== 'none') {
+                panel.style.display = 'none';
+                closed = true;
+            }
+        });
+        if (closed) SPRINT.openPanel = null;
+    };
+    document.addEventListener('click', _sprintSetorPanelClose);
+
+    const input = document.getElementById('sprint-fileInput');
+    if (!input) return;
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            const buf = new Uint8Array(ev.target.result);
+            const target = input.getAttribute('data-target');
+            if (target === 'ddd') {
+                SPRINT.dddRows = sprintParseDDD(buf);
+            } else if (target === 'mdtr') {
+                SPRINT.mdtrRows = sprintParseMDTR(buf);
+                if (SPRINT.subTab !== 'pdv') SPRINT.subTab = 'pdv';
+            } else if (target === 'metas') {
+                SPRINT.metasData = sprintParseMetasXLSX(buf);
+                if (SPRINT.subTab === 'evolucao') SPRINT.subTab = 'metas';
+            }
+            input.value = '';
+            sprintBuildFilters();
+            renderSprint();
+        };
+        reader.readAsArrayBuffer(file);
+    };
+}
+
+function sprintTriggerUpload(target) {
+    const input = document.getElementById('sprint-fileInput');
+    if (!input) return;
+    input.setAttribute('data-target', target);
+    input.click();
+}
+
+/* ── helpers genéricos para multi-select ── */
+function _sprintTogglePanel(panelId, wrapId, e) {
+    if (e) e.stopPropagation();
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    ['sprint-dist-panel','sprint-setor-panel'].forEach(id => {
+        if (id !== panelId) { const p = document.getElementById(id); if (p) p.style.display = 'none'; }
+    });
+    const opening = panel.style.display === 'none';
+    panel.style.display = opening ? 'block' : 'none';
+    SPRINT.openPanel = opening ? (panelId === 'sprint-dist-panel' ? 'dist' : 'setor') : null;
+}
+
+function sprintToggleDistPanel(e)  { _sprintTogglePanel('sprint-dist-panel',  'sprint-dist-wrap',  e); }
+function sprintToggleSetorPanel(e) { _sprintTogglePanel('sprint-setor-panel', 'sprint-setor-wrap', e); }
+
+function sprintOnDistAll(chk) {
+    if (chk.checked) {
+        // Marcar todas
+        SPRINT.filterDistrital = [];
+        SPRINT.filterSetor     = [];
+        document.querySelectorAll('#sprint-dist-checkboxes input').forEach(c => c.checked = true);
+    } else {
+        // Desmarcar todas — nenhuma distrital selecionada (sem dados)
+        SPRINT.filterDistrital = ['__none__'];
+        SPRINT.filterSetor     = [];
+        document.querySelectorAll('#sprint-dist-checkboxes input').forEach(c => c.checked = false);
+    }
+    renderSprint();
+}
+
+function sprintOnDistCheck() {
+    const checks   = [...document.querySelectorAll('#sprint-dist-checkboxes input')];
+    const selected = checks.filter(c => c.checked).map(c => c.value);
+    const allChk   = document.getElementById('sprint-dist-all-chk');
+    if (selected.length === 0) {
+        SPRINT.filterDistrital = ['__none__'];
+        if (allChk) allChk.checked = false;
+    } else if (selected.length === checks.length) {
+        SPRINT.filterDistrital = [];
+        if (allChk) allChk.checked = true;
+    } else {
+        SPRINT.filterDistrital = selected;
+        if (allChk) allChk.checked = false;
+    }
+    // reseta setores ao mudar distritais
+    SPRINT.filterSetor = [];
+    renderSprint();
+}
+
+function sprintOnSetorAll(chk) {
+    if (chk.checked) {
+        // Marcar todos
+        SPRINT.filterSetor = [];
+        document.querySelectorAll('#sprint-setor-checkboxes input').forEach(c => c.checked = true);
+    } else {
+        // Desmarcar todos
+        SPRINT.filterSetor = ['__none__'];
+        document.querySelectorAll('#sprint-setor-checkboxes input').forEach(c => c.checked = false);
+    }
+    renderSprint();
+}
+
+function sprintOnSetorCheck() {
+    const checks   = [...document.querySelectorAll('#sprint-setor-checkboxes input')];
+    const selected = checks.filter(c => c.checked).map(c => c.value);
+    const allChk   = document.getElementById('sprint-setor-all-chk');
+    if (selected.length === 0) {
+        SPRINT.filterSetor = ['__none__'];
+        if (allChk) allChk.checked = false;
+    } else if (selected.length === checks.length) {
+        SPRINT.filterSetor = [];
+        if (allChk) allChk.checked = true;
+    } else {
+        SPRINT.filterSetor = selected;
+        if (allChk) allChk.checked = false;
+    }
+    renderSprint();
+}
+
+function sprintSetView(lineId, view)  { SPRINT.viewMode[lineId] = view;  renderSprint(); }
+function mdtrSetView(lineId, view)    { SPRINT.mdtrView[lineId] = view;  renderSprint(); }
+function sprintSort(lineId, key)      {
+    const st = SPRINT.sortState[lineId];
+    st.dir = st.key===key ? (st.dir==='desc'?'asc':'desc') : 'desc';
+    st.key = key;
+    renderSprint();
+}
+function mdtrSort(lineId, key)        {
+    const st = SPRINT.mdtrSort[lineId];
+    st.dir = st.key===key ? (st.dir==='desc'?'asc':'desc') : 'desc';
+    st.key = key;
+    renderSprint();
+}
+function sprintSetSubTab(tab) {
+    // Só muda se a tab está habilitada
+    if      (tab==='evolucao'      && !SPRINT.dddRows)  return;
+    else if (tab==='metas'         && !SPRINT.metasData) return;
+    else if (tab==='mktshare'      && !SPRINT.dddRows)  return;
+    else if (tab==='oportunidades' && !SPRINT.dddRows)  return;
+    else if (tab==='pdv'           && !SPRINT.mdtrRows) return;
+    SPRINT.subTab = tab;
+    renderSprint();
+}

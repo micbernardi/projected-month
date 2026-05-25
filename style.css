@@ -5299,7 +5299,733 @@ td.pdv-growth-neg {
     text-align: center;
 }
 
+
+/* ════════════════════════════════════════
+   SPRINT DE OURO
+════════════════════════════════════════ */
+
+/* Tab button especial */
+.tab-sprint-special {
+    background: linear-gradient(135deg, #92400e, #d97706) !important;
+    color: #fff !important;
+    border-color: #b45309 !important;
+    font-weight: 700 !important;
+}
+.tab-sprint-special:hover,
+.tab-sprint-special.active {
+    background: linear-gradient(135deg, #78350f, #b45309) !important;
+    box-shadow: 0 0 0 2px rgba(217,119,6,.35) !important;
+}
+
+/* Layout principal */
+.sprint-wrap {
+    padding: 16px 18px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Header da aba */
+.sprint-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.sprint-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.sprint-title h2 {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--navy);
+    letter-spacing: .3px;
+    text-transform: uppercase;
+}
+.sprint-badge-period {
+    font-size: .68rem;
+    font-weight: 700;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 4px;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+
+/* Controles da aba Sprint */
+.sprint-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.sprint-unit-grp {
+    display: flex;
+    border: 1px solid var(--brd);
+    border-radius: var(--r);
+    overflow: hidden;
+}
+.sprint-unit-btn {
+    background: var(--s1);
+    color: var(--txt2);
+    border: none;
+    border-right: 1px solid var(--brd);
+    padding: 4px 12px;
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+    font-family: inherit;
+}
+.sprint-unit-btn:last-child { border-right: none; }
+.sprint-unit-btn.active {
+    background: var(--navy);
+    color: #fff;
+}
+.sprint-filter-grp {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.sprint-filter-label {
+    font-size: .68rem;
+    font-weight: 700;
+    color: var(--txt2);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    white-space: nowrap;
+}
+.sprint-select {
+    font-family: inherit;
+    font-size: .75rem;
+    font-weight: 500;
+    color: var(--txt);
+    background: var(--s1);
+    border: 1px solid var(--brd);
+    border-radius: var(--r);
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+
+/* ── Sprint: multi-select de setores ── */
+.sprint-multisel-wrap {
+    position: relative;
+}
+.sprint-multisel-btn {
+    font-family: inherit;
+    font-size: .75rem;
+    font-weight: 500;
+    color: var(--txt);
+    background: var(--s1);
+    border: 1px solid var(--brd);
+    border-radius: var(--r);
+    padding: 4px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 140px;
+    justify-content: space-between;
+}
+.sprint-multisel-btn:hover {
+    border-color: var(--acc);
+}
+.sprint-multisel-arrow {
+    font-size: .65rem;
+    opacity: .6;
+}
+.sprint-multisel-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 220px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: var(--bg);
+    border: 1px solid var(--brd);
+    border-radius: var(--r);
+    box-shadow: 0 4px 16px rgba(0,0,0,.15);
+    z-index: 9999;
+    padding: 6px 0;
+}
+.sprint-setor-chk {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    font-size: .73rem;
+    cursor: pointer;
+    color: var(--txt);
+    transition: background .1s;
+}
+.sprint-setor-chk:hover {
+    background: var(--s1);
+}
+.sprint-setor-all {
+    font-weight: 700;
+    border-bottom: 1px solid var(--brd);
+    margin-bottom: 2px;
+    padding-bottom: 7px;
+}
+.sprint-setor-chk input[type=checkbox] {
+    accent-color: var(--acc);
+    width: 13px;
+    height: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+
+/* ── Sprint: significância de PDV ── */
+.sprint-pdv-sig-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    padding: 8px 14px;
+    background: var(--s1);
+    border-bottom: 1px solid var(--brd);
+    font-size: .72rem;
+    color: var(--txt2);
+    align-items: center;
+}
+.sig-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.sig-dot.sig-alta   { background: #22c55e; }
+.sig-dot.sig-media  { background: #eab308; }
+.sig-dot.sig-baixa  { background: #ef4444; }
+.sig-dot.sig-base   { background: #6b7280; }
+.sig-dot.sig-nova   { background: #3b82f6; }
+
+.sprint-sig-badge {
+    display: inline-block;
+    font-size: .68rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.sprint-sig-alta  { background: #dcfce7; color: #15803d; }
+.sprint-sig-media { background: #fef9c3; color: #92400e; }
+.sprint-sig-baixa { background: #fee2e2; color: #b91c1c; }
+.sprint-sig-base  { background: #f3f4f6; color: #4b5563; }
+.sprint-sig-nova  { background: #dbeafe; color: #1d4ed8; }
+
+.sprint-pdv-band {
+    display: block;
+    font-size: .65rem;
+    color: var(--txt2);
+    margin-top: 1px;
+}
+.sprint-sig-cell { white-space: nowrap; }
+
+/* Upload buttons */
+.sprint-upload-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.sprint-upload-card {
+    flex: 1;
+    min-width: 240px;
+    background: var(--s1);
+    border: 1.5px dashed var(--brd);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.sprint-upload-card:hover {
+    border-color: #d97706;
+    background: #fffbeb;
+}
+.sprint-upload-card.loaded {
+    border-color: #059669;
+    border-style: solid;
+    background: #f0fdf4;
+}
+.sprint-upload-icon { font-size: 1.4rem; flex-shrink: 0; }
+.sprint-upload-info { flex: 1; min-width: 0; }
+.sprint-upload-title {
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 2px;
+}
+.sprint-upload-sub {
+    font-size: .65rem;
+    color: var(--txt3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sprint-upload-card.loaded .sprint-upload-sub { color: #059669; }
+
+/* Progress bar campanha */
+.sprint-progress-wrap {
+    background: var(--s1);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+.sprint-progress-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.sprint-progress-title {
+    font-size: .72rem;
+    font-weight: 800;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+.sprint-progress-months {
+    display: flex;
+    gap: 6px;
+}
+.sprint-month-pip {
+    font-size: .65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--brd);
+    background: var(--s2);
+    color: var(--txt3);
+}
+.sprint-month-pip.loaded {
+    background: #d97706;
+    color: #fff;
+    border-color: #b45309;
+}
+.sprint-progress-bar-bg {
+    height: 8px;
+    background: var(--s3);
+    border-radius: 99px;
+    overflow: hidden;
+}
+.sprint-progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #d97706, #f59e0b);
+    border-radius: 99px;
+    transition: width .4s ease;
+}
+
+/* Cards de KPI por linha */
+.sprint-lines-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.sprint-line-card {
+    background: var(--s1);
+    border: 1px solid var(--brd);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(15,23,42,.05);
+}
+.sprint-line-header {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.sprint-line-header.l1 { background: linear-gradient(90deg, #1e3a5f, #25395a); }
+.sprint-line-header.l2 { background: linear-gradient(90deg, #78350f, #92400e); }
+.sprint-line-title {
+    font-size: .78rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: .3px;
+}
+.sprint-line-products {
+    font-size: .62rem;
+    color: rgba(255,255,255,.65);
+    margin-top: 2px;
+}
+.sprint-line-kpis {
+    display: flex;
+    gap: 0;
+    padding: 0;
+}
+.sprint-line-kpi {
+    flex: 1;
+    padding: 12px 14px;
+    border-right: 1px solid var(--brd);
+    text-align: center;
+}
+.sprint-line-kpi:last-child { border-right: none; }
+.sprint-kpi-label {
+    font-size: .6rem;
+    font-weight: 700;
+    color: var(--txt3);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 4px;
+}
+.sprint-kpi-value {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--navy);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.sprint-kpi-value.pos { color: var(--grn); }
+.sprint-kpi-value.neg { color: var(--red); }
+.sprint-kpi-value.neutral { color: var(--txt2); }
+.sprint-kpi-sub {
+    font-size: .6rem;
+    color: var(--txt3);
+    margin-top: 2px;
+}
+
+/* Seção de tabela por linha */
+.sprint-section {
+    background: var(--s1);
+    border: 1px solid var(--brd);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(15,23,42,.04);
+}
+.sprint-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--brd);
+    gap: 10px;
+}
+.sprint-section-header.l1 { background: #eef2f8; }
+.sprint-section-header.l2 { background: #fef9f0; }
+.sprint-section-title {
+    font-size: .75rem;
+    font-weight: 800;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+.sprint-view-tabs {
+    display: flex;
+    border: 1px solid var(--brd);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.sprint-view-btn {
+    padding: 3px 10px;
+    font-size: .65rem;
+    font-weight: 700;
+    background: var(--s1);
+    color: var(--txt2);
+    border: none;
+    border-right: 1px solid var(--brd);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .12s;
+}
+.sprint-view-btn:last-child { border-right: none; }
+.sprint-view-btn.active { background: var(--navy); color: #fff; }
+
+/* Tabela Sprint */
+.sprint-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .72rem;
+}
+.sprint-tbl thead th {
+    background: var(--navy);
+    color: #e2eaf6;
+    font-size: .58rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 6px 8px;
+    text-align: left;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255,255,255,.08);
+    cursor: pointer;
+    user-select: none;
+}
+.sprint-tbl thead th:last-child { border-right: none; cursor: default; }
+.sprint-tbl thead th.r { text-align: right; }
+.sprint-tbl tbody td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--s3);
+    white-space: nowrap;
+    vertical-align: middle;
+    color: var(--txt);
+    font-size: .72rem;
+}
+.sprint-tbl tbody td.r {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.sprint-tbl tbody tr:last-child td { border-bottom: none; }
+.sprint-tbl tbody tr:hover td { background: #f4f8ff; }
+.sprint-tbl tbody tr:nth-child(even) td { background: rgba(241,245,249,.4); }
+.sprint-tbl tbody tr:nth-child(even):hover td { background: #f4f8ff; }
+
+/* Células de evolução */
+.sprint-evol-pos { color: var(--grn); font-weight: 700; }
+.sprint-evol-neg { color: var(--red); font-weight: 700; }
+.sprint-evol-neu { color: var(--txt3); font-weight: 600; }
+
+/* Badge de posição */
+.sprint-pos-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: .65rem;
+    font-weight: 800;
+    color: var(--txt2);
+    background: var(--s2);
+}
+.sprint-pos-badge.top1 { background: #fbbf24; color: #78350f; }
+.sprint-pos-badge.top2 { background: #d1d5db; color: #374151; }
+.sprint-pos-badge.top3 { background: #d97706; color: #fff; }
+
+/* Empty state */
+.sprint-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--txt3);
+    font-size: .82rem;
+}
+.sprint-empty-icon { font-size: 2rem; margin-bottom: 10px; }
+
+/* Linha de total */
+.sprint-total-row td {
+    background: #f0f4fa !important;
+    border-top: 2px solid #c7d5eb !important;
+    font-weight: 700;
+    color: var(--navy);
+}
+
+@media(max-width: 900px) {
+    .sprint-lines-row { grid-template-columns: 1fr; }
+}
+
 @keyframes spin {
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
+}
+
+
+/* ════════════════════════════════════════
+   SPRINT — extensões v2 (sub-tabs, metas, oportunidades, PDV)
+════════════════════════════════════════ */
+
+/* Sub-tabs */
+.sprint-subtabs {
+    display: flex;
+    border-bottom: 2px solid var(--brd);
+    margin-bottom: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 2px;
+}
+.sprint-subtabs::-webkit-scrollbar { display: none; }
+.sprint-subtab-btn {
+    padding: 9px 16px;
+    font-size: .73rem;
+    font-weight: 700;
+    font-family: inherit;
+    background: transparent;
+    color: var(--txt2);
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color .15s, border-color .15s;
+    letter-spacing: .15px;
+    flex-shrink: 0;
+}
+.sprint-subtab-btn:hover:not(.disabled) { color: var(--navy); }
+.sprint-subtab-btn.active {
+    color: var(--navy);
+    border-bottom-color: #d97706;
+    background: #fffbeb;
+    border-radius: 6px 6px 0 0;
+}
+.sprint-subtab-btn.disabled {
+    opacity: .38;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* Upload cards variantes */
+.sprint-upload-card-mdtr { border-color: #2563eb !important; }
+.sprint-upload-card-mdtr:hover { background: #eff6ff !important; }
+.sprint-upload-card-mdtr.loaded { border-color: #059669 !important; border-style: solid !important; background: #f0fdf4 !important; }
+
+.sprint-upload-card-metas { border-color: #d97706 !important; }
+.sprint-upload-card-metas:hover { background: #fffbeb !important; }
+.sprint-upload-card-metas.loaded { border-color: #059669 !important; border-style: solid !important; background: #f0fdf4 !important; }
+
+/* Meta badge nos cards de linha */
+.sprint-line-meta-badge {
+    font-size: .62rem;
+    font-weight: 700;
+    background: rgba(255,255,255,.2);
+    color: #fff;
+    padding: 3px 9px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+/* Coluna meta destacada */
+.sprint-meta-col { background: #fffbeb !important; }
+.sprint-tbl thead th.sprint-meta-col { background: #92400e !important; color: #fff !important; }
+
+/* Atingimento */
+.sprint-ating-ok  { color: #059669; font-weight: 800; }
+.sprint-ating-med { color: #d97706; font-weight: 800; }
+.sprint-ating-low { color: #dc2626; font-weight: 800; }
+
+/* Meta total no header seção */
+.sprint-meta-total {
+    font-size: .67rem;
+    font-weight: 700;
+    color: var(--txt2);
+    background: rgba(255,255,255,.82);
+    padding: 3px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
+/* GDs Mistos */
+.sprint-section-header.l3 { background: #ecfdf5; }
+
+/* Células com texto longo */
+.sprint-td-label {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sprint-td-small {
+    font-size: .62rem;
+    color: var(--txt3);
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+/* ── Sprint: status badges da sub-tab Metas ── */
+.sprint-status-badge {
+    display: inline-block;
+    font-size: .66rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.sprint-status-ok   { background: #dcfce7; color: #15803d; }
+.sprint-status-med  { background: #fef9c3; color: #854d0e; }
+.sprint-status-low  { background: #fee2e2; color: #b91c1c; }
+.sprint-status-legend {
+    font-size: .68rem;
+    color: var(--txt2);
+    background: var(--s1);
+    border-bottom: 1px solid var(--brd);
+    padding: 6px 14px;
+}
+.sprint-status-legend strong { color: var(--txt); }
+
+/* Oportunidades */
+.sprint-oport-legend {
+    display: flex;
+    gap: 20px;
+    padding: 8px 14px;
+    font-size: .67rem;
+    color: var(--txt2);
+    background: var(--s1);
+    border-bottom: 1px solid var(--brd);
+    flex-wrap: wrap;
+}
+.sprint-concor-val {
+    color: #dc2626;
+    font-weight: 700;
+}
+.sprint-conc-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0;
+    min-width: 200px;
+}
+.sprint-conc-name {
+    font-size: .62rem;
+    font-weight: 600;
+    color: var(--txt2);
+    min-width: 90px;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.sprint-conc-bar-track {
+    flex: 1;
+    height: 6px;
+    background: #fee2e2;
+    border-radius: 4px;
+    overflow: hidden;
+    min-width: 40px;
+}
+.sprint-conc-bar-fill {
+    height: 100%;
+    background: #dc2626;
+    border-radius: 4px;
+}
+.sprint-conc-val {
+    font-size: .62rem;
+    color: var(--txt2);
+    min-width: 70px;
+    text-align: right;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* PDV MDTR */
+.sprint-row-new td { background: #f0fdf4 !important; }
+.sprint-novo-badge {
+    display: inline-block;
+    font-size: .55rem;
+    font-weight: 800;
+    background: #059669;
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-left: 4px;
+    letter-spacing: .3px;
+    vertical-align: middle;
+}
+
+@media(max-width: 700px) {
+    .sprint-subtab-btn { padding: 8px 11px; font-size: .67rem; }
+    .sprint-upload-row { flex-direction: column; }
+    .sprint-conc-bar { min-width: 160px; }
 }
