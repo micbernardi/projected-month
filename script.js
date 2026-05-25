@@ -390,19 +390,19 @@ async function _parseDDDViaJSZip(buf, fileName, forceUnit, setProgress) {
         return null;
     };
 
-    const cRegional  = colByPat([/^regional$/, /regional/]);
+    const cRegional = colByPat([/^regional$/, /regional/]);
     const cDistrital = colByPat([/^distrital$/, /distrital/]);
-    const cSetor     = colByPat([/^setor(\s*\(gd\))?$/, /^gd$/, /^setor\s*gd$/]);
-    const cMercado   = colByPat([/^mercado$/, /^mercado\s*montado$/, /^mercado\s*terapeutico$/, /mercado/]);
-    const cProduto   = colByPat([/^produto$/, /^marca$/, /^produto\/marca$/, /^nome\s*(do\s*)?produto$/]);
-    const cCidade    = colByPat([/^cidade$/, /^municipio$/, /^munic[íi]pio$/, /cidade/]);
-    const cBrick     = colByPat([/^brick$/, /^cod\.?\s*brick$/, /^codigo\s*brick$/, /brick/]);
-    const cMAT       = colByPat([/^mat$/, /^mat\s*un\.?$/, /^mat\s*r\$?$/, /^mat\s*valor$/, /^mat\s*reais$/, /^mat\s*unidades?$/]);
-    const cMATAnt    = colByPat([/^mat\s+ant/, /^mat\s*anterior/]);
-    const cYTD       = colByPat([/^ytd$/, /^ytd\s*un\.?$/, /^ytd\s*r\$?$/, /^ytd\s*valor$/, /^ytd\s*unidades?$/]);
-    const cYTDAnt    = colByPat([/^ytd\s+ant/, /^ytd\s*anterior/]);
-    const cTRI       = colByPat([/^tri$/, /^tri\s*un\.?$/, /^tri\s*r\$?$/, /^tri\s*valor$/, /^tri\s*unidades?$/]);
-    const cTRIAnt    = colByPat([/^tri\s+ant/, /^tri\s*anterior/]);
+    const cSetor = colByPat([/^setor(\s*\(gd\))?$/, /^gd$/, /^setor\s*gd$/]);
+    const cMercado = colByPat([/^mercado$/, /^mercado\s*montado$/, /^mercado\s*terapeutico$/, /mercado/]);
+    const cProduto = colByPat([/^produto$/, /^marca$/, /^produto\/marca$/, /^nome\s*(do\s*)?produto$/]);
+    const cCidade = colByPat([/^cidade$/, /^municipio$/, /^munic[íi]pio$/, /cidade/]);
+    const cBrick = colByPat([/^brick$/, /^cod\.?\s*brick$/, /^codigo\s*brick$/, /brick/]);
+    const cMAT = colByPat([/^mat$/, /^mat\s*un\.?$/, /^mat\s*r\$?$/, /^mat\s*valor$/, /^mat\s*reais$/, /^mat\s*unidades?$/]);
+    const cMATAnt = colByPat([/^mat\s+ant/, /^mat\s*anterior/]);
+    const cYTD = colByPat([/^ytd$/, /^ytd\s*un\.?$/, /^ytd\s*r\$?$/, /^ytd\s*valor$/, /^ytd\s*unidades?$/]);
+    const cYTDAnt = colByPat([/^ytd\s+ant/, /^ytd\s*anterior/]);
+    const cTRI = colByPat([/^tri$/, /^tri\s*un\.?$/, /^tri\s*r\$?$/, /^tri\s*valor$/, /^tri\s*unidades?$/]);
+    const cTRIAnt = colByPat([/^tri\s+ant/, /^tri\s*anterior/]);
 
     if (!cMAT && !cYTD && !cTRI) throw new Error('Nenhuma coluna MAT/YTD/TRI encontrada. Colunas: ' + Object.values(colMap).join(' | '));
     if (!cMercado) console.warn('[SUPERA JSZip] Coluna MERCADO não detectada.');
@@ -454,34 +454,34 @@ async function _parseDDDViaJSZip(buf, fileName, forceUnit, setProgress) {
 
             if (firstDataRow) {
                 firstDataRow = false;
-                const chkReg  = cRegional  ? (cells[cRegional]  || '') : '';
+                const chkReg = cRegional ? (cells[cRegional] || '') : '';
                 const chkDist = cDistrital ? (cells[cDistrital] || '') : '';
-                const chkSet  = cSetor     ? (cells[cSetor]     || '') : '';
+                const chkSet = cSetor ? (cells[cSetor] || '') : '';
                 if (!startsWithOne(chkReg) || !startsWithOne(chkDist) || !startsWithOne(chkSet)) {
                     showRegionalSulBlock(); return [];
                 }
             }
 
-            const market    = cMercado   ? (cells[cMercado]   || '').trim() : '';
-            const product   = cProduto   ? (cells[cProduto]   || '').trim() : '';
-            const brickName = cBrick     ? (cells[cBrick]     || '').trim() : '';
-            const regional  = cRegional  ? (cells[cRegional]  || '').trim() : '';
+            const market = cMercado ? (cells[cMercado] || '').trim() : '';
+            const product = cProduto ? (cells[cProduto] || '').trim() : '';
+            const brickName = cBrick ? (cells[cBrick] || '').trim() : '';
+            const regional = cRegional ? (cells[cRegional] || '').trim() : '';
             const distrital = cDistrital ? (cells[cDistrital] || '').trim() : '';
-            const sector    = cSetor     ? (cells[cSetor]     || '').trim() : 'Geral';
-            const cidade    = cCidade    ? (cells[cCidade]    || '').trim() : '';
+            const sector = cSetor ? (cells[cSetor] || '').trim() : 'Geral';
+            const cidade = cCidade ? (cells[cCidade] || '').trim() : '';
 
             processed++;
             if (!market || (!brickName && !product)) continue;
 
-            const mat    = parseNum(cMAT    ? cells[cMAT]    : 0);
-            const ytd    = parseNum(cYTD    ? cells[cYTD]    : 0);
-            const tri    = parseNum(cTRI    ? cells[cTRI]    : 0);
+            const mat = parseNum(cMAT ? cells[cMAT] : 0);
+            const ytd = parseNum(cYTD ? cells[cYTD] : 0);
+            const tri = parseNum(cTRI ? cells[cTRI] : 0);
             const matAnt = parseNum(cMATAnt ? cells[cMATAnt] : 0);
             const ytdAnt = parseNum(cYTDAnt ? cells[cYTDAnt] : 0);
             const triAnt = parseNum(cTRIAnt ? cells[cTRIAnt] : 0);
             if (mat === 0 && ytd === 0 && tri === 0 && matAnt === 0 && ytdAnt === 0 && triAnt === 0) continue;
 
-            const key = regional+'|'+distrital+'|'+sector+'|'+market+'|'+product+'|'+brickName+'|'+cidade;
+            const key = regional + '|' + distrital + '|' + sector + '|' + market + '|' + product + '|' + brickName + '|' + cidade;
             let bucket = agg.get(key);
             if (!bucket) {
                 bucket = {
@@ -496,9 +496,9 @@ async function _parseDDDViaJSZip(buf, fileName, forceUnit, setProgress) {
                 agg.set(key, bucket);
                 kept++;
             }
-            bucket.data.MAT.current  += mat;    bucket.data.MAT.previous  += matAnt;
-            bucket.data.YTD.current  += ytd;    bucket.data.YTD.previous  += ytdAnt;
-            bucket.data.TRI.current  += tri;    bucket.data.TRI.previous  += triAnt;
+            bucket.data.MAT.current += mat; bucket.data.MAT.previous += matAnt;
+            bucket.data.YTD.current += ytd; bucket.data.YTD.previous += ytdAnt;
+            bucket.data.TRI.current += tri; bucket.data.TRI.previous += triAnt;
             rowCount++;
         }
 
@@ -509,7 +509,7 @@ async function _parseDDDViaJSZip(buf, fileName, forceUnit, setProgress) {
 
     const result = [];
     for (const b of agg.values()) {
-        ['MAT','YTD','TRI'].forEach(p => {
+        ['MAT', 'YTD', 'TRI'].forEach(p => {
             const d = b.data[p];
             d.growth = d.previous !== 0 ? (d.current / d.previous - 1) : null;
         });
@@ -952,18 +952,18 @@ function aggTopConcorrentes(rows, pd, limit) {
 function topCidadesPorProduto(rows, productName, pd, limit) {
     limit = limit || 3;
     var map = new Map();
-    rows.forEach(function(r) {
+    rows.forEach(function (r) {
         if (r.product !== productName) return;
         var cidade = r.cidade || '(sem cidade)';
         if (!map.has(cidade)) map.set(cidade, { cidade: cidade, cur: 0, prev: 0 });
         var c = map.get(cidade);
-        c.cur  += r.data[pd].current  || 0;
+        c.cur += r.data[pd].current || 0;
         c.prev += r.data[pd].previous || 0;
     });
     return [...map.values()]
-        .sort(function(a, b) { return b.cur - a.cur; })
+        .sort(function (a, b) { return b.cur - a.cur; })
         .slice(0, limit)
-        .map(function(c) {
+        .map(function (c) {
             return Object.assign({}, c, {
                 growth: c.prev !== 0 ? (c.cur / c.prev - 1) : null
             });
@@ -1135,11 +1135,11 @@ function renderResumo() {
             // Ranking como tabela full-width, sem coluna de bricks lateral
             const ranking = aggMarketRanking(m.rows, pd, 30);
             const totPrev = ranking.reduce((s, c) => s + (c.prev || 0), 0);
-            const totCur  = ranking.reduce((s, c) => s + (c.cur  || 0), 0);
-            const totG    = totPrev ? ((totCur / totPrev) - 1) : null;
+            const totCur = ranking.reduce((s, c) => s + (c.cur || 0), 0);
+            const totG = totPrev ? ((totCur / totPrev) - 1) : null;
             const totGCls = totG == null ? 'vnull' : (totG >= 0 ? 'vpos' : 'vneg');
             const totGTxt = totG == null ? '—' : ((totG >= 0 ? '+' : '') + (totG * 100).toFixed(1) + '%');
-            const mktKey  = m.market.replace(/'/g, "\\'");
+            const mktKey = m.market.replace(/'/g, "\\'");
             const rankRows = ranking.map((c, i) => {
                 const isSup = c.role === 'SUPERA';
                 const g = c.growth;
@@ -1147,7 +1147,7 @@ function renderResumo() {
                 const gTxt = g == null ? '—' : ((g >= 0 ? '+' : '') + (g * 100).toFixed(1) + '%');
                 const displayName = isSup ? c.name.replace(/\s*\(SP0\)\s*/i, '').trim() : c.name;
                 const prodKey = c.name.replace(/'/g, "\\'");
-                const rowId = `city-exp-${i}-${mktKey.replace(/\W/g,'_')}`;
+                const rowId = `city-exp-${i}-${mktKey.replace(/\W/g, '_')}`;
 
                 // Pré-calcula top 3 cidades para este produto
                 const cidades = topCidadesPorProduto(m.rows, c.name, pd, 3);
@@ -1228,7 +1228,7 @@ function renderResumo() {
 
     // Ativa botões "+" de expansão de cidades
     el.querySelectorAll('.rank-city-toggle').forEach(btn => {
-        btn.addEventListener('click', function(e) {
+        btn.addEventListener('click', function (e) {
             e.stopPropagation();
             const targetId = this.getAttribute('data-target');
             const panel = document.getElementById(targetId);
@@ -1593,6 +1593,7 @@ function renderActiveTab() {
     else if (t === 'oport') renderOport();
     else if (t === 'entrar') renderEntrar();
     else if (t === 'graficos') renderGraficos();
+    else if (t === 'lideranca') renderLideranca();
     else if (t === 'pdv') renderPDV();
 }
 function onFilterChange() {
@@ -2221,7 +2222,7 @@ function updateDistritalHeader() {
 }
 
 function switchTab(tn) {
-    ['resumo', 'brick', 'oport', 'entrar', 'graficos', 'pdv', 'sprint'].forEach(k => {
+    ['resumo', 'brick', 'oport', 'entrar', 'graficos', 'lideranca', 'pdv', 'sprint'].forEach(k => {
         const v = $('tab-' + k);
         if (v) v.style.display = (k === tn) ? 'block' : 'none';
     });
@@ -2233,6 +2234,7 @@ function switchTab(tn) {
     if (tn === 'oport') renderOport();
     if (tn === 'entrar') renderEntrar();
     if (tn === 'graficos') renderGraficos();
+    if (tn === 'lideranca') renderLideranca();
     if (tn === 'resumo') renderResumo();
     if (tn === 'pdv') renderPDV();
     if (tn === 'sprint') renderSprint();
@@ -2778,6 +2780,132 @@ function renderEntrar() {
     el.innerHTML = html;
 }
 
+/* ===== ABA LIDERANÇA — Mercados Montados onde Supera é Líder ===== */
+function renderLideranca() {
+    const el = $('tab-lideranca');
+    if (!el) return;
+    const pd = UI.periodMode;
+    const fRows = getFilteredRows();
+    const mkts = aggMarkets(fRows, pd);
+
+    // Mercados onde Supera encabeça o ranking consolidado.
+    // Exclui mercados sem concorrência real (liderança trivial).
+    const LIDERANCA_EXCLUIDOS = new Set([
+        'BENZETACIL', 'PEN VE ORAL', 'VAGICAND', 'BIOFLAC', 'PHOSFOENEMA'
+    ]);
+    const liderMkts = mkts.filter(m => {
+        if (LIDERANCA_EXCLUIDOS.has(normU(m.market))) return false;
+        const rk = aggMarketRanking(m.rows, pd);
+        return rk.length > 0 && rk[0].role === 'SUPERA';
+    }).sort((a, b) => b.share - a.share);
+
+    const totalMktVolume  = liderMkts.reduce((s, m) => s + m.current, 0);
+    const totalSuperaVol  = liderMkts.reduce((s, m) => s + m.supera, 0);
+    const avgShare        = liderMkts.length
+        ? liderMkts.reduce((s, m) => s + m.share, 0) / liderMkts.length : 0;
+    const unitLbl = UI.unitMode === 'RS' ? 'R$' : 'Un.';
+
+    /* ─── Cards de resumo ─── */
+    let html = `
+    <div class="lider-page">
+        <div class="lider-header">
+            <h2 class="lider-title">🏆 Mercados com Liderança — ${pd} · ${unitLbl}</h2>
+            <span class="lider-sub">${liderMkts.length} mercado${liderMkts.length !== 1 ? 's' : ''} onde a Supera lidera o ranking de volume</span>
+        </div>
+        <div class="lider-kpi-row">
+            <div class="lider-kpi">
+                <div class="lider-kpi-val" style="color:var(--c-lider)">${liderMkts.length}</div>
+                <div class="lider-kpi-lbl">Mercados Líderes</div>
+            </div>
+            <div class="lider-kpi">
+                <div class="lider-kpi-val">${fmtValue(totalSuperaVol)}</div>
+                <div class="lider-kpi-lbl">Volume Supera</div>
+            </div>
+            <div class="lider-kpi">
+                <div class="lider-kpi-val">${fmtValue(totalMktVolume)}</div>
+                <div class="lider-kpi-lbl">Mercado Total</div>
+            </div>
+            <div class="lider-kpi">
+                <div class="lider-kpi-val">${avgShare.toFixed(1)}%</div>
+                <div class="lider-kpi-lbl">Share Médio</div>
+            </div>
+        </div>`;
+
+    if (!liderMkts.length) {
+        html += `<div class="lider-empty">Nenhum mercado com liderança encontrado para os filtros ativos.</div>`;
+    } else {
+        html += `
+        <div class="lider-tbl-wrap">
+        <table class="lider-tbl">
+            <thead>
+                <tr>
+                    <th class="c">#</th>
+                    <th>MERCADO</th>
+                    <th>PRODUTO SUPERA</th>
+                    <th class="r">MKT TOTAL</th>
+                    <th class="r">TOTAL SUPERA</th>
+                    <th class="r">EVOL. SUPERA</th>
+                    <th class="r">SHARE %</th>
+                    <th class="c">BRICKS</th>
+                    <th class="c">AÇÃO</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        liderMkts.forEach((m, idx) => {
+            const superaLabel = (() => {
+                const lst = (MARKETS_BRANDS_MAP[normU(m.market)] || {}).supera || [];
+                // Exibe apenas o produto principal (lst[0]) — produtos adicionais no mesmo mercado
+                // (ex: IBANUNO dentro de HIXIZINE) não devem ser exibidos aqui
+                return lst.length
+                    ? lst[0].replace(/\s*\(SP0\)\s*/i, '').trim()
+                    : m.market;
+            })();
+
+            const gTxt = m.superaGrowth == null ? '—'
+                : (m.superaGrowth >= 0 ? '+' : '') + (m.superaGrowth * 100).toFixed(1) + '%';
+            const gCls = m.superaGrowth == null ? '' : m.superaGrowth >= 0 ? 'vpos' : 'vneg';
+
+            // Barra de share — verde para >= 50, amarela para 33–49, laranja para < 33
+            const shareColor = m.share >= 50 ? 'var(--c-lider)'
+                : m.share >= 33 ? 'var(--c-crescer)' : 'var(--c-oport)';
+            const barW = Math.min(m.share, 100).toFixed(1);
+            const badge = m.share >= 50
+                ? `<span class="lider-badge lider-badge-dom">Dominante</span>`
+                : m.share >= 33
+                ? `<span class="lider-badge lider-badge-forte">Forte</span>`
+                : `<span class="lider-badge lider-badge-contes">Disputado</span>`;
+
+            html += `
+                <tr class="lider-row">
+                    <td class="c lider-pos">${idx + 1}º</td>
+                    <td class="lider-mkt-name">
+                        <strong>${m.market}</strong>
+                        ${badge}
+                    </td>
+                    <td class="lider-prod">${superaLabel}</td>
+                    <td class="r">${fmtValue(m.current)}</td>
+                    <td class="r lider-supera-val">${fmtValue(m.supera)}</td>
+                    <td class="r ${gCls}">${gTxt}</td>
+                    <td class="r">
+                        <div class="lider-share-cell">
+                            <div class="lider-bar-track">
+                                <div class="lider-bar-fill" style="width:${barW}%;background:${shareColor}"></div>
+                            </div>
+                            <strong>${m.share.toFixed(1)}%</strong>
+                        </div>
+                    </td>
+                    <td class="c lider-bricks">${m.bricksCount}</td>
+                    <td class="c"><button class="ver-btn" onclick="switchTab('resumo');setTimeout(()=>showVerModal('${escStr(m.market)}'),120)">👁 Ver</button></td>
+                </tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+    }
+    html += `</div>`;
+    el.innerHTML = html;
+}
+
 function renderGraficos() {
     const el = $('tab-graficos'); if (!el) return;
     const pd = UI.periodMode;
@@ -2906,8 +3034,8 @@ async function parsePDVFile(file, forceUnit) {
 
     const fname = (file.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     let unitMode = /reais?|r\$|\$|\bppp\b|valor/.test(fname) ? 'RS'
-                 : /unidades?|\buni\b|\bun\b|dddunid/.test(fname) ? 'UN'
-                 : forceUnit || null;
+        : /unidades?|\buni\b|\bun\b|dddunid/.test(fname) ? 'UN'
+            : forceUnit || null;
 
     // ── Abre o XLSX como ZIP e extrai XMLs ───────────────────────────────
     setProgress('Abrindo arquivo...');
@@ -2927,9 +3055,9 @@ async function parsePDVFile(file, forceUnit) {
         console.warn('[PDV] JSZip falhou:', e.message);
         setProgress('Modo alternativo...');
         await new Promise(r => setTimeout(r, 100));
-        const wb = XLSX.read(data, { type:'array', dense:true, raw:true, cellDates:false, cellNF:false, cellText:false });
+        const wb = XLSX.read(data, { type: 'array', dense: true, raw: true, cellDates: false, cellNF: false, cellText: false });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const aoa = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:true });
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
         if (!aoa || !aoa.length) throw new Error('Planilha vazia.');
         return _parsePDVFromAoa(aoa, unitMode, forceUnit, file.name, setProgress);
     }
@@ -2943,8 +3071,8 @@ async function parsePDVFile(file, forceUnit) {
     let tm;
     while ((tm = tRe.exec(ssXml)) !== null) {
         sharedStrings.push(tm[1]
-            .replace(/&amp;/g,'&').replace(/&lt;/g,'<')
-            .replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#xD;/g,''));
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#xD;/g, ''));
     }
 
     // ── Regex de célula — sem backtracking ────────────────────────────────
@@ -2996,12 +3124,12 @@ async function parsePDVFile(file, forceUnit) {
         return null;
     };
 
-    const cReg  = colByName([/^regional$/]);
-    const cDst  = colByName([/^distrital$/]);
-    const cSet  = colByName([/^setor$/, /setor/]);
-    const cMrc  = colByName([/^marca$/, /marca/]);
-    const cBrk  = colByName([/^brick$/, /brick/]);
-    const cPdv  = colByName([/^pdv$/, /pdv/, /cnpj/]);
+    const cReg = colByName([/^regional$/]);
+    const cDst = colByName([/^distrital$/]);
+    const cSet = colByName([/^setor$/, /setor/]);
+    const cMrc = colByName([/^marca$/, /marca/]);
+    const cBrk = colByName([/^brick$/, /brick/]);
+    const cPdv = colByName([/^pdv$/, /pdv/, /cnpj/]);
     const cMatA = colByName([/^mat$/]);
     const cMatP = colByName([/^mat\s*\(p\.?p\.?\)/]);
     const cYtdA = colByName([/^ytd$/]);
@@ -3060,7 +3188,7 @@ async function parsePDVFile(file, forceUnit) {
         if (cnpjRaw.length !== 14) continue;
 
         const razao = parts[1] || '';
-        const local  = parts[2] || '';
+        const local = parts[2] || '';
         let bairro = '', cidade = '', uf = '';
         const lm = local.match(/^(.*?)\s*-\s*(.*?)\s*\/\s*([A-Z]{2})\s*$/);
         if (lm) { bairro = lm[1].trim(); cidade = lm[2].trim(); uf = lm[3].trim(); }
@@ -3100,46 +3228,48 @@ async function parsePDVFile(file, forceUnit) {
 
 /* Fallback AOA quando JSZip não disponível */
 async function _parsePDVFromAoa(aoa, unitMode, forceUnit, fileName, setProgress) {
-    const fname = (fileName||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    if (!unitMode) unitMode = /reais?|r\$|\$|\bppp\b|valor/.test(fname)?'RS':/unidades?|\buni\b|\bun\b|dddunid/.test(fname)?'UN':forceUnit||'UN';
-    let headerIdx=0;
-    for(let i=0;i<Math.min(5,aoa.length);i++){const row=aoa[i].map(c=>String(c||'').toLowerCase());if(row.some(c=>c.includes('pdv'))&&row.some(c=>c.includes('brick'))){headerIdx=i;break;}}
-    const header=aoa[headerIdx].map(c=>String(c||'').toLowerCase().trim());
-    const ix=(pats)=>header.findIndex(h=>pats.some(p=>p.test(h)));
-    const iReg=ix([/^regional$/]),iDst=ix([/^distrital$/]),iSet=ix([/^setor$/,/setor/]);
-    const iMrc=ix([/^marca$/,/marca/]),iBrk=ix([/^brick$/,/brick/]),iPdv=ix([/^pdv$/,/pdv/,/cnpj/]);
-    const iMatA=header.findIndex(h=>/^mat$/i.test(h)),iMatP=header.findIndex(h=>/^mat\s*\(p\.?p\.?\)/i.test(h));
-    const iYtdA=header.findIndex(h=>/^ytd$/i.test(h)),iYtdP=header.findIndex(h=>/^ytd\s*\(p\.?p\.?\)/i.test(h));
-    const iTriA=header.findIndex(h=>/^tri$/i.test(h)),iTriP=header.findIndex(h=>/^tri\s*\(p\.?p\.?\)/i.test(h));
-    const iTriY=header.findIndex(h=>/^tri\s*\(p\.?y\.?\)/i.test(h));
-    if(iPdv<0||iBrk<0) throw new Error('Colunas PDV/Brick não encontradas.');
-    const rows=[];const tot=aoa.length-headerIdx-1;
-    for(let r=headerIdx+1;r<aoa.length;r++){
-        if((r-headerIdx-1)%3000===0){setProgress('Processando... '+(r-headerIdx-1).toLocaleString('pt-BR')+' / '+tot.toLocaleString('pt-BR'));await new Promise(res=>setTimeout(res,0));}
-        const row=aoa[r];if(!row||!row.length)continue;
-        const pdvStr=String(row[iPdv]||'').trim();if(!pdvStr)continue;
-        const parts=pdvStr.split('|').map(s=>s.trim());
-        const cnpjRaw=onlyDigits(parts[0]||'');if(cnpjRaw.length!==14)continue;
-        const razao=parts[1]||'',local=parts[2]||'';
-        let bairro='',cidade='',uf='';
-        const lm=local.match(/^(.*?)\s*-\s*(.*?)\s*\/\s*([A-Z]{2})\s*$/);
-        if(lm){bairro=lm[1].trim();cidade=lm[2].trim();uf=lm[3].trim();}
-        const setor=iSet>=0?String(row[iSet]||'').trim():'';
-        const scm=setor.match(/(\d{4,6})/),setorCode=scm?scm[1]:'';
-        let distrital=iDst>=0?String(row[iDst]||'').trim():'';if(!distrital&&setorCode.length>=4)distrital=setorCode.slice(0,4)+'00';
-        let regional=iReg>=0?String(row[iReg]||'').trim():'';if(!regional&&setorCode.length>=3)regional=setorCode.slice(0,3)+'000';
-        const marca=String(row[iMrc]||'').trim(),brick=String(row[iBrk]||'').trim();
-        const matA=iMatA>=0?parseNum(row[iMatA]):0,matP=iMatP>=0?parseNum(row[iMatP]):0;
-        const ytdA=iYtdA>=0?parseNum(row[iYtdA]):0,ytdP=iYtdP>=0?parseNum(row[iYtdP]):0;
-        const triA=iTriA>=0?parseNum(row[iTriA]):0,triP=iTriP>=0?parseNum(row[iTriP]):0;
-        const triY=iTriY>=0?parseNum(row[iTriY]):0;
-        if(matA+matP+ytdA+ytdP+triA+triP===0)continue;
-        rows.push({cnpj:cnpjRaw,razao,bairro,cidade,uf,regional,distrital,setor,marca,brick,
-            mat_cur:matA,mat_prev:matP,ytd_cur:ytdA,ytd_prev:ytdP,
-            tri_cur:triA,tri_prev:triY,tri_qprev:triP,unitMode});
+    const fname = (fileName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!unitMode) unitMode = /reais?|r\$|\$|\bppp\b|valor/.test(fname) ? 'RS' : /unidades?|\buni\b|\bun\b|dddunid/.test(fname) ? 'UN' : forceUnit || 'UN';
+    let headerIdx = 0;
+    for (let i = 0; i < Math.min(5, aoa.length); i++) { const row = aoa[i].map(c => String(c || '').toLowerCase()); if (row.some(c => c.includes('pdv')) && row.some(c => c.includes('brick'))) { headerIdx = i; break; } }
+    const header = aoa[headerIdx].map(c => String(c || '').toLowerCase().trim());
+    const ix = (pats) => header.findIndex(h => pats.some(p => p.test(h)));
+    const iReg = ix([/^regional$/]), iDst = ix([/^distrital$/]), iSet = ix([/^setor$/, /setor/]);
+    const iMrc = ix([/^marca$/, /marca/]), iBrk = ix([/^brick$/, /brick/]), iPdv = ix([/^pdv$/, /pdv/, /cnpj/]);
+    const iMatA = header.findIndex(h => /^mat$/i.test(h)), iMatP = header.findIndex(h => /^mat\s*\(p\.?p\.?\)/i.test(h));
+    const iYtdA = header.findIndex(h => /^ytd$/i.test(h)), iYtdP = header.findIndex(h => /^ytd\s*\(p\.?p\.?\)/i.test(h));
+    const iTriA = header.findIndex(h => /^tri$/i.test(h)), iTriP = header.findIndex(h => /^tri\s*\(p\.?p\.?\)/i.test(h));
+    const iTriY = header.findIndex(h => /^tri\s*\(p\.?y\.?\)/i.test(h));
+    if (iPdv < 0 || iBrk < 0) throw new Error('Colunas PDV/Brick não encontradas.');
+    const rows = []; const tot = aoa.length - headerIdx - 1;
+    for (let r = headerIdx + 1; r < aoa.length; r++) {
+        if ((r - headerIdx - 1) % 3000 === 0) { setProgress('Processando... ' + (r - headerIdx - 1).toLocaleString('pt-BR') + ' / ' + tot.toLocaleString('pt-BR')); await new Promise(res => setTimeout(res, 0)); }
+        const row = aoa[r]; if (!row || !row.length) continue;
+        const pdvStr = String(row[iPdv] || '').trim(); if (!pdvStr) continue;
+        const parts = pdvStr.split('|').map(s => s.trim());
+        const cnpjRaw = onlyDigits(parts[0] || ''); if (cnpjRaw.length !== 14) continue;
+        const razao = parts[1] || '', local = parts[2] || '';
+        let bairro = '', cidade = '', uf = '';
+        const lm = local.match(/^(.*?)\s*-\s*(.*?)\s*\/\s*([A-Z]{2})\s*$/);
+        if (lm) { bairro = lm[1].trim(); cidade = lm[2].trim(); uf = lm[3].trim(); }
+        const setor = iSet >= 0 ? String(row[iSet] || '').trim() : '';
+        const scm = setor.match(/(\d{4,6})/), setorCode = scm ? scm[1] : '';
+        let distrital = iDst >= 0 ? String(row[iDst] || '').trim() : ''; if (!distrital && setorCode.length >= 4) distrital = setorCode.slice(0, 4) + '00';
+        let regional = iReg >= 0 ? String(row[iReg] || '').trim() : ''; if (!regional && setorCode.length >= 3) regional = setorCode.slice(0, 3) + '000';
+        const marca = String(row[iMrc] || '').trim(), brick = String(row[iBrk] || '').trim();
+        const matA = iMatA >= 0 ? parseNum(row[iMatA]) : 0, matP = iMatP >= 0 ? parseNum(row[iMatP]) : 0;
+        const ytdA = iYtdA >= 0 ? parseNum(row[iYtdA]) : 0, ytdP = iYtdP >= 0 ? parseNum(row[iYtdP]) : 0;
+        const triA = iTriA >= 0 ? parseNum(row[iTriA]) : 0, triP = iTriP >= 0 ? parseNum(row[iTriP]) : 0;
+        const triY = iTriY >= 0 ? parseNum(row[iTriY]) : 0;
+        if (matA + matP + ytdA + ytdP + triA + triP === 0) continue;
+        rows.push({
+            cnpj: cnpjRaw, razao, bairro, cidade, uf, regional, distrital, setor, marca, brick,
+            mat_cur: matA, mat_prev: matP, ytd_cur: ytdA, ytd_prev: ytdP,
+            tri_cur: triA, tri_prev: triY, tri_qprev: triP, unitMode
+        });
     }
     setProgress('');
-    return {rows,unitMode};
+    return { rows, unitMode };
 }
 
 
@@ -3485,10 +3615,10 @@ function renderPDV() {
         const arr = f[key] || [];
         if (isAll(arr)) return {
             txt: key === 'distrital' ? 'Todas as Distritais'
-               : key === 'brick'    ? 'Todos os Bricks'
-               : key === 'cidade'   ? 'Todas as Cidades'
-               : key === 'setor'    ? 'Todos os Setores'
-               : 'Todas as Marcas',
+                : key === 'brick' ? 'Todos os Bricks'
+                    : key === 'cidade' ? 'Todas as Cidades'
+                        : key === 'setor' ? 'Todos os Setores'
+                            : 'Todas as Marcas',
             active: false
         };
         if (arr.length === 1) return { txt: arr[0].length > 22 ? arr[0].slice(0, 22) + '…' : arr[0], active: true };
@@ -5322,16 +5452,16 @@ function openProjecaoView() {
     document.getElementById('dashView').style.display = 'none';
     document.getElementById('kpiStrip').style.display = 'none';
     // Ocultar botões do header que não têm função nessa tela
-    ['periodGrp','unitGrp','datasetStatus','btnUpload','btnClearData',
-     'btnClearHistory','historyIndicator','btnProjecao','btnEnviar'
+    ['periodGrp', 'unitGrp', 'datasetStatus', 'btnUpload', 'btnClearData',
+        'btnClearHistory', 'historyIndicator', 'btnProjecao', 'btnEnviar'
     ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
     // Ocultar a linha inferior do header inteira e mover busca CNPJ para hdr-right
     const hdrBottom = document.querySelector('.hdr-bottom');
-    const hdrRight  = document.querySelector('.hdr-right');
-    const cnpjWrap  = document.querySelector('.cnpj-quick-wrap');
+    const hdrRight = document.querySelector('.hdr-right');
+    const cnpjWrap = document.querySelector('.cnpj-quick-wrap');
     if (hdrBottom) hdrBottom.style.display = 'none';
     if (cnpjWrap && hdrRight) {
         cnpjWrap.dataset.origParent = 'hdr-bottom';
@@ -5369,15 +5499,15 @@ function openProjecaoView() {
 function closeProjecaoView() {
     document.getElementById('projecaoView').style.display = 'none';
     // Restaurar botões do header
-    ['periodGrp','unitGrp','datasetStatus','btnUpload','btnClearData',
-     'btnClearHistory','btnProjecao','btnEnviar'
+    ['periodGrp', 'unitGrp', 'datasetStatus', 'btnUpload', 'btnClearData',
+        'btnClearHistory', 'btnProjecao', 'btnEnviar'
     ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = '';
     });
     // Restaurar linha inferior e devolver busca CNPJ ao hdr-bottom
     const hdrBottom2 = document.querySelector('.hdr-bottom');
-    const cnpjWrap2  = document.querySelector('.cnpj-quick-wrap');
+    const cnpjWrap2 = document.querySelector('.cnpj-quick-wrap');
     if (hdrBottom2) hdrBottom2.style.display = '';
     if (cnpjWrap2 && cnpjWrap2.dataset.origParent === 'hdr-bottom' && hdrBottom2) {
         hdrBottom2.appendChild(cnpjWrap2);
@@ -5953,14 +6083,14 @@ function projBuildRankCard(title, rows, isTop) {
     const head = document.createElement('div'); head.className = 'proj-rank-head';
     head.innerHTML = title + '<span class="proj-rank-toggle">▼</span>';
     const body = document.createElement('div');
-    const isPdvCard   = rows.length > 0 && rows[0].type === 'pdv';
+    const isPdvCard = rows.length > 0 && rows[0].type === 'pdv';
     const isBrickCard = rows.length > 0 && rows[0].type === 'brick';
     const tbody = rows.map((r, i) => {
         const rank = `<b>${i + 1}</b>`;
         const vc = r.varBRL >= 0 ? 'proj-val-pos' : 'proj-val-neg';
         const pc = (r.varPct != null && r.varPct >= 0) ? 'proj-val-pos' : 'proj-val-neg';
         let nameAttr = `title="${r.name}"`;
-        if (isPdvCard)   nameAttr = `class="proj-rank-pdv-name"   data-fullname="${r.name}" title="Clique para copiar CNPJ e buscar" style="cursor:pointer;text-decoration:underline dotted;"`;
+        if (isPdvCard) nameAttr = `class="proj-rank-pdv-name"   data-fullname="${r.name}" title="Clique para copiar CNPJ e buscar" style="cursor:pointer;text-decoration:underline dotted;"`;
         if (isBrickCard) nameAttr = `class="proj-rank-brick-name" data-market="${r.name}"   title="Clique para ver no Detalhe por Brick" style="cursor:pointer;text-decoration:underline dotted;"`;
         return `<tr><td>${rank}</td><td ${nameAttr}>${r.name}</td><td class="${vc}">${projFmtBRL(r.varBRL)}</td><td class="${pc}">${projFmtPct(r.varPct)}</td></tr>`;
     }).join('');
@@ -5975,7 +6105,7 @@ function projBuildRankCard(title, rows, isTop) {
                 const cnpjDigits = match ? match[1] : onlyDigits(fullName.split('-').pop() || '');
                 if (cnpjDigits && cnpjDigits.length >= 8) {
                     const masked = cnpjDigits.length === 14 ? maskCNPJ(cnpjDigits) : cnpjDigits;
-                    navigator.clipboard.writeText(cnpjDigits).catch(() => {});
+                    navigator.clipboard.writeText(cnpjDigits).catch(() => { });
                     const inp = document.getElementById('cnpjQuickInput');
                     if (inp) { inp.value = masked; }
                     if (cnpjDigits.length === 14) {
@@ -6360,24 +6490,24 @@ const SPRINT = {
             color: 'l2'
         }
     ],
-    BASE_MONTHS:   [202601, 202602, 202603],
+    BASE_MONTHS: [202601, 202602, 202603],
     SPRINT_MONTHS: [202605, 202606, 202607],
-    MONTH_LABELS:  { 202605: 'Mai', 202606: 'Jun', 202607: 'Jul' },
+    MONTH_LABELS: { 202605: 'Mai', 202606: 'Jun', 202607: 'Jul' },
 
-    dddRows:   null,   // DDD: todos os produtos (supera + concorrência)
-    mdtrRows:  null,   // MDTR: só nossos produtos, com PDV/bandeira
+    dddRows: null,   // DDD: todos os produtos (supera + concorrência)
+    mdtrRows: null,   // MDTR: só nossos produtos, com PDV/bandeira
     metasData: null,   // metas/cotas da campanha
 
     filterDistrital: [],   // [] = todos; array com strings = distritais selecionadas
-    filterSetor:     [],   // [] = todos; array com strings = setores selecionados
-    openPanel:       null, // 'dist' | 'setor' | null — painel aberto antes do re-render
-    diagDDD:         null,
-    diagMDTR:        null,
-    subTab:    'evolucao',
-    viewMode:  { l1: 'distrital', l2: 'distrital' },
-    mdtrView:  { l1: 'distrital', l2: 'distrital' },
+    filterSetor: [],   // [] = todos; array com strings = setores selecionados
+    openPanel: null, // 'dist' | 'setor' | null — painel aberto antes do re-render
+    diagDDD: null,
+    diagMDTR: null,
+    subTab: 'evolucao',
+    viewMode: { l1: 'distrital', l2: 'distrital' },
+    mdtrView: { l1: 'distrital', l2: 'distrital' },
     sortState: { l1: { key: 'base', dir: 'desc' }, l2: { key: 'base', dir: 'desc' } },
-    mdtrSort:  { l1: { key: 'base', dir: 'desc' }, l2: { key: 'base', dir: 'desc' } }
+    mdtrSort: { l1: { key: 'base', dir: 'desc' }, l2: { key: 'base', dir: 'desc' } }
 };
 
 /* ── Parse planilha DDD (todos os meses, supera + concorrência) ── */
@@ -6387,27 +6517,27 @@ function sprintParseDDD(buffer) {
     const rows = XLSX.utils.sheet_to_json(ws, { defval: 0 });
     const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
     const findKey = (...variants) => keys.find(k => variants.some(v => k.trim().toLowerCase() === v.toLowerCase())) || variants[0];
-    const kReg  = findKey('Regional','REGIONAL','regional');
-    const kDist = findKey('Distrital','DISTRITAL','distrital','GD');
-    const kSet  = findKey('Setor','SETOR','setor','PV');
-    const kMerc = findKey('Mercado','MERCADO','mercado','Market','Produto');
-    const kMar  = findKey('Marca','MARCA','marca');
-    const kCid  = findKey('Cidade','CIDADE','cidade','City');
-    const kBri  = findKey('Brick','BRICK','brick');
-    const kApre = findKey('Apresentação','Apresentacao','APRESENTAÇÃO','apresentacao');
-    const kVal  = findKey('Valor','VALOR','valor','Venda','Vendas','Rs','R$');
-    const kMes  = findKey('Mês','Mes','MÊS','MES','mes');
+    const kReg = findKey('Regional', 'REGIONAL', 'regional');
+    const kDist = findKey('Distrital', 'DISTRITAL', 'distrital', 'GD');
+    const kSet = findKey('Setor', 'SETOR', 'setor', 'PV');
+    const kMerc = findKey('Mercado', 'MERCADO', 'mercado', 'Market', 'Produto');
+    const kMar = findKey('Marca', 'MARCA', 'marca');
+    const kCid = findKey('Cidade', 'CIDADE', 'cidade', 'City');
+    const kBri = findKey('Brick', 'BRICK', 'brick');
+    const kApre = findKey('Apresentação', 'Apresentacao', 'APRESENTAÇÃO', 'apresentacao');
+    const kVal = findKey('Valor', 'VALOR', 'valor', 'Venda', 'Vendas', 'Rs', 'R$');
+    const kMes = findKey('Mês', 'Mes', 'MÊS', 'MES', 'mes');
     return rows.map(r => ({
-        regional:     _sprintPickCol(r, kReg),
-        distrital:    _sprintPickCol(r, kDist),
-        setor:        _sprintPickCol(r, kSet),
-        mercado:      _sprintPickCol(r, kMerc),
-        marca:        _sprintPickCol(r, kMar),
-        cidade:       _sprintPickCol(r, kCid),
-        brick:        _sprintPickCol(r, kBri),
+        regional: _sprintPickCol(r, kReg),
+        distrital: _sprintPickCol(r, kDist),
+        setor: _sprintPickCol(r, kSet),
+        mercado: _sprintPickCol(r, kMerc),
+        marca: _sprintPickCol(r, kMar),
+        cidade: _sprintPickCol(r, kCid),
+        brick: _sprintPickCol(r, kBri),
         apresentacao: _sprintPickCol(r, kApre),
-        valor:        Number(r[kVal]) || 0,
-        mes:          Number(r[kMes]) || 0
+        valor: Number(r[kVal]) || 0,
+        mes: Number(r[kMes]) || 0
     })).filter(r => r.valor > 0 && r.mes > 0);
 }
 
@@ -6423,30 +6553,30 @@ function sprintParseMDTR(buffer) {
     // Detecta nomes de colunas reais (case-insensitive) na primeira linha
     const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
     const findKey = (...variants) => keys.find(k => variants.some(v => k.trim().toLowerCase() === v.toLowerCase())) || variants[0];
-    const kReg  = findKey('Regional','REGIONAL','regional');
-    const kDist = findKey('Distrital','DISTRITAL','distrital','GD','Gerente Distrital');
-    const kSet  = findKey('Setor','SETOR','setor','PV','Propagandista');
-    const kMar  = findKey('Marca','MARCA','marca','Produto','PRODUTO');
-    const kBri  = findKey('Brick','BRICK','brick');
-    const kBan  = findKey('Bandeira','BANDEIRA','bandeira','Rede','REDE','Farmácia','Farmacia');
-    const kPdv  = findKey('PDV','pdv','Pdv','CNPJ','cnpj','Nome PDV','NomePDV','Razão Social','Razao Social');
-    const kApre = findKey('Apresentação','Apresentacao','APRESENTAÇÃO','apresentacao','Apresentacão');
-    const kVal  = findKey('Valor','VALOR','valor','Venda','VENDA','Vendas','Rs','R$');
-    const kMes  = findKey('Mês','Mes','MÊS','MES','mes','Mês Referência','mês');
+    const kReg = findKey('Regional', 'REGIONAL', 'regional');
+    const kDist = findKey('Distrital', 'DISTRITAL', 'distrital', 'GD', 'Gerente Distrital');
+    const kSet = findKey('Setor', 'SETOR', 'setor', 'PV', 'Propagandista');
+    const kMar = findKey('Marca', 'MARCA', 'marca', 'Produto', 'PRODUTO');
+    const kBri = findKey('Brick', 'BRICK', 'brick');
+    const kBan = findKey('Bandeira', 'BANDEIRA', 'bandeira', 'Rede', 'REDE', 'Farmácia', 'Farmacia');
+    const kPdv = findKey('PDV', 'pdv', 'Pdv', 'CNPJ', 'cnpj', 'Nome PDV', 'NomePDV', 'Razão Social', 'Razao Social');
+    const kApre = findKey('Apresentação', 'Apresentacao', 'APRESENTAÇÃO', 'apresentacao', 'Apresentacão');
+    const kVal = findKey('Valor', 'VALOR', 'valor', 'Venda', 'VENDA', 'Vendas', 'Rs', 'R$');
+    const kMes = findKey('Mês', 'Mes', 'MÊS', 'MES', 'mes', 'Mês Referência', 'mês');
     return rows.map(r => {
-        const distrital = _sprintPickCol(r, kDist) || _sprintPickCol(r, 'GD','Gerente Distrital','DISTRITAL');
-        const setor     = _sprintPickCol(r, kSet)  || _sprintPickCol(r, 'PV','Propagandista','SETOR');
+        const distrital = _sprintPickCol(r, kDist) || _sprintPickCol(r, 'GD', 'Gerente Distrital', 'DISTRITAL');
+        const setor = _sprintPickCol(r, kSet) || _sprintPickCol(r, 'PV', 'Propagandista', 'SETOR');
         return {
-            regional:     _sprintPickCol(r, kReg),
+            regional: _sprintPickCol(r, kReg),
             distrital,
             setor,
-            marca:        _sprintPickCol(r, kMar),
-            brick:        _sprintPickCol(r, kBri),
-            bandeira:     _sprintPickCol(r, kBan),
-            pdv:          _sprintPickCol(r, kPdv),
+            marca: _sprintPickCol(r, kMar),
+            brick: _sprintPickCol(r, kBri),
+            bandeira: _sprintPickCol(r, kBan),
+            pdv: _sprintPickCol(r, kPdv),
             apresentacao: _sprintPickCol(r, kApre),
-            valor:        Number(r[kVal])  || 0,
-            mes:          Number(r[kMes])  || 0
+            valor: Number(r[kVal]) || 0,
+            mes: Number(r[kMes]) || 0
         };
     }).filter(r => r.valor > 0 && r.mes > 0);
 }
@@ -6456,9 +6586,9 @@ function sprintParseMetasXLSX(buffer) {
     const wb = XLSX.read(buffer, { type: 'array' });
     const result = { pvInfinity: [], pvPrime: [], gdInfinity: [], gdPrime: [], gdMisto: [], gr: [] };
     const sheetMap = {
-        'Meta PVs Infinity': 'pvInfinity', 'Meta PVs Prime':    'pvPrime',
-        'Meta GDs Infinity': 'gdInfinity', 'Meta GDs Prime':    'gdPrime',
-        'Meta GDs Mistos':   'gdMisto',    'Meta GRs':          'gr'
+        'Meta PVs Infinity': 'pvInfinity', 'Meta PVs Prime': 'pvPrime',
+        'Meta GDs Infinity': 'gdInfinity', 'Meta GDs Prime': 'gdPrime',
+        'Meta GDs Mistos': 'gdMisto', 'Meta GRs': 'gr'
     };
     wb.SheetNames.forEach(sName => {
         const key = sheetMap[sName];
@@ -6472,16 +6602,16 @@ function sprintParseMetasXLSX(buffer) {
             if (isPV) {
                 const nome = String(r[3] || '').trim(), meta = parseFloat(r[5]) || 0;
                 if (nome && nome !== 'PROPAGANDISTA' && nome !== 'Total Geral' && meta > 0)
-                    result[key].push({ nome, meta, tamMkt: parseFloat(r[4])||0, grupo: r[0], gd: String(r[2]||'').trim(), linha: key==='pvInfinity'?'INFINITY':'PRIME' });
+                    result[key].push({ nome, meta, tamMkt: parseFloat(r[4]) || 0, grupo: r[0], gd: String(r[2] || '').trim(), linha: key === 'pvInfinity' ? 'INFINITY' : 'PRIME' });
             } else if (isGD) {
                 const nome = String(r[1] || '').trim(), meta = parseFloat(r[3]) || 0;
-                const linha = key==='gdInfinity'?'INFINITY':key==='gdPrime'?'PRIME':'MISTO';
+                const linha = key === 'gdInfinity' ? 'INFINITY' : key === 'gdPrime' ? 'PRIME' : 'MISTO';
                 if (nome && nome !== 'GERENTE DISTRITAL' && nome !== 'Total Geral' && meta > 0)
-                    result[key].push({ nome, meta, tamMkt: parseFloat(r[2])||0, grupo: r[0], linha });
+                    result[key].push({ nome, meta, tamMkt: parseFloat(r[2]) || 0, grupo: r[0], linha });
             } else if (isGR) {
                 const nome = String(r[1] || '').trim(), meta = parseFloat(r[3]) || 0;
                 if (nome && nome !== 'GERENTE DISTRITAL' && nome !== 'Total Geral' && meta > 0)
-                    result[key].push({ nome, meta, tamMkt: parseFloat(r[2])||0, grupo: r[0] });
+                    result[key].push({ nome, meta, tamMkt: parseFloat(r[2]) || 0, grupo: r[0] });
             }
         });
     });
@@ -6501,7 +6631,7 @@ function sprintFmtEvol(base, sprint) {
 /* ── Filtros do Sprint (isolados do app principal) ── */
 function _sprintFilter(r) {
     if (SPRINT.filterDistrital.length > 0 && !SPRINT.filterDistrital.includes(r.distrital)) return false;
-    if (SPRINT.filterSetor.length > 0     && !SPRINT.filterSetor.includes(r.setor))     return false;
+    if (SPRINT.filterSetor.length > 0 && !SPRINT.filterSetor.includes(r.setor)) return false;
     return true;
 }
 
@@ -6547,9 +6677,9 @@ function sprintAggregate(rows, months, dimension) {
     rows.forEach(r => {
         if (!months.includes(r.mes)) return;
         const raw = dimension === 'distrital' ? r.distrital
-                  : dimension === 'setor'     ? r.setor
-                  : dimension === 'bandeira'  ? r.bandeira
-                  : r.pdv;
+            : dimension === 'setor' ? r.setor
+                : dimension === 'bandeira' ? r.bandeira
+                    : r.pdv;
         const key = raw || `(sem ${dimension})`;
         if (!map.has(key)) map.set(key, { key, label: key, val: 0, byMonth: {} });
         const e = map.get(key);
@@ -6570,10 +6700,10 @@ function sprintBuildFilters() {
     if (dPanel) {
         const fd = SPRINT.filterDistrital;
         const isNoneD = fd.length === 1 && fd[0] === '__none__';
-        const isAllD  = fd.length === 0;
+        const isAllD = fd.length === 0;
         dPanel.innerHTML = distritais.map(d => {
             const checked = isAllD || (!isNoneD && fd.includes(d));
-            return `<label class="sprint-setor-chk"><input type="checkbox" value="${d}" ${checked?'checked':''} onchange="sprintOnDistCheck()">${d}</label>`;
+            return `<label class="sprint-setor-chk"><input type="checkbox" value="${d}" ${checked ? 'checked' : ''} onchange="sprintOnDistCheck()">${d}</label>`;
         }).join('');
         // Atualiza o checkbox "Todas"
         const dAllChk = document.getElementById('sprint-dist-all-chk');
@@ -6582,13 +6712,13 @@ function sprintBuildFilters() {
     if (dBadge) {
         const fd = SPRINT.filterDistrital;
         const isNoneD = fd.length === 1 && fd[0] === '__none__';
-        const isAllD  = fd.length === 0;
+        const isAllD = fd.length === 0;
         dBadge.textContent = isAllD ? 'Todas' : isNoneD ? 'Nenhuma' : fd.length + ' selecionada(s)';
     }
 
     // ── Setor multi-select (filtrado pelas distritais selecionadas) ──
     // Usa todas as fontes disponíveis para garantir que os setores apareçam
-    const allSrc = [...(SPRINT.dddRows||[]), ...(SPRINT.mdtrRows||[])];
+    const allSrc = [...(SPRINT.dddRows || []), ...(SPRINT.mdtrRows || [])];
     const isNoneD2 = SPRINT.filterDistrital.length === 1 && SPRINT.filterDistrital[0] === '__none__';
     const setores = [...new Set(allSrc.filter(r =>
         r.setor && (SPRINT.filterDistrital.length === 0 || (!isNoneD2 && SPRINT.filterDistrital.includes(r.distrital)))
@@ -6598,10 +6728,10 @@ function sprintBuildFilters() {
     if (sPanel) {
         const fs = SPRINT.filterSetor;
         const isNoneS = fs.length === 1 && fs[0] === '__none__';
-        const isAllS  = fs.length === 0;
+        const isAllS = fs.length === 0;
         sPanel.innerHTML = setores.map(s => {
             const checked = isAllS || (!isNoneS && fs.includes(s));
-            return `<label class="sprint-setor-chk"><input type="checkbox" value="${s}" ${checked?'checked':''} onchange="sprintOnSetorCheck()">${s}</label>`;
+            return `<label class="sprint-setor-chk"><input type="checkbox" value="${s}" ${checked ? 'checked' : ''} onchange="sprintOnSetorCheck()">${s}</label>`;
         }).join('');
         // Atualiza o checkbox "Todos"
         const sAllChk = document.getElementById('sprint-setor-all-chk');
@@ -6610,7 +6740,7 @@ function sprintBuildFilters() {
     if (sBadge) {
         const fs = SPRINT.filterSetor;
         const isNoneS = fs.length === 1 && fs[0] === '__none__';
-        const isAllS  = fs.length === 0;
+        const isAllS = fs.length === 0;
         sBadge.textContent = isAllS ? 'Todos' : isNoneS ? 'Nenhum' : fs.length + ' selecionado(s)';
     }
 
@@ -6629,8 +6759,8 @@ function renderSprint() {
     const el = document.getElementById('tab-sprint');
     if (!el) return;
 
-    const hasDDD   = !!SPRINT.dddRows;
-    const hasMDTR  = !!SPRINT.mdtrRows;
+    const hasDDD = !!SPRINT.dddRows;
+    const hasMDTR = !!SPRINT.mdtrRows;
     const hasMetas = !!SPRINT.metasData;
     const loadedMonths = sprintLoadedMonths();
     const hasSprint = loadedMonths.length > 0;
@@ -6679,25 +6809,25 @@ function renderSprint() {
 
     // ── 3 upload cards ──
     html += `<div class="sprint-upload-row">
-        <div class="sprint-upload-card ${hasDDD?'loaded':''}" onclick="sprintTriggerUpload('ddd')">
-            <div class="sprint-upload-icon">${hasDDD?'✅':'📁'}</div>
+        <div class="sprint-upload-card ${hasDDD ? 'loaded' : ''}" onclick="sprintTriggerUpload('ddd')">
+            <div class="sprint-upload-icon">${hasDDD ? '✅' : '📁'}</div>
             <div class="sprint-upload-info">
                 <div class="sprint-upload-title">Planilha DDD (R$)</div>
-                <div class="sprint-upload-sub">${hasDDD?(SPRINT.diagDDD||'Mercado completo carregado ✓'):'Clique para carregar — supera + concorrência'}</div>
+                <div class="sprint-upload-sub">${hasDDD ? (SPRINT.diagDDD || 'Mercado completo carregado ✓') : 'Clique para carregar — supera + concorrência'}</div>
             </div>
         </div>
-        <div class="sprint-upload-card sprint-upload-card-mdtr ${hasMDTR?'loaded':''}" onclick="sprintTriggerUpload('mdtr')">
-            <div class="sprint-upload-icon">${hasMDTR?'📊':'📊'}</div>
+        <div class="sprint-upload-card sprint-upload-card-mdtr ${hasMDTR ? 'loaded' : ''}" onclick="sprintTriggerUpload('mdtr')">
+            <div class="sprint-upload-icon">${hasMDTR ? '📊' : '📊'}</div>
             <div class="sprint-upload-info">
                 <div class="sprint-upload-title">Planilha MDTR (R$)</div>
-                <div class="sprint-upload-sub">${hasMDTR?(SPRINT.diagMDTR||'Vendas por PDV carregadas ✓'):'Clique para carregar — nossas marcas por PDV'}</div>
+                <div class="sprint-upload-sub">${hasMDTR ? (SPRINT.diagMDTR || 'Vendas por PDV carregadas ✓') : 'Clique para carregar — nossas marcas por PDV'}</div>
             </div>
         </div>
-        <div class="sprint-upload-card sprint-upload-card-metas ${hasMetas?'loaded':''}" onclick="sprintTriggerUpload('metas')">
+        <div class="sprint-upload-card sprint-upload-card-metas ${hasMetas ? 'loaded' : ''}" onclick="sprintTriggerUpload('metas')">
             <div class="sprint-upload-icon">🎯</div>
             <div class="sprint-upload-info">
                 <div class="sprint-upload-title">Planilha de Metas</div>
-                <div class="sprint-upload-sub">${hasMetas?'Cotas carregadas ✓':'Clique para carregar as cotas da campanha'}</div>
+                <div class="sprint-upload-sub">${hasMetas ? 'Cotas carregadas ✓' : 'Clique para carregar as cotas da campanha'}</div>
             </div>
         </div>
     </div>
@@ -6708,7 +6838,7 @@ function renderSprint() {
         <div class="sprint-progress-top">
             <span class="sprint-progress-title">⏱ Progresso da Campanha</span>
             <div class="sprint-progress-months">
-                ${SPRINT.SPRINT_MONTHS.map(m => `<span class="sprint-month-pip ${loadedMonths.includes(m)?'loaded':''}">${SPRINT.MONTH_LABELS[m]}</span>`).join('')}
+                ${SPRINT.SPRINT_MONTHS.map(m => `<span class="sprint-month-pip ${loadedMonths.includes(m) ? 'loaded' : ''}">${SPRINT.MONTH_LABELS[m]}</span>`).join('')}
             </div>
         </div>
         <div class="sprint-progress-bar-bg"><div class="sprint-progress-bar-fill" style="width:${pct}%"></div></div>
@@ -6724,27 +6854,27 @@ function renderSprint() {
     // ── Sub-tabs ──
     const st = SPRINT.subTab;
     html += `<div class="sprint-subtabs">
-        <button class="sprint-subtab-btn ${st==='evolucao'?'active':''}${!hasDDD?' disabled':''}" onclick="sprintSetSubTab('evolucao')">📊 Evolução DDD</button>
-        <button class="sprint-subtab-btn ${st==='metas'?'active':''}${!hasMetas?' disabled':''}" onclick="sprintSetSubTab('metas')">🎯 Metas</button>
-        <button class="sprint-subtab-btn ${st==='mktshare'?'active':''}${!hasDDD?' disabled':''}" onclick="sprintSetSubTab('mktshare')">📈 Mkt Share</button>
-        <button class="sprint-subtab-btn ${st==='oportunidades'?'active':''}${!hasDDD?' disabled':''}" onclick="sprintSetSubTab('oportunidades')">🔍 Oportunidades</button>
-        <button class="sprint-subtab-btn ${st==='pdv'?'active':''}${!hasMDTR?' disabled':''}" onclick="sprintSetSubTab('pdv')">🏪 PDVs (MDTR)</button>
+        <button class="sprint-subtab-btn ${st === 'evolucao' ? 'active' : ''}${!hasDDD ? ' disabled' : ''}" onclick="sprintSetSubTab('evolucao')">📊 Evolução DDD</button>
+        <button class="sprint-subtab-btn ${st === 'metas' ? 'active' : ''}${!hasMetas ? ' disabled' : ''}" onclick="sprintSetSubTab('metas')">🎯 Metas</button>
+        <button class="sprint-subtab-btn ${st === 'mktshare' ? 'active' : ''}${!hasDDD ? ' disabled' : ''}" onclick="sprintSetSubTab('mktshare')">📈 Mkt Share</button>
+        <button class="sprint-subtab-btn ${st === 'oportunidades' ? 'active' : ''}${!hasDDD ? ' disabled' : ''}" onclick="sprintSetSubTab('oportunidades')">🔍 Oportunidades</button>
+        <button class="sprint-subtab-btn ${st === 'pdv' ? 'active' : ''}${!hasMDTR ? ' disabled' : ''}" onclick="sprintSetSubTab('pdv')">🏪 PDVs (MDTR)</button>
     </div>`;
 
     // ── KPI cards (só quando DDD carregado) ──
     if (hasDDD) {
         html += `<div class="sprint-lines-row">`;
         SPRINT.LINES.forEach(line => {
-            const bTotal = sprintGetDDD(SPRINT.BASE_MONTHS, line.products).reduce((s,r)=>s+r.valor,0);
-            const sTotal = sprintGetDDD(loadedMonths,       line.products).reduce((s,r)=>s+r.valor,0);
-            const evol   = sprintFmtEvol(bTotal, sTotal);
-            const proj   = loadedMonths.length > 0 ? (sTotal/loadedMonths.length)*3 : null;
+            const bTotal = sprintGetDDD(SPRINT.BASE_MONTHS, line.products).reduce((s, r) => s + r.valor, 0);
+            const sTotal = sprintGetDDD(loadedMonths, line.products).reduce((s, r) => s + r.valor, 0);
+            const evol = sprintFmtEvol(bTotal, sTotal);
+            const proj = loadedMonths.length > 0 ? (sTotal / loadedMonths.length) * 3 : null;
             const metaTotal = (() => {
                 if (!hasMetas) return 0;
-                const list = line.id==='l1' ? SPRINT.metasData.pvInfinity : SPRINT.metasData.pvPrime;
+                const list = line.id === 'l1' ? SPRINT.metasData.pvInfinity : SPRINT.metasData.pvPrime;
                 const fd = SPRINT.filterDistrital; // array
                 const fs = SPRINT.filterSetor;     // array
-                if (fd.length === 0 && fs.length === 0) return list.reduce((s,r)=>s+r.meta,0);
+                if (fd.length === 0 && fs.length === 0) return list.reduce((s, r) => s + r.meta, 0);
                 return list.filter(item => {
                     const pvCode = item.nome.split(' - ')[0].trim();
                     if (fs.length > 0) {
@@ -6757,9 +6887,9 @@ function renderSprint() {
                         });
                     }
                     return true;
-                }).reduce((s,r)=>s+r.meta,0);
+                }).reduce((s, r) => s + r.meta, 0);
             })();
-            const ating = metaTotal > 0 ? sTotal/metaTotal*100 : null;
+            const ating = metaTotal > 0 ? sTotal / metaTotal * 100 : null;
 
             html += `<div class="sprint-line-card">
                 <div class="sprint-line-header ${line.color}">
@@ -6767,7 +6897,7 @@ function renderSprint() {
                         <div class="sprint-line-title">🏅 ${line.name}</div>
                         <div class="sprint-line-products">${line.label}</div>
                     </div>
-                    ${metaTotal>0?`<div class="sprint-line-meta-badge">Meta: ${sprintFmtRS(metaTotal)}</div>`:''}
+                    ${metaTotal > 0 ? `<div class="sprint-line-meta-badge">Meta: ${sprintFmtRS(metaTotal)}</div>` : ''}
                 </div>
                 <div class="sprint-line-kpis">
                     <div class="sprint-line-kpi">
@@ -6777,19 +6907,19 @@ function renderSprint() {
                     </div>
                     <div class="sprint-line-kpi">
                         <div class="sprint-kpi-label">Sprint Acum.</div>
-                        <div class="sprint-kpi-value ${hasSprint?'':'neutral'}">${hasSprint?sprintFmtRS(sTotal):'—'}</div>
+                        <div class="sprint-kpi-value ${hasSprint ? '' : 'neutral'}">${hasSprint ? sprintFmtRS(sTotal) : '—'}</div>
                         <div class="sprint-kpi-sub">${loadedMonths.length} de 3 meses</div>
                     </div>
                     <div class="sprint-line-kpi">
-                        <div class="sprint-kpi-label">${ating!==null?'Atingimento':'Evolução'}</div>
-                        <div class="sprint-kpi-value ${ating!==null?(ating>=100?'pos':ating>=70?'neutral':'neg'):(hasSprint?evol.cls:'neutral')}">
-                            ${ating!==null?ating.toFixed(1)+'%':(hasSprint?evol.txt:'—')}
+                        <div class="sprint-kpi-label">${ating !== null ? 'Atingimento' : 'Evolução'}</div>
+                        <div class="sprint-kpi-value ${ating !== null ? (ating >= 100 ? 'pos' : ating >= 70 ? 'neutral' : 'neg') : (hasSprint ? evol.cls : 'neutral')}">
+                            ${ating !== null ? ating.toFixed(1) + '%' : (hasSprint ? evol.txt : '—')}
                         </div>
-                        <div class="sprint-kpi-sub">${ating!==null?'vs meta':'vs base'}</div>
+                        <div class="sprint-kpi-sub">${ating !== null ? 'vs meta' : 'vs base'}</div>
                     </div>
                     <div class="sprint-line-kpi">
                         <div class="sprint-kpi-label">Projeção TRI</div>
-                        <div class="sprint-kpi-value neutral">${proj!==null?sprintFmtRS(proj):'—'}</div>
+                        <div class="sprint-kpi-value neutral">${proj !== null ? sprintFmtRS(proj) : '—'}</div>
                         <div class="sprint-kpi-sub">se mantiver ritmo</div>
                     </div>
                 </div>
@@ -6803,7 +6933,7 @@ function renderSprint() {
         if (!hasDDD) html += sprintEmptyMsg('📁', 'Carregue a planilha DDD para ver a evolução de vendas.');
         else SPRINT.LINES.forEach(line => {
             const bR = sprintGetDDD(SPRINT.BASE_MONTHS, line.products);
-            const sR = sprintGetDDD(loadedMonths,       line.products);
+            const sR = sprintGetDDD(loadedMonths, line.products);
             html += sprintBuildEvolTable(line, bR, sR, SPRINT.viewMode[line.id], loadedMonths);
         });
     } else if (st === 'metas') {
@@ -6835,8 +6965,8 @@ function sprintEmptyMsg(icon, msg) {
 ══════════════════════════════════════════ */
 function sprintBuildEvolTable(line, bRows, sRows, viewMode, loadedMonths) {
     const dim = viewMode;
-    const baseAgg   = sprintAggregate(bRows, SPRINT.BASE_MONTHS, dim);
-    const sprintAgg = sprintAggregate(sRows, loadedMonths,       dim);
+    const baseAgg = sprintAggregate(bRows, SPRINT.BASE_MONTHS, dim);
+    const sprintAgg = sprintAggregate(sRows, loadedMonths, dim);
     const spMap = new Map(sprintAgg.map(e => [e.key, e]));
     const sort = SPRINT.sortState[line.id];
 
@@ -6844,39 +6974,39 @@ function sprintBuildEvolTable(line, bRows, sRows, viewMode, loadedMonths) {
         const sp = spMap.get(e.key) || { val: 0, byMonth: {} };
         return { key: e.key, label: e.label, base: e.val, sprint: sp.val, byMonth: sp.byMonth };
     });
-    merged.sort((a,b) => {
-        const va = sort.key==='base' ? a.base : sort.key==='sprint' ? a.sprint : (a.base?a.sprint/a.base-1:0);
-        const vb = sort.key==='base' ? b.base : sort.key==='sprint' ? b.sprint : (b.base?b.sprint/b.base-1:0);
-        return sort.dir==='desc' ? vb-va : va-vb;
+    merged.sort((a, b) => {
+        const va = sort.key === 'base' ? a.base : sort.key === 'sprint' ? a.sprint : (a.base ? a.sprint / a.base - 1 : 0);
+        const vb = sort.key === 'base' ? b.base : sort.key === 'sprint' ? b.sprint : (b.base ? b.sprint / b.base - 1 : 0);
+        return sort.dir === 'desc' ? vb - va : va - vb;
     });
 
-    const tBase   = merged.reduce((s,e)=>s+e.base,0);
-    const tSprint = merged.reduce((s,e)=>s+e.sprint,0);
-    const tEvol   = sprintFmtEvol(tBase, tSprint);
-    const has     = loadedMonths.length > 0;
-    const dimLabel = {distrital:'Distrital', setor:'Setor', pdv:'PDV (Brick)'}[dim];
+    const tBase = merged.reduce((s, e) => s + e.base, 0);
+    const tSprint = merged.reduce((s, e) => s + e.sprint, 0);
+    const tEvol = sprintFmtEvol(tBase, tSprint);
+    const has = loadedMonths.length > 0;
+    const dimLabel = { distrital: 'Distrital', setor: 'Setor', pdv: 'PDV (Brick)' }[dim];
 
-    const thS = (key,lbl) => {
-        const active = sort.key===key;
-        const arr = active?(sort.dir==='desc'?' ↓':' ↑'):' ↕';
+    const thS = (key, lbl) => {
+        const active = sort.key === key;
+        const arr = active ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ' ↕';
         return `<th class="r" onclick="sprintSort('${line.id}','${key}')" style="cursor:pointer">${lbl}${arr}</th>`;
     };
 
-    const mHdrs  = loadedMonths.map(m=>`<th class="r">${SPRINT.MONTH_LABELS[m]}-26</th>`).join('');
-    const mTotals = loadedMonths.map(m=>{
-        const tot = merged.reduce((s,e)=>s+(e.byMonth[m]||0),0);
+    const mHdrs = loadedMonths.map(m => `<th class="r">${SPRINT.MONTH_LABELS[m]}-26</th>`).join('');
+    const mTotals = loadedMonths.map(m => {
+        const tot = merged.reduce((s, e) => s + (e.byMonth[m] || 0), 0);
         return `<td class="r">${sprintFmtRS(tot)}</td>`;
     }).join('');
 
-    const rows = merged.map((e,i)=>{
-        const ev = has ? sprintFmtEvol(e.base,e.sprint) : {txt:'—',cls:'sprint-evol-neu'};
+    const rows = merged.map((e, i) => {
+        const ev = has ? sprintFmtEvol(e.base, e.sprint) : { txt: '—', cls: 'sprint-evol-neu' };
         const pCls = '';
-        const mCells = loadedMonths.map(m=>`<td class="r">${e.byMonth[m]?sprintFmtRS(e.byMonth[m]):'—'}</td>`).join('');
+        const mCells = loadedMonths.map(m => `<td class="r">${e.byMonth[m] ? sprintFmtRS(e.byMonth[m]) : '—'}</td>`).join('');
         return `<tr>
-            <td><span class="sprint-pos-badge ${pCls}">${i+1}</span></td>
+            <td><span class="sprint-pos-badge ${pCls}">${i + 1}</span></td>
             <td class="sprint-td-label" title="${e.label}">${e.label}</td>
             <td class="r">${sprintFmtRS(e.base)}</td>
-            <td class="r">${has?sprintFmtRS(e.sprint):'—'}</td>
+            <td class="r">${has ? sprintFmtRS(e.sprint) : '—'}</td>
             ${mCells}
             <td class="r ${ev.cls}">${ev.txt}</td>
         </tr>`;
@@ -6886,24 +7016,24 @@ function sprintBuildEvolTable(line, bRows, sRows, viewMode, loadedMonths) {
         <div class="sprint-section-header ${line.color}">
             <span class="sprint-section-title">🏅 ${line.name} — ${line.label}</span>
             <div class="sprint-view-tabs">
-                <button class="sprint-view-btn ${dim==='distrital'?'active':''}" onclick="sprintSetView('${line.id}','distrital')">Distrital</button>
-                <button class="sprint-view-btn ${dim==='setor'    ?'active':''}" onclick="sprintSetView('${line.id}','setor')">Setor</button>
-                <button class="sprint-view-btn ${dim==='pdv'      ?'active':''}" onclick="sprintSetView('${line.id}','pdv')">Brick</button>
+                <button class="sprint-view-btn ${dim === 'distrital' ? 'active' : ''}" onclick="sprintSetView('${line.id}','distrital')">Distrital</button>
+                <button class="sprint-view-btn ${dim === 'setor' ? 'active' : ''}" onclick="sprintSetView('${line.id}','setor')">Setor</button>
+                <button class="sprint-view-btn ${dim === 'pdv' ? 'active' : ''}" onclick="sprintSetView('${line.id}','pdv')">Brick</button>
             </div>
         </div>
         <div style="overflow-x:auto"><table class="sprint-tbl">
             <thead><tr>
                 <th style="width:32px">#</th><th>${dimLabel}</th>
-                ${thS('base','Base J/F/M')}${thS('sprint','Sprint Acum.')}
-                ${mHdrs}${thS('evol','Evolução')}
+                ${thS('base', 'Base J/F/M')}${thS('sprint', 'Sprint Acum.')}
+                ${mHdrs}${thS('evol', 'Evolução')}
             </tr></thead>
-            <tbody>${rows||'<tr><td colspan="8" class="sprint-empty">Sem dados</td></tr>'}</tbody>
+            <tbody>${rows || '<tr><td colspan="8" class="sprint-empty">Sem dados</td></tr>'}</tbody>
             <tfoot><tr class="sprint-total-row">
                 <td></td><td><strong>TOTAL</strong></td>
                 <td class="r"><strong>${sprintFmtRS(tBase)}</strong></td>
-                <td class="r"><strong>${has?sprintFmtRS(tSprint):'—'}</strong></td>
+                <td class="r"><strong>${has ? sprintFmtRS(tSprint) : '—'}</strong></td>
                 ${mTotals}
-                <td class="r ${tEvol.cls}"><strong>${has?tEvol.txt:'—'}</strong></td>
+                <td class="r ${tEvol.cls}"><strong>${has ? tEvol.txt : '—'}</strong></td>
             </tr></tfoot>
         </table></div>
     </div>`;
@@ -6914,8 +7044,8 @@ function sprintBuildEvolTable(line, bRows, sRows, viewMode, loadedMonths) {
 ══════════════════════════════════════════ */
 function sprintBuildMetasView(loadedMonths) {
     const metas = SPRINT.metasData;
-    const has   = loadedMonths.length > 0;
-    let html    = '';
+    const has = loadedMonths.length > 0;
+    let html = '';
 
     const realByCode = (code, prodList, bySetor) => {
         if (!SPRINT.dddRows && !SPRINT.mdtrRows) return 0;
@@ -6925,7 +7055,7 @@ function sprintBuildMetasView(loadedMonths) {
             prodList.includes(r.marca) &&
             (bySetor ? r.setor.startsWith(code) : r.distrital.startsWith(code)) &&
             _sprintFilter(r)
-        ).reduce((s,r)=>s+r.valor,0);
+        ).reduce((s, r) => s + r.valor, 0);
     };
     const baseByCode = (code, prodList, bySetor) => {
         if (!SPRINT.dddRows && !SPRINT.mdtrRows) return 0;
@@ -6935,7 +7065,7 @@ function sprintBuildMetasView(loadedMonths) {
             prodList.includes(r.marca) &&
             (bySetor ? r.setor.startsWith(code) : r.distrital.startsWith(code)) &&
             _sprintFilter(r)
-        ).reduce((s,r)=>s+r.valor,0);
+        ).reduce((s, r) => s + r.valor, 0);
     };
 
     // Filtra a lista de itens pelo filtro ativo de distrital/setor
@@ -6968,35 +7098,35 @@ function sprintBuildMetasView(loadedMonths) {
     };
 
     [
-        {title:'🟦 INFINITY — Por Propagandista', list:metas.pvInfinity, prodList:SPRINT.LINES[0].products, color:'l1', bySetor:true},
-        {title:'🟠 PRIME — Por Propagandista',    list:metas.pvPrime,    prodList:SPRINT.LINES[1].products, color:'l2', bySetor:true},
-        {title:'🟦 INFINITY — Por Distrital',     list:metas.gdInfinity, prodList:SPRINT.LINES[0].products, color:'l1', bySetor:false},
-        {title:'🟠 PRIME — Por Distrital',        list:metas.gdPrime,    prodList:SPRINT.LINES[1].products, color:'l2', bySetor:false},
-        {title:'⚡ MISTOS — Por Distrital',       list:metas.gdMisto,    prodList:[...SPRINT.LINES[0].products,...SPRINT.LINES[1].products], color:'l3', bySetor:false},
+        { title: '🟦 INFINITY — Por Propagandista', list: metas.pvInfinity, prodList: SPRINT.LINES[0].products, color: 'l1', bySetor: true },
+        { title: '🟠 PRIME — Por Propagandista', list: metas.pvPrime, prodList: SPRINT.LINES[1].products, color: 'l2', bySetor: true },
+        { title: '🟦 INFINITY — Por Distrital', list: metas.gdInfinity, prodList: SPRINT.LINES[0].products, color: 'l1', bySetor: false },
+        { title: '🟠 PRIME — Por Distrital', list: metas.gdPrime, prodList: SPRINT.LINES[1].products, color: 'l2', bySetor: false },
+        { title: '⚡ MISTOS — Por Distrital', list: metas.gdMisto, prodList: [...SPRINT.LINES[0].products, ...SPRINT.LINES[1].products], color: 'l3', bySetor: false },
     ].forEach(sec => {
         if (!sec.list || !sec.list.length) return;
         // Aplica filtro de distrital/setor à lista de itens
         const filteredList = filterMetaList(sec.list, sec.bySetor);
         if (!filteredList.length) return;
-        const totMeta = filteredList.reduce((s,r)=>s+r.meta,0);
-        let totReal=0, totBase=0, cntOk=0;
+        const totMeta = filteredList.reduce((s, r) => s + r.meta, 0);
+        let totReal = 0, totBase = 0, cntOk = 0;
         const isPV = sec.bySetor;
 
         const nMeses = loadedMonths.length; // 0, 1, 2 ou 3
         const isComplete = nMeses === 3;
 
-        const rowsH = filteredList.map((item,i) => {
+        const rowsH = filteredList.map((item, i) => {
             const code = item.nome.split(' - ')[0].trim();
             const real = realByCode(code, sec.prodList, sec.bySetor);
             const base = baseByCode(code, sec.prodList, sec.bySetor);
             totReal += real; totBase += base;
 
             // Atingimento real (% da meta já realizado)
-            const at = item.meta>0 ? real/item.meta*100 : 0;
+            const at = item.meta > 0 ? real / item.meta * 100 : 0;
 
             // Projeção trimestral com base no ritmo atual
-            const proj = nMeses>0 ? (real/nMeses)*3 : 0;
-            const projAt = item.meta>0 ? proj/item.meta*100 : 0;
+            const proj = nMeses > 0 ? (real / nMeses) * 3 : 0;
+            const projAt = item.meta > 0 ? proj / item.meta * 100 : 0;
 
             // Status: completo = real vs meta; parcial = projeção vs meta
             let statusTxt, aCls;
@@ -7005,40 +7135,40 @@ function sprintBuildMetasView(loadedMonths) {
                 aCls = 'sprint-evol-neu';
             } else if (isComplete) {
                 // Sprint encerrado — compara real com meta
-                if (at >= 100) { statusTxt = '✅ Bateu';        aCls = 'sprint-ating-ok'; }
-                else if (at >= 70) { statusTxt = '⚠️ Quase';   aCls = 'sprint-ating-med'; }
-                else               { statusTxt = '❌ Não Bateu'; aCls = 'sprint-ating-low'; }
+                if (at >= 100) { statusTxt = '✅ Bateu'; aCls = 'sprint-ating-ok'; }
+                else if (at >= 70) { statusTxt = '⚠️ Quase'; aCls = 'sprint-ating-med'; }
+                else { statusTxt = '❌ Não Bateu'; aCls = 'sprint-ating-low'; }
             } else {
                 // Sprint em andamento — compara projeção com meta
-                if (projAt >= 100) { statusTxt = '🟢 No Ritmo';      aCls = 'sprint-ating-ok'; }
-                else if (projAt >= 70) { statusTxt = '🟡 Risco';      aCls = 'sprint-ating-med'; }
-                else                   { statusTxt = '🔴 Fora do Ritmo'; aCls = 'sprint-ating-low'; }
+                if (projAt >= 100) { statusTxt = '🟢 No Ritmo'; aCls = 'sprint-ating-ok'; }
+                else if (projAt >= 70) { statusTxt = '🟡 Risco'; aCls = 'sprint-ating-med'; }
+                else { statusTxt = '🔴 Fora do Ritmo'; aCls = 'sprint-ating-low'; }
             }
 
             if (at >= 100) cntOk++;
             const diff = real - item.meta;
-            const dCls = diff>=0?'sprint-evol-pos':'sprint-evol-neg';
-            const projFmt = nMeses>0 ? sprintFmtRS(proj) : '—';
-            const projAtFmt = nMeses>0 ? projAt.toFixed(1)+'%' : '—';
-            const atFmt = has ? at.toFixed(1)+'%' : '—';
+            const dCls = diff >= 0 ? 'sprint-evol-pos' : 'sprint-evol-neg';
+            const projFmt = nMeses > 0 ? sprintFmtRS(proj) : '—';
+            const projAtFmt = nMeses > 0 ? projAt.toFixed(1) + '%' : '—';
+            const atFmt = has ? at.toFixed(1) + '%' : '—';
 
             return `<tr>
-                <td><span class="sprint-pos-badge">${i+1}</span></td>
+                <td><span class="sprint-pos-badge">${i + 1}</span></td>
                 <td class="sprint-td-label" title="${item.nome}">${item.nome}</td>
-                ${isPV?`<td class="sprint-td-small" title="${item.gd||''}">${item.gd||'—'}</td>`:''}
-                <td class="r sprint-td-small">${item.grupo||'—'}</td>
+                ${isPV ? `<td class="sprint-td-small" title="${item.gd || ''}">${item.gd || '—'}</td>` : ''}
+                <td class="r sprint-td-small">${item.grupo || '—'}</td>
                 <td class="r">${sprintFmtRS(base)}</td>
                 <td class="r sprint-meta-col"><strong>${sprintFmtRS(item.meta)}</strong></td>
-                <td class="r">${has?sprintFmtRS(real):'—'}</td>
-                <td class="r">${isComplete?'—':projFmt}</td>
-                <td class="r"><span class="${aCls}">${isComplete?atFmt:projAtFmt}</span></td>
-                <td class="r ${has?dCls:''}">${has?(diff>=0?'+':'')+sprintFmtRS(diff):'—'}</td>
-                <td class="c"><span class="sprint-status-badge sprint-status-${aCls.replace('sprint-ating-','')}">${has?statusTxt:'⏳'}</span></td>
+                <td class="r">${has ? sprintFmtRS(real) : '—'}</td>
+                <td class="r">${isComplete ? '—' : projFmt}</td>
+                <td class="r"><span class="${aCls}">${isComplete ? atFmt : projAtFmt}</span></td>
+                <td class="r ${has ? dCls : ''}">${has ? (diff >= 0 ? '+' : '') + sprintFmtRS(diff) : '—'}</td>
+                <td class="c"><span class="sprint-status-badge sprint-status-${aCls.replace('sprint-ating-', '')}">${has ? statusTxt : '⏳'}</span></td>
             </tr>`;
         }).join('');
 
-        const totAt = totMeta>0?totReal/totMeta*100:0;
-        const totDiff = totReal-totMeta;
+        const totAt = totMeta > 0 ? totReal / totMeta * 100 : 0;
+        const totDiff = totReal - totMeta;
         const statusLegend = !has ? '' : isComplete
             ? `<div class="sprint-status-legend">Sprint encerrado · Status baseado no <strong>realizado vs meta</strong></div>`
             : `<div class="sprint-status-legend">Sprint em andamento (${nMeses}/3 meses) · Status baseado na <strong>projeção trimestral</strong> (ritmo atual × 3)</div>`;
@@ -7051,8 +7181,8 @@ function sprintBuildMetasView(loadedMonths) {
             ${statusLegend}
             <div style="overflow-x:auto"><table class="sprint-tbl">
                 <thead><tr>
-                    <th style="width:30px">#</th><th>${isPV?'Propagandista':'Distrital'}</th>
-                    ${isPV?'<th>Distrital</th>':''}
+                    <th style="width:30px">#</th><th>${isPV ? 'Propagandista' : 'Distrital'}</th>
+                    ${isPV ? '<th>Distrital</th>' : ''}
                     <th class="r">Grupo</th>
                     <th class="r">Base 1TRI/26</th>
                     <th class="r sprint-meta-col">Meta</th>
@@ -7064,14 +7194,14 @@ function sprintBuildMetasView(loadedMonths) {
                 </tr></thead>
                 <tbody>${rowsH}</tbody>
                 <tfoot><tr class="sprint-total-row">
-                    <td></td><td><strong>TOTAL</strong></td>${isPV?'<td></td>':''}<td></td>
+                    <td></td><td><strong>TOTAL</strong></td>${isPV ? '<td></td>' : ''}<td></td>
                     <td class="r"><strong>${sprintFmtRS(totBase)}</strong></td>
                     <td class="r sprint-meta-col"><strong>${sprintFmtRS(totMeta)}</strong></td>
-                    <td class="r"><strong>${has?sprintFmtRS(totReal):'—'}</strong></td>
+                    <td class="r"><strong>${has ? sprintFmtRS(totReal) : '—'}</strong></td>
                     <td></td>
-                    <td class="r"><strong>${has?totAt.toFixed(1)+'%':'—'}</strong></td>
-                    <td class="r ${totDiff>=0?'sprint-evol-pos':'sprint-evol-neg'}"><strong>${has?(totDiff>=0?'+':'')+sprintFmtRS(totDiff):'—'}</strong></td>
-                    <td><strong>${has?cntOk+'/'+filteredList.length+(isComplete?' bateram':' no ritmo'):'—'}</strong></td>
+                    <td class="r"><strong>${has ? totAt.toFixed(1) + '%' : '—'}</strong></td>
+                    <td class="r ${totDiff >= 0 ? 'sprint-evol-pos' : 'sprint-evol-neg'}"><strong>${has ? (totDiff >= 0 ? '+' : '') + sprintFmtRS(totDiff) : '—'}</strong></td>
+                    <td><strong>${has ? cntOk + '/' + filteredList.length + (isComplete ? ' bateram' : ' no ritmo') : '—'}</strong></td>
                 </tr></tfoot>
             </table></div>
         </div>`;
@@ -7087,22 +7217,22 @@ function sprintBuildMktShareView() {
     SPRINT.LINES.forEach(line => {
         const map = new Map();
         sprintGetDDDMkt(SPRINT.BASE_MONTHS, line.mercados).forEach(r => {
-            if (!map.has(r.setor)) map.set(r.setor, {setor:r.setor, distrital:r.distrital, supera:0, total:0});
+            if (!map.has(r.setor)) map.set(r.setor, { setor: r.setor, distrital: r.distrital, supera: 0, total: 0 });
             const e = map.get(r.setor);
             e.total += r.valor;
             if (line.products.includes(r.marca)) e.supera += r.valor;
         });
         const rows2 = [...map.values()]
-            .map(e=>({...e, concor:e.total-e.supera, ms:e.total>0?e.supera/e.total*100:0}))
-            .sort((a,b)=>b.ms-a.ms);
+            .map(e => ({ ...e, concor: e.total - e.supera, ms: e.total > 0 ? e.supera / e.total * 100 : 0 }))
+            .sort((a, b) => b.ms - a.ms);
         if (!rows2.length) return;
 
-        const avg = rows2.reduce((s,r)=>s+r.ms,0)/rows2.length;
-        const rowsH = rows2.map((r,i)=>{
-            const barColor = r.ms>=50?'#059669':r.ms>=30?'#d97706':'#dc2626';
+        const avg = rows2.reduce((s, r) => s + r.ms, 0) / rows2.length;
+        const rowsH = rows2.map((r, i) => {
+            const barColor = r.ms >= 50 ? '#059669' : r.ms >= 30 ? '#d97706' : '#dc2626';
             const pCls = '';
             return `<tr>
-                <td><span class="sprint-pos-badge ${pCls}">${i+1}</span></td>
+                <td><span class="sprint-pos-badge ${pCls}">${i + 1}</span></td>
                 <td class="sprint-td-small">${r.distrital}</td>
                 <td class="sprint-td-label" title="${r.setor}">${r.setor}</td>
                 <td class="r">${sprintFmtRS(r.supera)}</td>
@@ -7111,7 +7241,7 @@ function sprintBuildMktShareView() {
                 <td style="min-width:140px">
                     <div style="display:flex;align-items:center;gap:6px">
                         <div style="flex:1;background:var(--s3);border-radius:4px;height:8px;overflow:hidden">
-                            <div style="width:${Math.min(r.ms,100)}%;height:100%;background:${barColor};border-radius:4px"></div>
+                            <div style="width:${Math.min(r.ms, 100)}%;height:100%;background:${barColor};border-radius:4px"></div>
                         </div>
                         <span style="font-size:.72rem;font-weight:800;color:${barColor};min-width:38px">${r.ms.toFixed(1)}%</span>
                     </div>
@@ -7121,7 +7251,7 @@ function sprintBuildMktShareView() {
 
         html += `<div class="sprint-section">
             <div class="sprint-section-header ${line.color}">
-                <span class="sprint-section-title">${line.name==='INFINITY'?'🟦':'🟠'} ${line.name} — Mkt Share por Setor (Base 1TRI/26)</span>
+                <span class="sprint-section-title">${line.name === 'INFINITY' ? '🟦' : '🟠'} ${line.name} — Mkt Share por Setor (Base 1TRI/26)</span>
                 <span class="sprint-meta-total">Média: ${avg.toFixed(1)}%</span>
             </div>
             <div style="overflow-x:auto"><table class="sprint-tbl">
@@ -7162,7 +7292,7 @@ function sprintBuildOportunidadesView() {
             if (line.products.includes(r.marca)) {
                 e.supera += r.valor;
             } else {
-                e.concorMap.set(r.marca, (e.concorMap.get(r.marca)||0) + r.valor);
+                e.concorMap.set(r.marca, (e.concorMap.get(r.marca) || 0) + r.valor);
             }
         });
 
@@ -7170,50 +7300,50 @@ function sprintBuildOportunidadesView() {
         const rows2 = [...map.values()]
             .map(e => {
                 const concor = e.total - e.supera;
-                const ms     = e.total > 0 ? e.supera/e.total*100 : 0;
+                const ms = e.total > 0 ? e.supera / e.total * 100 : 0;
                 // Top concorrentes deste brick
                 const topConc = [...e.concorMap.entries()]
-                    .sort((a,b)=>b[1]-a[1])
-                    .slice(0,3)
-                    .map(([m,v])=>({
-                        nome: m.replace(/\s*\([^)]+\)/,'').trim(),
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3)
+                    .map(([m, v]) => ({
+                        nome: m.replace(/\s*\([^)]+\)/, '').trim(),
                         valor: v
                     }));
-                const prio = ms<25&&concor>50000?'alta' : ms<40&&concor>20000?'media' : concor>5000?'baixa':null;
+                const prio = ms < 25 && concor > 50000 ? 'alta' : ms < 40 && concor > 20000 ? 'media' : concor > 5000 ? 'baixa' : null;
                 return { ...e, concor, ms, topConc, prio };
             })
             .filter(e => e.prio !== null && e.concor > 0)
-            .sort((a,b) => b.concor - a.concor)
+            .sort((a, b) => b.concor - a.concor)
             .slice(0, 100);  // top 100 oportunidades
 
         if (!rows2.length) return;
 
-        const countAlta  = rows2.filter(r=>r.prio==='alta').length;
-        const countMedia = rows2.filter(r=>r.prio==='media').length;
-        const totalConcor= rows2.reduce((s,r)=>s+r.concor,0);
+        const countAlta = rows2.filter(r => r.prio === 'alta').length;
+        const countMedia = rows2.filter(r => r.prio === 'media').length;
+        const totalConcor = rows2.reduce((s, r) => s + r.concor, 0);
 
-        const prioLabel  = {alta:'🔴 Alta', media:'🟡 Média', baixa:'🟢 Baixa'};
-        const prioOrder  = {alta:0, media:1, baixa:2};
+        const prioLabel = { alta: '🔴 Alta', media: '🟡 Média', baixa: '🟢 Baixa' };
+        const prioOrder = { alta: 0, media: 1, baixa: 2 };
 
-        const rowsH = rows2.map((r,i)=>{
+        const rowsH = rows2.map((r, i) => {
             const pCls = '';
-            const concBars = r.topConc.map(c=>`
+            const concBars = r.topConc.map(c => `
                 <div class="sprint-conc-bar">
                     <span class="sprint-conc-name">${c.nome}</span>
                     <div class="sprint-conc-bar-track">
-                        <div class="sprint-conc-bar-fill" style="width:${Math.min(c.valor/r.concor*100,100).toFixed(1)}%"></div>
+                        <div class="sprint-conc-bar-fill" style="width:${Math.min(c.valor / r.concor * 100, 100).toFixed(1)}%"></div>
                     </div>
                     <span class="sprint-conc-val">${sprintFmtRS(c.valor)}</span>
                 </div>`).join('');
             return `<tr>
-                <td><span class="sprint-pos-badge ${pCls}">${i+1}</span></td>
+                <td><span class="sprint-pos-badge ${pCls}">${i + 1}</span></td>
                 <td class="sprint-td-small">${r.distrital}</td>
                 <td class="sprint-td-small">${r.setor}</td>
                 <td class="sprint-td-label" title="${r.brick}">${r.brick}</td>
                 <td class="r">${sprintFmtRS(r.supera)}</td>
                 <td class="r sprint-concor-val">${sprintFmtRS(r.concor)}</td>
                 <td class="r">${sprintFmtRS(r.total)}</td>
-                <td class="r" style="font-size:.72rem;font-weight:700;color:${r.ms>=50?'#059669':r.ms>=30?'#d97706':'#dc2626'}">${r.ms.toFixed(1)}%</td>
+                <td class="r" style="font-size:.72rem;font-weight:700;color:${r.ms >= 50 ? '#059669' : r.ms >= 30 ? '#d97706' : '#dc2626'}">${r.ms.toFixed(1)}%</td>
                 <td>${concBars}</td>
                 <td class="r sprint-td-small">${prioLabel[r.prio]}</td>
             </tr>`;
@@ -7221,7 +7351,7 @@ function sprintBuildOportunidadesView() {
 
         html += `<div class="sprint-section">
             <div class="sprint-section-header ${line.color}">
-                <span class="sprint-section-title">${line.name==='INFINITY'?'🟦':'🟠'} ${line.name} — Top Oportunidades por Brick (Base 1TRI/26)</span>
+                <span class="sprint-section-title">${line.name === 'INFINITY' ? '🟦' : '🟠'} ${line.name} — Top Oportunidades por Brick (Base 1TRI/26)</span>
                 <span class="sprint-meta-total">🔴 ${countAlta} · 🟡 ${countMedia} · Concorr. total: ${sprintFmtRS(totalConcor)}</span>
             </div>
             <div class="sprint-oport-legend">
@@ -7257,8 +7387,8 @@ function sprintBuildPDVView(loadedMonths) {
 
     SPRINT.LINES.forEach(line => {
         const bRows = sprintGetMDTR(SPRINT.BASE_MONTHS, line.products);
-        const sRows = sprintGetMDTR(loadedMonths,       line.products);
-        const vm    = SPRINT.mdtrView[line.id];
+        const sRows = sprintGetMDTR(loadedMonths, line.products);
+        const vm = SPRINT.mdtrView[line.id];
 
         // ── Agrega por dimensão ──
         // Para PDV: agrega com detalhes de significância
@@ -7282,7 +7412,7 @@ function sprintBuildPDVView(loadedMonths) {
                 if (!r.pdv) return;
                 if (!sMap.has(r.pdv)) sMap.set(r.pdv, { sprint: 0, byMonth: {}, sMeses: new Set(), sMarcas: new Map() });
                 const e = sMap.get(r.pdv);
-                e.sprint   += r.valor;
+                e.sprint += r.valor;
                 e.byMonth[r.mes] = (e.byMonth[r.mes] || 0) + r.valor;
                 e.sMeses.add(r.mes);
                 // detalhe por marca
@@ -7297,24 +7427,26 @@ function sprintBuildPDVView(loadedMonths) {
                 const b = bMap.get(k) || { key: k, label: k, bandeira: '', setor: '', distrital: '', base: 0, bMeses: new Set() };
                 const s = sMap.get(k) || { sprint: 0, byMonth: {}, sMeses: new Set() };
                 const mesesPresente = s.sMeses.size;
-                const ticketMedio   = mesesPresente > 0 ? s.sprint / mesesPresente : 0;
+                const ticketMedio = mesesPresente > 0 ? s.sprint / mesesPresente : 0;
                 // Significância: PDV é significativo se comprou em ≥2 meses do sprint OU valor base > 0
                 const sig = mesesPresente >= 2 ? 'alta' : mesesPresente === 1 ? (s.sprint >= 500 ? 'media' : 'baixa') : (b.base > 0 ? 'base' : 'nova');
                 // Monta detalhe de marcas para expand
-                const allMarcas = new Set([...(b.bMarcas||new Map()).keys(), ...(s.sMarcas||new Map()).keys()]);
+                const allMarcas = new Set([...(b.bMarcas || new Map()).keys(), ...(s.sMarcas || new Map()).keys()]);
                 const marcasDetail = [...allMarcas].map(m => ({
                     marca: m,
-                    base:   (b.bMarcas||new Map()).get(m)?.base   || 0,
-                    sprint: (s.sMarcas||new Map()).get(m)?.sprint  || 0,
-                    byMonth:(s.sMarcas||new Map()).get(m)?.byMonth || {}
-                })).sort((a,b2) => b2.base - a.base);
-                return { key: k, label: b.label, bandeira: b.bandeira, setor: b.setor, distrital: b.distrital,
-                         base: b.base, sprint: s.sprint, byMonth: s.byMonth,
-                         bMeses: b.bMeses.size, sMeses: mesesPresente, ticketMedio, sig, marcasDetail };
+                    base: (b.bMarcas || new Map()).get(m)?.base || 0,
+                    sprint: (s.sMarcas || new Map()).get(m)?.sprint || 0,
+                    byMonth: (s.sMarcas || new Map()).get(m)?.byMonth || {}
+                })).sort((a, b2) => b2.base - a.base);
+                return {
+                    key: k, label: b.label, bandeira: b.bandeira, setor: b.setor, distrital: b.distrital,
+                    base: b.base, sprint: s.sprint, byMonth: s.byMonth,
+                    bMeses: b.bMeses.size, sMeses: mesesPresente, ticketMedio, sig, marcasDetail
+                };
             });
         } else {
             // Agregação normal para distrital/setor/bandeira
-            const baseAgg   = sprintAggregate(bRows, SPRINT.BASE_MONTHS, vm);
+            const baseAgg = sprintAggregate(bRows, SPRINT.BASE_MONTHS, vm);
             const sprintAgg = sprintAggregate(sRows, loadedMonths, vm);
             const spMap = new Map(sprintAgg.map(e => [e.key, e]));
             merged = baseAgg.map(e => {
@@ -7333,21 +7465,21 @@ function sprintBuildPDVView(loadedMonths) {
             let va, vb;
             if (vm === 'pdv') {
                 const sigOrd = { alta: 4, media: 3, baixa: 2, base: 1, nova: 0 };
-                if (sort.key === 'sig')    { va = sigOrd[a.sig]||0;    vb = sigOrd[b.sig]||0; }
-                else if (sort.key === 'meses') { va = a.sMeses;        vb = b.sMeses; }
-                else if (sort.key === 'ticket'){ va = a.ticketMedio;   vb = b.ticketMedio; }
-                else if (sort.key === 'sprint'){ va = a.sprint;        vb = b.sprint; }
-                else                           { va = a.base;          vb = b.base; }
+                if (sort.key === 'sig') { va = sigOrd[a.sig] || 0; vb = sigOrd[b.sig] || 0; }
+                else if (sort.key === 'meses') { va = a.sMeses; vb = b.sMeses; }
+                else if (sort.key === 'ticket') { va = a.ticketMedio; vb = b.ticketMedio; }
+                else if (sort.key === 'sprint') { va = a.sprint; vb = b.sprint; }
+                else { va = a.base; vb = b.base; }
             } else {
-                va = sort.key==='base' ? a.base : sort.key==='sprint' ? a.sprint : (a.base ? a.sprint/a.base-1 : Infinity);
-                vb = sort.key==='base' ? b.base : sort.key==='sprint' ? b.sprint : (b.base ? b.sprint/b.base-1 : Infinity);
+                va = sort.key === 'base' ? a.base : sort.key === 'sprint' ? a.sprint : (a.base ? a.sprint / a.base - 1 : Infinity);
+                vb = sort.key === 'base' ? b.base : sort.key === 'sprint' ? b.sprint : (b.base ? b.sprint / b.base - 1 : Infinity);
             }
             return sort.dir === 'desc' ? vb - va : va - vb;
         });
 
-        const tBase   = merged.reduce((s, e) => s + e.base, 0);
+        const tBase = merged.reduce((s, e) => s + e.base, 0);
         const tSprint = merged.reduce((s, e) => s + e.sprint, 0);
-        const tEvol   = sprintFmtEvol(tBase, tSprint);
+        const tEvol = sprintFmtEvol(tBase, tSprint);
         const dimLabel = { distrital: 'Distrital', setor: 'Setor', bandeira: 'Bandeira', pdv: 'PDV' }[vm];
 
         const thS = (key, lbl, align) => {
@@ -7357,7 +7489,7 @@ function sprintBuildPDVView(loadedMonths) {
             return `<th class="${cls}" onclick="mdtrSort('${line.id}','${key}')" style="cursor:pointer">${lbl}${arr}</th>`;
         };
 
-        const mHdrs   = loadedMonths.map(m => `<th class="r">${SPRINT.MONTH_LABELS[m]}-26</th>`).join('');
+        const mHdrs = loadedMonths.map(m => `<th class="r">${SPRINT.MONTH_LABELS[m]}-26</th>`).join('');
         const mTotals = loadedMonths.map(m => {
             const tot = merged.reduce((s, e) => s + (e.byMonth[m] || 0), 0);
             return `<td class="r">${sprintFmtRS(tot)}</td>`;
@@ -7385,9 +7517,9 @@ function sprintBuildPDVView(loadedMonths) {
                 const mCells = loadedMonths.map(m => `<td class="r">${e.byMonth[m] ? sprintFmtRS(e.byMonth[m]) : '—'}</td>`).join('');
                 const sigLabel = { alta: '🟢 Alta', media: '🟡 Média', baixa: '🔴 Baixa', base: '⚫ Base', nova: '🔵 Novo' }[e.sig] || '—';
                 const ticketFmt = e.ticketMedio > 0 ? sprintFmtRS(e.ticketMedio) : '—';
-                const mesesFmt  = e.sMeses > 0 ? `${e.sMeses}/${loadedMonths.length}` : '—';
-                const bandFmt   = e.bandeira ? `<small class="sprint-pdv-band">${e.bandeira}</small>` : '';
-                const rowId     = `pdv-det-${line.id}-${i}`;
+                const mesesFmt = e.sMeses > 0 ? `${e.sMeses}/${loadedMonths.length}` : '—';
+                const bandFmt = e.bandeira ? `<small class="sprint-pdv-band">${e.bandeira}</small>` : '';
+                const rowId = `pdv-det-${line.id}-${i}`;
                 const hasMarcas = e.marcasDetail && e.marcasDetail.length > 0;
 
                 // Sub-linhas de marcas
@@ -7409,7 +7541,7 @@ function sprintBuildPDVView(loadedMonths) {
 
                 return `<tr class="sprint-pdv-row" data-id="${rowId}">
                     <td>
-                        ${hasMarcas ? `<button class="sprint-pdv-expand-btn" onclick="sprintTogglePDVDetail('${rowId}',this)" title="Ver produtos">+</button>` : `<span class="sprint-pos-badge">${i+1}</span>`}
+                        ${hasMarcas ? `<button class="sprint-pdv-expand-btn" onclick="sprintTogglePDVDetail('${rowId}',this)" title="Ver produtos">+</button>` : `<span class="sprint-pos-badge">${i + 1}</span>`}
                     </td>
                     <td class="sprint-td-label" title="${e.label}">${e.label}${bandFmt}</td>
                     <td class="r">${e.base > 0 ? sprintFmtRS(e.base) : '—'}</td>
@@ -7426,19 +7558,19 @@ function sprintBuildPDVView(loadedMonths) {
                 <div class="sprint-section-header ${line.color}">
                     <span class="sprint-section-title">${line.name === 'INFINITY' ? '🟦' : '🟠'} ${line.name} — Vendas por PDV (MDTR)</span>
                     <div class="sprint-view-tabs">
-                        <button class="sprint-view-btn ${vm==='distrital'?'active':''}" onclick="mdtrSetView('${line.id}','distrital')">Distrital</button>
-                        <button class="sprint-view-btn ${vm==='setor'    ?'active':''}" onclick="mdtrSetView('${line.id}','setor')">Setor</button>
-                        <button class="sprint-view-btn ${vm==='bandeira' ?'active':''}" onclick="mdtrSetView('${line.id}','bandeira')">Bandeira</button>
-                        <button class="sprint-view-btn ${vm==='pdv'      ?'active':''}" onclick="mdtrSetView('${line.id}','pdv')">PDV</button>
+                        <button class="sprint-view-btn ${vm === 'distrital' ? 'active' : ''}" onclick="mdtrSetView('${line.id}','distrital')">Distrital</button>
+                        <button class="sprint-view-btn ${vm === 'setor' ? 'active' : ''}" onclick="mdtrSetView('${line.id}','setor')">Setor</button>
+                        <button class="sprint-view-btn ${vm === 'bandeira' ? 'active' : ''}" onclick="mdtrSetView('${line.id}','bandeira')">Bandeira</button>
+                        <button class="sprint-view-btn ${vm === 'pdv' ? 'active' : ''}" onclick="mdtrSetView('${line.id}','pdv')">PDV</button>
                     </div>
                 </div>
                 ${theadExtra}
                 <div style="overflow-x:auto"><table class="sprint-tbl">
                     <thead><tr>
                         <th style="width:30px;text-align:center">#</th><th>PDV / Bandeira</th>
-                        ${thS('base','Base J/F/M')}${thS('sprint','Sprint Acum.')}
+                        ${thS('base', 'Base J/F/M')}${thS('sprint', 'Sprint Acum.')}
                         ${mHdrs}
-                        ${thS('meses','Meses')}${thS('ticket','Ticket Médio')}<th class="c" style="cursor:pointer" onclick="mdtrSort('${line.id}','sig')">Significância${sort.key==='sig'?(sort.dir==='desc'?' ↓':' ↑'):' ↕'}</th>${thS('evol','Evolução')}
+                        ${thS('meses', 'Meses')}${thS('ticket', 'Ticket Médio')}<th class="c" style="cursor:pointer" onclick="mdtrSort('${line.id}','sig')">Significância${sort.key === 'sig' ? (sort.dir === 'desc' ? ' ↓' : ' ↑') : ' ↕'}</th>${thS('evol', 'Evolução')}
                     </tr></thead>
                     <tbody>${rowsH || '<tr><td colspan="10" class="sprint-empty">Sem dados</td></tr>'}</tbody>
                     <tfoot><tr class="sprint-total-row">
@@ -7473,17 +7605,17 @@ function sprintBuildPDVView(loadedMonths) {
                 <div class="sprint-section-header ${line.color}">
                     <span class="sprint-section-title">${line.name === 'INFINITY' ? '🟦' : '🟠'} ${line.name} — Vendas por ${dimLabel} (MDTR)</span>
                     <div class="sprint-view-tabs">
-                        <button class="sprint-view-btn ${vm==='distrital'?'active':''}" onclick="mdtrSetView('${line.id}','distrital')">Distrital</button>
-                        <button class="sprint-view-btn ${vm==='setor'    ?'active':''}" onclick="mdtrSetView('${line.id}','setor')">Setor</button>
-                        <button class="sprint-view-btn ${vm==='bandeira' ?'active':''}" onclick="mdtrSetView('${line.id}','bandeira')">Bandeira</button>
-                        <button class="sprint-view-btn ${vm==='pdv'      ?'active':''}" onclick="mdtrSetView('${line.id}','pdv')">PDV</button>
+                        <button class="sprint-view-btn ${vm === 'distrital' ? 'active' : ''}" onclick="mdtrSetView('${line.id}','distrital')">Distrital</button>
+                        <button class="sprint-view-btn ${vm === 'setor' ? 'active' : ''}" onclick="mdtrSetView('${line.id}','setor')">Setor</button>
+                        <button class="sprint-view-btn ${vm === 'bandeira' ? 'active' : ''}" onclick="mdtrSetView('${line.id}','bandeira')">Bandeira</button>
+                        <button class="sprint-view-btn ${vm === 'pdv' ? 'active' : ''}" onclick="mdtrSetView('${line.id}','pdv')">PDV</button>
                     </div>
                 </div>
                 <div style="overflow-x:auto"><table class="sprint-tbl">
                     <thead><tr>
                         <th style="width:30px">#</th><th>${dimLabel}</th>
-                        ${thS('base','Base J/F/M')}${thS('sprint','Sprint Acum.')}
-                        ${mHdrs}${thS('evol','Evolução')}
+                        ${thS('base', 'Base J/F/M')}${thS('sprint', 'Sprint Acum.')}
+                        ${mHdrs}${thS('evol', 'Evolução')}
                     </tr></thead>
                     <tbody>${rowsH || '<tr><td colspan="8" class="sprint-empty">Sem dados</td></tr>'}</tbody>
                     <tfoot><tr class="sprint-total-row">
@@ -7507,10 +7639,10 @@ let _sprintSetorPanelClose = null;
 function sprintBindEvents() {
     // Fecha os painéis de distrital/setor ao clicar fora
     document.removeEventListener('click', _sprintSetorPanelClose);
-    _sprintSetorPanelClose = function(e) {
+    _sprintSetorPanelClose = function (e) {
         let closed = false;
-        [['sprint-dist-wrap','sprint-dist-panel'],['sprint-setor-wrap','sprint-setor-panel']].forEach(([wId,pId]) => {
-            const wrap  = document.getElementById(wId);
+        [['sprint-dist-wrap', 'sprint-dist-panel'], ['sprint-setor-wrap', 'sprint-setor-panel']].forEach(([wId, pId]) => {
+            const wrap = document.getElementById(wId);
             const panel = document.getElementById(pId);
             if (panel && wrap && !wrap.contains(e.target) && panel.style.display !== 'none') {
                 panel.style.display = 'none';
@@ -7523,21 +7655,21 @@ function sprintBindEvents() {
 
     const input = document.getElementById('sprint-fileInput');
     if (!input) return;
-    input.onchange = function(e) {
+    input.onchange = function (e) {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = function(ev) {
+        reader.onload = function (ev) {
             const buf = new Uint8Array(ev.target.result);
             const target = input.getAttribute('data-target');
             if (target === 'ddd') {
                 SPRINT.dddRows = sprintParseDDD(buf);
-                const dddDists = [...new Set(SPRINT.dddRows.map(r=>r.distrital).filter(Boolean))];
-                SPRINT.diagDDD = `${SPRINT.dddRows.length} linhas · ${dddDists.length} distrital(is): ${dddDists.slice(0,3).join(', ')}${dddDists.length>3?'...':''}`;
+                const dddDists = [...new Set(SPRINT.dddRows.map(r => r.distrital).filter(Boolean))];
+                SPRINT.diagDDD = `${SPRINT.dddRows.length} linhas · ${dddDists.length} distrital(is): ${dddDists.slice(0, 3).join(', ')}${dddDists.length > 3 ? '...' : ''}`;
             } else if (target === 'mdtr') {
                 SPRINT.mdtrRows = sprintParseMDTR(buf);
-                const mdtrDists = [...new Set(SPRINT.mdtrRows.map(r=>r.distrital).filter(Boolean))];
-                SPRINT.diagMDTR = `${SPRINT.mdtrRows.length} linhas · ${mdtrDists.length} distrital(is): ${mdtrDists.slice(0,3).join(', ')}${mdtrDists.length>3?'...':''}`;
+                const mdtrDists = [...new Set(SPRINT.mdtrRows.map(r => r.distrital).filter(Boolean))];
+                SPRINT.diagMDTR = `${SPRINT.mdtrRows.length} linhas · ${mdtrDists.length} distrital(is): ${mdtrDists.slice(0, 3).join(', ')}${mdtrDists.length > 3 ? '...' : ''}`;
                 if (SPRINT.subTab !== 'pdv') SPRINT.subTab = 'pdv';
             } else if (target === 'metas') {
                 SPRINT.metasData = sprintParseMetasXLSX(buf);
@@ -7563,7 +7695,7 @@ function _sprintTogglePanel(panelId, wrapId, e) {
     if (e) e.stopPropagation();
     const panel = document.getElementById(panelId);
     if (!panel) return;
-    ['sprint-dist-panel','sprint-setor-panel'].forEach(id => {
+    ['sprint-dist-panel', 'sprint-setor-panel'].forEach(id => {
         if (id !== panelId) { const p = document.getElementById(id); if (p) p.style.display = 'none'; }
     });
     const opening = panel.style.display === 'none';
@@ -7571,28 +7703,28 @@ function _sprintTogglePanel(panelId, wrapId, e) {
     SPRINT.openPanel = opening ? (panelId === 'sprint-dist-panel' ? 'dist' : 'setor') : null;
 }
 
-function sprintToggleDistPanel(e)  { _sprintTogglePanel('sprint-dist-panel',  'sprint-dist-wrap',  e); }
+function sprintToggleDistPanel(e) { _sprintTogglePanel('sprint-dist-panel', 'sprint-dist-wrap', e); }
 function sprintToggleSetorPanel(e) { _sprintTogglePanel('sprint-setor-panel', 'sprint-setor-wrap', e); }
 
 function sprintOnDistAll(chk) {
     if (chk.checked) {
         // Marcar todas
         SPRINT.filterDistrital = [];
-        SPRINT.filterSetor     = [];
+        SPRINT.filterSetor = [];
         document.querySelectorAll('#sprint-dist-checkboxes input').forEach(c => c.checked = true);
     } else {
         // Desmarcar todas — nenhuma distrital selecionada (sem dados)
         SPRINT.filterDistrital = ['__none__'];
-        SPRINT.filterSetor     = [];
+        SPRINT.filterSetor = [];
         document.querySelectorAll('#sprint-dist-checkboxes input').forEach(c => c.checked = false);
     }
     renderSprint();
 }
 
 function sprintOnDistCheck() {
-    const checks   = [...document.querySelectorAll('#sprint-dist-checkboxes input')];
+    const checks = [...document.querySelectorAll('#sprint-dist-checkboxes input')];
     const selected = checks.filter(c => c.checked).map(c => c.value);
-    const allChk   = document.getElementById('sprint-dist-all-chk');
+    const allChk = document.getElementById('sprint-dist-all-chk');
     if (selected.length === 0) {
         SPRINT.filterDistrital = ['__none__'];
         if (allChk) allChk.checked = false;
@@ -7622,9 +7754,9 @@ function sprintOnSetorAll(chk) {
 }
 
 function sprintOnSetorCheck() {
-    const checks   = [...document.querySelectorAll('#sprint-setor-checkboxes input')];
+    const checks = [...document.querySelectorAll('#sprint-setor-checkboxes input')];
     const selected = checks.filter(c => c.checked).map(c => c.value);
-    const allChk   = document.getElementById('sprint-setor-all-chk');
+    const allChk = document.getElementById('sprint-setor-all-chk');
     if (selected.length === 0) {
         SPRINT.filterSetor = ['__none__'];
         if (allChk) allChk.checked = false;
@@ -7648,27 +7780,27 @@ function sprintTogglePDVDetail(rowId, btn) {
     btn.classList.toggle('sprint-pdv-expand-open', !isOpen);
 }
 
-function sprintSetView(lineId, view)  { SPRINT.viewMode[lineId] = view;  renderSprint(); }
-function mdtrSetView(lineId, view)    { SPRINT.mdtrView[lineId] = view;  renderSprint(); }
-function sprintSort(lineId, key)      {
+function sprintSetView(lineId, view) { SPRINT.viewMode[lineId] = view; renderSprint(); }
+function mdtrSetView(lineId, view) { SPRINT.mdtrView[lineId] = view; renderSprint(); }
+function sprintSort(lineId, key) {
     const st = SPRINT.sortState[lineId];
-    st.dir = st.key===key ? (st.dir==='desc'?'asc':'desc') : 'desc';
+    st.dir = st.key === key ? (st.dir === 'desc' ? 'asc' : 'desc') : 'desc';
     st.key = key;
     renderSprint();
 }
-function mdtrSort(lineId, key)        {
+function mdtrSort(lineId, key) {
     const st = SPRINT.mdtrSort[lineId];
-    st.dir = st.key===key ? (st.dir==='desc'?'asc':'desc') : 'desc';
+    st.dir = st.key === key ? (st.dir === 'desc' ? 'asc' : 'desc') : 'desc';
     st.key = key;
     renderSprint();
 }
 function sprintSetSubTab(tab) {
     // Só muda se a tab está habilitada
-    if      (tab==='evolucao'      && !SPRINT.dddRows)  return;
-    else if (tab==='metas'         && !SPRINT.metasData) return;
-    else if (tab==='mktshare'      && !SPRINT.dddRows)  return;
-    else if (tab==='oportunidades' && !SPRINT.dddRows)  return;
-    else if (tab==='pdv'           && !SPRINT.mdtrRows) return;
+    if (tab === 'evolucao' && !SPRINT.dddRows) return;
+    else if (tab === 'metas' && !SPRINT.metasData) return;
+    else if (tab === 'mktshare' && !SPRINT.dddRows) return;
+    else if (tab === 'oportunidades' && !SPRINT.dddRows) return;
+    else if (tab === 'pdv' && !SPRINT.mdtrRows) return;
     SPRINT.subTab = tab;
     renderSprint();
 }

@@ -6091,3 +6091,136 @@ td.pdv-growth-neg {
     .sprint-upload-row { flex-direction: column; }
     .sprint-conc-bar { min-width: 160px; }
 }
+
+/* ══════════════════════════════════════
+   ABA LIDERANÇA
+══════════════════════════════════════ */
+.tab.tab-lider-special {
+    color: var(--c-lider, #16a34a);
+    font-weight: 700;
+    border-bottom: 2px solid transparent;
+}
+.tab.tab-lider-special:hover,
+.tab.tab-lider-special.active {
+    color: var(--c-lider, #16a34a);
+    background: rgba(22, 163, 74, .08);
+    border-bottom-color: var(--c-lider, #16a34a);
+}
+
+/* ── Página ── */
+.lider-page {
+    padding: 20px 24px 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.lider-header { margin-bottom: 18px; }
+.lider-title  { font-size: 18px; font-weight: 800; margin: 0 0 4px; }
+.lider-sub    { font-size: 13px; color: var(--text-secondary); }
+
+/* ── KPIs ── */
+.lider-kpi-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+.lider-kpi {
+    flex: 1 1 140px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    text-align: center;
+}
+.lider-kpi-val {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.lider-kpi-lbl {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-top: 4px;
+}
+
+/* ── Tabela ── */
+.lider-tbl-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.lider-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.lider-tbl thead tr {
+    background: var(--bg-thead, #f1f5f9);
+}
+.lider-tbl th {
+    padding: 9px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+}
+.lider-tbl td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.lider-tbl tbody tr:last-child td { border-bottom: none; }
+.lider-tbl tbody tr:hover td { background: var(--row-hover, rgba(0,0,0,.03)); }
+
+.lider-pos       { color: var(--text-secondary); font-weight: 700; font-size: 12px; }
+.lider-mkt-name  { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.lider-prod      { color: var(--c-supera, #3b82f6); font-weight: 500; }
+.lider-supera-val{ font-weight: 700; color: var(--c-supera, #3b82f6); }
+.lider-bricks    { color: var(--text-secondary); }
+
+/* share bar */
+.lider-share-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-end;
+}
+.lider-bar-track {
+    width: 64px;
+    height: 7px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.lider-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width .3s;
+}
+
+/* badges */
+.lider-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.lider-badge-dom    { background: #dcfce7; color: #15803d; }
+.lider-badge-forte  { background: #fef9c3; color: #a16207; }
+.lider-badge-contes { background: #ffedd5; color: #c2410c; }
+
+.lider-empty {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
