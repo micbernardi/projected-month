@@ -2612,7 +2612,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
     });
 
-    document.querySelectorAll('#tabRail > .tab').forEach(tab => {
+    document.querySelectorAll('#tabRail .tab-rail-main .tab').forEach(tab => {
         tab.addEventListener('click', () => {
             const tn = tab.getAttribute('data-tab');
             if (!tn) return;

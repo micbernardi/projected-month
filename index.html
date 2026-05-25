@@ -162,17 +162,19 @@
 
             <!-- TAB RAIL -->
             <div class="tab-rail" id="tabRail">
-                <button class="tab active" data-tab="resumo">Resumo Geral</button>
-                <button class="tab" data-tab="brick">Detalhe por Brick</button>
-                <button class="tab" data-tab="oport">Oportunidades</button>
-                <button class="tab" data-tab="entrar">Entrar no Mercado</button>
-                <button class="tab" data-tab="graficos">Gráficos</button>
-                <button class="tab tab-lider-special" data-tab="lideranca" title="Mercados onde a Supera é líder">🏆 Liderança</button>
-                <button class="tab tab-pdv-special" data-tab="pdv" title="Análise por farmácia / CNPJ">🏥 PDVs por
-                    Brick</button>
-                <button class="tab tab-sprint-special" data-tab="sprint" title="Acompanhamento Sprint de Ouro">🏅 Sprint de Ouro</button>
-                <div class="tab-rail-sep"></div>
-                <div id="sectorTabs" style="display:contents"></div>
+                <!-- Linha 1: abas principais -->
+                <div class="tab-rail-main">
+                    <button class="tab active" data-tab="resumo">Resumo Geral (DDD)</button>
+                    <button class="tab" data-tab="brick">Detalhe por Brick (DDD)</button>
+                    <button class="tab" data-tab="oport">Oportunidades</button>
+                    <button class="tab" data-tab="entrar">Entrar no Mercado</button>
+                    <button class="tab" data-tab="graficos">Gráficos</button>
+                    <button class="tab tab-lider-special" data-tab="lideranca" title="Mercados onde a Supera é líder">🏆 Liderança</button>
+                    <button class="tab tab-pdv-special" data-tab="pdv" title="Análise por farmácia / CNPJ">🏥 PDVs por Brick (MDTR)</button>
+                    <button class="tab tab-sprint-special" data-tab="sprint" title="Acompanhamento Sprint de Ouro">🏅 Sprint de Ouro</button>
+                </div>
+                <!-- Linha 2: distritais / setores — tamanho igual, 100% largura -->
+                <div class="tab-rail-sectors" id="sectorTabs"></div>
             </div>
 
             <!-- FILTER BAR -->
@@ -211,7 +213,7 @@
                         oninput="onFilterChange()">
                 </div>
                 <div class="fb-spacer"></div>
-                <button class="fb-btn fb-excel" onclick="exportXLSX()">⬇ Excel</button>
+
             </div>
 
             <!-- TAB CONTENT -->
