@@ -314,51 +314,41 @@
 
                     <!-- toggle de modo -->
                     <div class="proj-period-mode-wrap">
-                        <button class="proj-period-mode-btn"        id="proj-btnModeSingle" onclick="projSetMode('single')">Mês a Mês</button>
-                        <button class="proj-period-mode-btn active" id="proj-btnModeRange"  onclick="projSetMode('range')">Intervalo</button>
+                        <button class="proj-period-mode-btn" id="proj-btnModeSingle" onclick="projSetMode('single')">
+                            <span class="proj-mode-ico">&#9632;</span>Mês a Mês
+                        </button>
+                        <button class="proj-period-mode-btn active" id="proj-btnModeRange" onclick="projSetMode('range')">
+                            <span class="proj-mode-ico">&#9646;&#9646;</span>Intervalo
+                        </button>
                     </div>
 
                     <!-- MÊS A MÊS -->
-                    <div id="proj-single-controls" style="display:none;align-items:center;gap:6px">
-                        <div class="proj-ctrl-group">
-                            <label class="proj-ctrl-label">Mês A</label>
+                    <div id="proj-single-controls" style="display:none;align-items:center;gap:8px">
+                        <div class="proj-pill-block proj-pill-a">
+                            <span class="proj-pill-tag">A</span>
                             <select id="proj-filterBase"></select>
                         </div>
                         <span class="proj-vs-sep">vs</span>
-                        <div class="proj-ctrl-group">
-                            <label class="proj-ctrl-label">Mês B</label>
+                        <div class="proj-pill-block proj-pill-b">
+                            <span class="proj-pill-tag">B</span>
                             <select id="proj-filterComp"></select>
                         </div>
                     </div>
 
                     <!-- PERÍODO A vs B -->
-                    <div id="proj-range-controls" style="display:flex;align-items:center;gap:6px">
-                        <div class="proj-period-block">
-                            <div class="proj-ctrl-group">
-                                <label class="proj-ctrl-label">De</label>
-                                <select id="proj-filterAFrom"></select>
-                                <div class="proj-ate-wrap">
-                                    <span class="proj-period-label-a">Período A</span>
-                                    <div class="proj-ctrl-group">
-                                        <label class="proj-ctrl-label">Até</label>
-                                        <select id="proj-filterATo"></select>
-                                    </div>
-                                </div>
-                            </div>
+                    <div id="proj-range-controls" style="display:flex;align-items:center;gap:8px">
+                        <div class="proj-range-block proj-range-a">
+                            <span class="proj-range-tag">A</span>
+                            <select id="proj-filterAFrom"></select>
+                            <span class="proj-range-arrow">→</span>
+                            <select id="proj-filterATo"></select>
                         </div>
                         <span class="proj-vs-sep">vs</span>
-                        <div class="proj-period-block">
-                            <div class="proj-ctrl-group">
-                                <label class="proj-ctrl-label">De</label>
-                                <select id="proj-filterBFrom"></select>
-                                <div class="proj-ate-wrap">
-                                    <span class="proj-period-label-b">Período B</span>
-                                    <div class="proj-ctrl-group">
-                                        <label class="proj-ctrl-label">Até</label>
-                                        <select id="proj-filterBTo"></select>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="proj-range-block proj-range-b">
+                            <span class="proj-range-tag">B</span>
+                            <select id="proj-filterBFrom"></select>
+                            <span class="proj-range-arrow">→</span>
+                            <select id="proj-filterBTo"></select>
                         </div>
                     </div>
 

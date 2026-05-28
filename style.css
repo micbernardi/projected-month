@@ -4601,46 +4601,87 @@ td.pdv-growth-neg {
 }
 
 /* Período A/B — layout compacto e bem distribuído */
-.proj-period-block {
+/* Bloco de intervalo: tag colorida + De → Até numa linha */
+.proj-range-block {
     display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
-.proj-ate-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1px;
-}
-.proj-ate-wrap .proj-period-label-a,
-.proj-ate-wrap .proj-period-label-b {
-    padding-left: 2px;
-}
-.proj-ate-wrap .proj-ctrl-group {
     align-items: center;
+    gap: 5px;
+    background: var(--s2, #f5f7fc);
+    border: 1.5px solid var(--brd, #dbe1ed);
+    border-radius: 7px;
+    padding: 3px 8px 3px 5px;
 }
-.proj-period-label-a {
-    font-size: .58rem;
+.proj-range-a { border-color: #93c5fd; background: #eff6ff; }
+.proj-range-b { border-color: #6ee7b7; background: #f0fdf4; }
+.proj-range-tag {
+    font-size: .65rem;
     font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color: #3b82f6;
-    line-height: 1;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
-.proj-period-label-b {
-    font-size: .58rem;
+.proj-range-a .proj-range-tag { background: #2563eb; color: #fff; }
+.proj-range-b .proj-range-tag { background: #059669; color: #fff; }
+.proj-range-arrow {
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--txt3, #94a3b8);
+    flex-shrink: 0;
+}
+
+/* Bloco mês a mês: tag + select numa cápsula */
+.proj-pill-block {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--s2, #f5f7fc);
+    border: 1.5px solid var(--brd, #dbe1ed);
+    border-radius: 7px;
+    padding: 3px 8px 3px 5px;
+}
+.proj-pill-a { border-color: #93c5fd; background: #eff6ff; }
+.proj-pill-b { border-color: #6ee7b7; background: #f0fdf4; }
+.proj-pill-tag {
+    font-size: .65rem;
     font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color: #10b981;
-    line-height: 1;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
+.proj-pill-a .proj-pill-tag { background: #2563eb; color: #fff; }
+.proj-pill-b .proj-pill-tag { background: #059669; color: #fff; }
+
+/* Selects dentro dos blocos — sem borda própria */
+.proj-range-block select,
+.proj-pill-block select {
+    background: transparent !important;
+    border: none !important;
+    padding: 2px 4px !important;
+    font-size: .72rem !important;
+}
+
 .proj-vs-sep {
     font-size: .75rem;
     font-weight: 800;
     color: var(--txt3, #94a3b8);
     flex-shrink: 0;
     padding: 0 2px;
+}
+
+/* Ícone no toggle de modo */
+.proj-mode-ico {
+    font-size: .5rem;
+    opacity: .7;
+    margin-right: 3px;
+    letter-spacing: -1px;
 }
 
 /* ── KPI Cards ── */
