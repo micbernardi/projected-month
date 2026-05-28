@@ -5196,8 +5196,8 @@ td.pdv-growth-neg {
     white-space: nowrap;
 }
 .proj-period-mode-btn.active {
-    background: #fff;
-    color: var(--navy, #25395a);
+    background: #059669;
+    color: #fff;
     box-shadow: 0 1px 4px rgba(0,0,0,.2);
     font-weight: 700;
 }
