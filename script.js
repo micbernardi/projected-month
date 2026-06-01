@@ -171,6 +171,15 @@ function getEffectiveExclusions(market) {
     return base;
 }
 
+/* Remove de um conjunto de rows as marcas excluídas do mercado (respeita o toggle).
+   Mantém sempre as marcas Supera; só filtra concorrentes que estão na lista de exclusão.
+   Usado para que o ranking expandido e os totais fiquem coerentes com a linha-resumo. */
+function rowsRespectingExclusions(rows, market) {
+    const excl = getEffectiveExclusions(market);
+    if (!excl) return rows;
+    return rows.filter(r => r.role === 'SUPERA' || !excl.has(r.product));
+}
+
 /* ===== HELPERS ===== */
 const $ = id => document.getElementById(id);
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -1133,7 +1142,10 @@ function renderResumo() {
 
         if (isExpanded) {
             // Ranking como tabela full-width, sem coluna de bricks lateral
-            const ranking = aggMarketRanking(m.rows, pd, 30);
+            // Respeita o toggle de exclusão (ex: DURATESTON no ATESTO): a marca
+            // só entra no ranking e no TOTAL DO MERCADO quando estiver incluída.
+            const rankRowsSrc = rowsRespectingExclusions(m.rows, m.market);
+            const ranking = aggMarketRanking(rankRowsSrc, pd, 30);
             const totPrev = ranking.reduce((s, c) => s + (c.prev || 0), 0);
             const totCur = ranking.reduce((s, c) => s + (c.cur || 0), 0);
             const totG = totPrev ? ((totCur / totPrev) - 1) : null;
@@ -2651,7 +2663,7 @@ function renderOport() {
     const shareAlertaLimite = avgShare / 2;
 
     function superaELider(m) {
-        const ranking = aggMarketRanking(m.rows, pd);
+        const ranking = aggMarketRanking(rowsRespectingExclusions(m.rows, m.market), pd);
         return ranking.length > 0 && ranking[0].role === 'SUPERA';
     }
 
@@ -2794,13 +2806,13 @@ function renderLideranca() {
     const LIDERANCA_EXCLUIDOS = new Set(['BENZETACIL', 'PEN VE ORAL', 'VAGICAND', 'BIOFLAC', 'PHOSFOENEMA']);
     const liderMkts = mkts.filter(m => {
         if (LIDERANCA_EXCLUIDOS.has(normU(m.market))) return false;
-        const rk = aggMarketRanking(m.rows, pd);
+        const rk = aggMarketRanking(rowsRespectingExclusions(m.rows, m.market), pd);
         return rk.length > 0 && rk[0].role === 'SUPERA';
     }).sort((a, b) => b.share - a.share);
 
     const totalMktVolume = liderMkts.reduce((s, m) => s + m.current, 0);
     const totalSuperaVol = liderMkts.reduce((s, m) => s + m.supera, 0);
-    const avgShare       = liderMkts.length
+    const avgShare = liderMkts.length
         ? liderMkts.reduce((s, m) => s + m.share, 0) / liderMkts.length : 0;
     const unitLbl = UI.unitMode === 'RS' ? 'R$' : 'Un.';
 
@@ -2869,8 +2881,8 @@ function renderLideranca() {
             const badge = m.share >= 50
                 ? `<span class="lider-badge lider-badge-dom">Dominante</span>`
                 : m.share >= 33
-                ? `<span class="lider-badge lider-badge-forte">Forte</span>`
-                : `<span class="lider-badge lider-badge-contes">Disputado</span>`;
+                    ? `<span class="lider-badge lider-badge-forte">Forte</span>`
+                    : `<span class="lider-badge lider-badge-contes">Disputado</span>`;
 
             html += `
                 <tr class="lider-row">
