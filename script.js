@@ -1149,8 +1149,8 @@ function renderResumo() {
                 const prodKey = c.name.replace(/'/g, "\\'");
                 const rowId = `city-exp-${i}-${mktKey.replace(/\W/g, '_')}`;
 
-                // Pré-calcula top 3 cidades para este produto
-                const cidades = topCidadesPorProduto(m.rows, c.name, pd, 3);
+                // Pré-calcula top 5 cidades para este produto
+                const cidades = topCidadesPorProduto(m.rows, c.name, pd, 5);
                 const cidadeRows = cidades.length === 0
                     ? `<tr><td colspan="4" class="rank-city-empty">Sem dados de cidade</td></tr>`
                     : cidades.map((ci, ci_i) => {
