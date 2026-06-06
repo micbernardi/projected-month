@@ -7054,29 +7054,35 @@ function sprintBuildMetasView(loadedMonths) {
     const has = loadedMonths.length > 0;
     let html = '';
 
-    const realByCode = (code, prodList, bySetor) => {
+    // Casa uma linha de venda com o item de meta conforme o nível hierárquico.
+    // 'gr' = Regional, 'gd' = Distrital, 'pv' = Setor/Propagandista.
+    // Para 'gr', um código não-numérico (ou vazio) casa toda a regional (caso comum: 1 regional na base).
+    const matchLevel = (r, level, code) => {
+        if (level === 'gr') {
+            if (!code || !/^\d/.test(code)) return true; // sem código → toda a regional
+            return (r.regional || '').startsWith(code);
+        }
+        if (level === 'gd') return (r.distrital || '').startsWith(code);
+        return (r.setor || '').startsWith(code); // 'pv'
+    };
+    const sumBy = (months, code, prodList, level) => {
         if (!SPRINT.dddRows && !SPRINT.mdtrRows) return 0;
         const src = SPRINT.dddRows || SPRINT.mdtrRows;
         return src.filter(r =>
-            loadedMonths.includes(r.mes) &&
+            months.includes(r.mes) &&
             prodList.includes(r.marca) &&
-            (bySetor ? r.setor.startsWith(code) : r.distrital.startsWith(code)) &&
-            _sprintFilter(r)
+            matchLevel(r, level, code) &&
+            // A Regional é a "guarda-chuva": total estável, não afetado pelo filtro de distrital/setor.
+            (level === 'gr' ? true : _sprintFilter(r))
         ).reduce((s, r) => s + r.valor, 0);
     };
-    const baseByCode = (code, prodList, bySetor) => {
-        if (!SPRINT.dddRows && !SPRINT.mdtrRows) return 0;
-        const src = SPRINT.dddRows || SPRINT.mdtrRows;
-        return src.filter(r =>
-            SPRINT.BASE_MONTHS.includes(r.mes) &&
-            prodList.includes(r.marca) &&
-            (bySetor ? r.setor.startsWith(code) : r.distrital.startsWith(code)) &&
-            _sprintFilter(r)
-        ).reduce((s, r) => s + r.valor, 0);
-    };
+    const realByCode = (code, prodList, level) => sumBy(loadedMonths, code, prodList, level);
+    const baseByCode = (code, prodList, level) => sumBy(SPRINT.BASE_MONTHS, code, prodList, level);
 
     // Filtra a lista de itens pelo filtro ativo de distrital/setor
-    const filterMetaList = (list, bySetor) => {
+    const filterMetaList = (list, level) => {
+        if (level === 'gr') return list; // Regional não é estreitada pelo filtro de distrital/setor
+        const bySetor = level === 'pv';
         const fd = SPRINT.filterDistrital; // array
         const fs = SPRINT.filterSetor;     // array
         if (fd.length === 0 && fs.length === 0) return list;
@@ -7104,28 +7110,59 @@ function sprintBuildMetasView(loadedMonths) {
         });
     };
 
+    // Mapa código-da-distrital → grupo (PVs herdam o grupo da sua distrital,
+    // pois na aba "Meta PVs" a coluna de grupo costuma vir vazia por propagandista).
+    const grupoByGd = new Map();
+    [...(metas.gdInfinity || []), ...(metas.gdPrime || []), ...(metas.gdMisto || [])].forEach(g => {
+        const code = String(g.nome || '').split(' - ')[0].trim();
+        const grp = (g.grupo === 0 || g.grupo) ? String(g.grupo).trim() : '';
+        if (code && grp && !grupoByGd.has(code)) grupoByGd.set(code, grp);
+    });
+    const resolveGrupo = (item, isPVrow) => {
+        const own = (item.grupo === 0 || item.grupo) ? String(item.grupo).trim() : '';
+        if (own) return own;
+        if (!isPVrow) return '';
+        const gdCode = String(item.gd || '').split(' - ')[0].trim();
+        return grupoByGd.get(gdCode) || grupoByGd.get(gdCode.slice(0, 4)) || '';
+    };
+
+    // ── Nível REGIONAL ──
+    // Usa a planilha "Meta GRs" se existir; senão consolida a partir das metas de distrital.
+    const allProds = [...new Set([...SPRINT.LINES[0].products, ...SPRINT.LINES[1].products])];
+    let regionalList = (metas.gr && metas.gr.length) ? metas.gr : null;
+    if (!regionalList) {
+        const sumMeta = arr => (arr || []).reduce((s, r) => s + r.meta, 0);
+        const totReg = sumMeta(metas.gdInfinity) + sumMeta(metas.gdPrime) + sumMeta(metas.gdMisto)
+            || sumMeta(metas.pvInfinity) + sumMeta(metas.pvPrime);
+        if (totReg > 0) regionalList = [{ nome: 'REGIONAL (consolidado)', meta: totReg, grupo: '', tamMkt: 0 }];
+    }
+
     [
-        { title: '🟦 INFINITY — Por Propagandista', list: metas.pvInfinity, prodList: SPRINT.LINES[0].products, color: 'l1', bySetor: true },
-        { title: '🟠 PRIME — Por Propagandista', list: metas.pvPrime, prodList: SPRINT.LINES[1].products, color: 'l2', bySetor: true },
-        { title: '🟦 INFINITY — Por Distrital', list: metas.gdInfinity, prodList: SPRINT.LINES[0].products, color: 'l1', bySetor: false },
-        { title: '🟠 PRIME — Por Distrital', list: metas.gdPrime, prodList: SPRINT.LINES[1].products, color: 'l2', bySetor: false },
-        { title: '⚡ MISTOS — Por Distrital', list: metas.gdMisto, prodList: [...SPRINT.LINES[0].products, ...SPRINT.LINES[1].products], color: 'l3', bySetor: false },
+        // 1º — Regional (guarda-chuva)
+        { title: '🌎 REGIONAL — Consolidado', list: regionalList, prodList: allProds, color: 'l4', level: 'gr' },
+        // 2º — Distritais
+        { title: '🟦 INFINITY — Por Distrital', list: metas.gdInfinity, prodList: SPRINT.LINES[0].products, color: 'l1', level: 'gd' },
+        { title: '🟠 PRIME — Por Distrital', list: metas.gdPrime, prodList: SPRINT.LINES[1].products, color: 'l2', level: 'gd' },
+        { title: '⚡ MISTOS — Por Distrital', list: metas.gdMisto, prodList: allProds, color: 'l3', level: 'gd' },
+        // 3º — Setores / Propagandistas
+        { title: '🟦 INFINITY — Por Propagandista', list: metas.pvInfinity, prodList: SPRINT.LINES[0].products, color: 'l1', level: 'pv' },
+        { title: '🟠 PRIME — Por Propagandista', list: metas.pvPrime, prodList: SPRINT.LINES[1].products, color: 'l2', level: 'pv' },
     ].forEach(sec => {
         if (!sec.list || !sec.list.length) return;
         // Aplica filtro de distrital/setor à lista de itens
-        const filteredList = filterMetaList(sec.list, sec.bySetor);
+        const filteredList = filterMetaList(sec.list, sec.level);
         if (!filteredList.length) return;
         const totMeta = filteredList.reduce((s, r) => s + r.meta, 0);
         let totReal = 0, totBase = 0, cntOk = 0;
-        const isPV = sec.bySetor;
+        const isPV = sec.level === 'pv';
 
         const nMeses = loadedMonths.length; // 0, 1, 2 ou 3
         const isComplete = nMeses === 3;
 
         const rowsH = filteredList.map((item, i) => {
             const code = item.nome.split(' - ')[0].trim();
-            const real = realByCode(code, sec.prodList, sec.bySetor);
-            const base = baseByCode(code, sec.prodList, sec.bySetor);
+            const real = realByCode(code, sec.prodList, sec.level);
+            const base = baseByCode(code, sec.prodList, sec.level);
             totReal += real; totBase += base;
 
             // Atingimento real (% da meta já realizado)
@@ -7135,20 +7172,21 @@ function sprintBuildMetasView(loadedMonths) {
             const proj = nMeses > 0 ? (real / nMeses) * 3 : 0;
             const projAt = item.meta > 0 ? proj / item.meta * 100 : 0;
 
-            // Status: completo = real vs meta; parcial = projeção vs meta
+            // Status: 4 faixas — cortes 80 / 90 / 100
+            // (encerrado = realizado vs meta; em andamento = projeção trimestral vs meta)
             let statusTxt, aCls;
             if (!has) {
                 statusTxt = '⏳ Aguardando';
                 aCls = 'sprint-evol-neu';
             } else if (isComplete) {
-                // Sprint encerrado — compara real com meta
                 if (at >= 100) { statusTxt = '✅ Bateu'; aCls = 'sprint-ating-ok'; }
-                else if (at >= 70) { statusTxt = '⚠️ Quase'; aCls = 'sprint-ating-med'; }
+                else if (at >= 90) { statusTxt = '⚠️ Quase'; aCls = 'sprint-ating-med'; }
+                else if (at >= 80) { statusTxt = '🟠 Abaixo'; aCls = 'sprint-ating-warn'; }
                 else { statusTxt = '❌ Não Bateu'; aCls = 'sprint-ating-low'; }
             } else {
-                // Sprint em andamento — compara projeção com meta
                 if (projAt >= 100) { statusTxt = '🟢 No Ritmo'; aCls = 'sprint-ating-ok'; }
-                else if (projAt >= 70) { statusTxt = '🟡 Risco'; aCls = 'sprint-ating-med'; }
+                else if (projAt >= 90) { statusTxt = '🟡 Atenção'; aCls = 'sprint-ating-med'; }
+                else if (projAt >= 80) { statusTxt = '🟠 Risco'; aCls = 'sprint-ating-warn'; }
                 else { statusTxt = '🔴 Fora do Ritmo'; aCls = 'sprint-ating-low'; }
             }
 
@@ -7163,7 +7201,7 @@ function sprintBuildMetasView(loadedMonths) {
                 <td><span class="sprint-pos-badge">${i + 1}</span></td>
                 <td class="sprint-td-label" title="${item.nome}">${item.nome}</td>
                 ${isPV ? `<td class="sprint-td-small" title="${item.gd || ''}">${item.gd || '—'}</td>` : ''}
-                <td class="r sprint-td-small">${item.grupo || '—'}</td>
+                <td class="r sprint-td-small">${resolveGrupo(item, isPV) || '—'}</td>
                 <td class="r">${sprintFmtRS(base)}</td>
                 <td class="r sprint-meta-col"><strong>${sprintFmtRS(item.meta)}</strong></td>
                 <td class="r">${has ? sprintFmtRS(real) : '—'}</td>
@@ -7183,12 +7221,11 @@ function sprintBuildMetasView(loadedMonths) {
         html += `<div class="sprint-section">
             <div class="sprint-section-header ${sec.color}">
                 <span class="sprint-section-title">${sec.title}</span>
-                <span class="sprint-meta-total">Meta: ${sprintFmtRS(totMeta)}</span>
             </div>
             ${statusLegend}
-            <div style="overflow-x:auto"><table class="sprint-tbl">
+            <div style="overflow-x:auto"><table class="sprint-tbl sprint-tbl-metas">
                 <thead><tr>
-                    <th style="width:30px">#</th><th>${isPV ? 'Propagandista' : 'Distrital'}</th>
+                    <th style="width:30px">#</th><th>${sec.level === 'pv' ? 'Propagandista' : sec.level === 'gd' ? 'Distrital' : 'Regional'}</th>
                     ${isPV ? '<th>Distrital</th>' : ''}
                     <th class="r">Grupo</th>
                     <th class="r">Base 1TRI/26</th>
@@ -7203,12 +7240,12 @@ function sprintBuildMetasView(loadedMonths) {
                 <tfoot><tr class="sprint-total-row">
                     <td></td><td><strong>TOTAL</strong></td>${isPV ? '<td></td>' : ''}<td></td>
                     <td class="r"><strong>${sprintFmtRS(totBase)}</strong></td>
-                    <td class="r sprint-meta-col"><strong>${sprintFmtRS(totMeta)}</strong></td>
+                    <td class="r sprint-meta-col"></td>
                     <td class="r"><strong>${has ? sprintFmtRS(totReal) : '—'}</strong></td>
                     <td></td>
-                    <td class="r"><strong>${has ? totAt.toFixed(1) + '%' : '—'}</strong></td>
-                    <td class="r ${totDiff >= 0 ? 'sprint-evol-pos' : 'sprint-evol-neg'}"><strong>${has ? (totDiff >= 0 ? '+' : '') + sprintFmtRS(totDiff) : '—'}</strong></td>
-                    <td><strong>${has ? cntOk + '/' + filteredList.length + (isComplete ? ' bateram' : ' no ritmo') : '—'}</strong></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
                 </tr></tfoot>
             </table></div>
         </div>`;

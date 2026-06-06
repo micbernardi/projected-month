@@ -5781,6 +5781,7 @@ td.pdv-growth-neg {
 }
 .sprint-section-header.l1 { background: #eef2f8; }
 .sprint-section-header.l2 { background: #fef9f0; }
+.sprint-section-header.l4 { background: #f3eefb; border-left: 4px solid #7c3aed; }
 .sprint-section-title {
     font-size: .75rem;
     font-weight: 800;
@@ -5859,6 +5860,11 @@ td.pdv-growth-neg {
 .sprint-tbl tbody tr:hover td { background: #f4f8ff; }
 .sprint-tbl tbody tr:nth-child(even) td { background: rgba(241,245,249,.4); }
 .sprint-tbl tbody tr:nth-child(even):hover td { background: #f4f8ff; }
+
+/* Tabela de Metas: colunas numéricas centralizadas (cabeçalho + valores alinhados) */
+.sprint-tbl-metas thead th.r { text-align: center; }
+.sprint-tbl-metas tbody td.r { text-align: center; }
+.sprint-tbl-metas tfoot td.r { text-align: center; }
 
 /* Células de evolução */
 .sprint-evol-pos { color: var(--grn); font-weight: 700; }
@@ -5978,7 +5984,8 @@ td.pdv-growth-neg {
 
 /* Atingimento */
 .sprint-ating-ok  { color: #059669; font-weight: 800; }
-.sprint-ating-med { color: #d97706; font-weight: 800; }
+.sprint-ating-med { color: #ca8a04; font-weight: 800; }
+.sprint-ating-warn { color: #ea580c; font-weight: 800; }
 .sprint-ating-low { color: #dc2626; font-weight: 800; }
 
 /* Meta total no header seção */
@@ -6073,6 +6080,7 @@ td.pdv-growth-neg {
 }
 .sprint-status-ok   { background: #dcfce7; color: #15803d; }
 .sprint-status-med  { background: #fef9c3; color: #854d0e; }
+.sprint-status-warn { background: #ffedd5; color: #c2410c; }
 .sprint-status-low  { background: #fee2e2; color: #b91c1c; }
 .sprint-status-legend {
     font-size: .68rem;
