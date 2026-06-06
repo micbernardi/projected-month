@@ -24,7 +24,8 @@
         <div class="hdr-top">
             <div class="hdr-left">
                 <div class="hdr-brand">
-                    <span class="hdr-sup"><span class="hdr-sup-supera">supera</span><span class="hdr-sup-farma">farma</span></span>
+                    <span class="hdr-sup"><span class="hdr-sup-supera">supera</span><span
+                            class="hdr-sup-farma">farma</span></span>
                     <span class="hdr-sep">·</span>
                     <div class="hdr-brand-titles">
                         <span class="hdr-title">ANÁLISE ESTRATÉGICA</span>
@@ -63,7 +64,8 @@
                     style="display:none">
                     <span class="history-dot"></span> Salvo
                 </div>
-                <button class="hdr-send-btn" id="btnProjecao" onclick="openProjecaoView()" title="Abrir Resultado Projetado">
+                <button class="hdr-send-btn" id="btnProjecao" onclick="openProjecaoView()"
+                    title="Abrir Resultado Projetado">
                     📈 Resultado Projetado
                 </button>
                 <button class="hdr-send-btn" id="btnEnviar" title="Exportar para Excel" onclick="smartExport()">
@@ -142,7 +144,9 @@
             <div class="upload-box" id="uploadZone">
                 <div class="upload-icon">📊</div>
                 <h2>Inteligência de Mercado</h2>
-                <p class="upload-main-txt">Arraste suas planilhas <strong>DDD UNIDADES</strong>, <strong>DDD REAIS</strong>, <strong>UNIDADES POR PDVS</strong> e/ou <strong>PPP POR PDVS</strong> aqui, ou clique para selecionar.</p>
+                <p class="upload-main-txt">Arraste suas planilhas <strong>DDD UNIDADES</strong>, <strong>DDD
+                        REAIS</strong>, <strong>UNIDADES POR PDVS</strong> e/ou <strong>PPP POR PDVS</strong> aqui, ou
+                    clique para selecionar.</p>
                 <button class="btn-primary" style="margin-top:18px" id="btnSelectFile">Selecionar Arquivo</button>
                 <div id="uploadProgress" class="upload-progress" aria-live="polite"></div>
                 <p class="upload-note">
@@ -169,9 +173,12 @@
                     <button class="tab" data-tab="oport">Oportunidades</button>
                     <button class="tab" data-tab="entrar">Entrar no Mercado</button>
                     <button class="tab" data-tab="graficos">Gráficos</button>
-                    <button class="tab tab-lider-special" data-tab="lideranca" title="Mercados onde a Supera é líder">🏆 Liderança</button>
-                    <button class="tab tab-pdv-special" data-tab="pdv" title="Análise por farmácia / CNPJ">🏥 PDVs por Brick (MDTR)</button>
-                    <button class="tab tab-sprint-special" data-tab="sprint" title="Acompanhamento Sprint de Ouro">🏅 Sprint de Ouro</button>
+                    <button class="tab tab-lider-special" data-tab="lideranca" title="Mercados onde a Supera é líder">🏆
+                        Liderança</button>
+                    <button class="tab tab-pdv-special" data-tab="pdv" title="Análise por farmácia / CNPJ">🏥 PDVs por
+                        Brick (MDTR)</button>
+                    <button class="tab tab-sprint-special" data-tab="sprint" title="Acompanhamento Sprint de Ouro">🏅
+                        Sprint de Ouro</button>
                 </div>
                 <!-- Linha 2: distritais / setores — tamanho igual, 100% largura -->
                 <div class="tab-rail-sectors" id="sectorTabs"></div>
@@ -228,218 +235,253 @@
             <div id="sectorTabContents"></div>
 
         </div>
-    <!-- ════════════════════════════════════════
+        <!-- ════════════════════════════════════════
      RESULTADO PROJETADO VIEW (inline)
 ════════════════════════════════════════ -->
-    <div id="projecaoView" style="display:none">
-        <div class="proj-back-bar">
-            <button class="proj-back-btn" onclick="closeProjecaoView()">← Voltar</button>
-            <div class="proj-back-divider"></div>
-            <span class="proj-back-title">📈 Resultado Projetado</span>
-            <span id="proj-header-file" class="proj-header-file"></span>
-        </div>
-
-        <!-- UPLOAD STATE -->
-        <div id="proj-uploadSection">
-            <div class="proj-upload-wrap">
-                <div style="font-size:2.5rem">📊</div>
-                <div class="proj-upload-title">Resultado Projetado</div>
-                <div class="proj-upload-sub">Carregue <strong>uma ou mais</strong> planilhas — o dashboard exibe apenas os dados disponíveis.<br>PDVs · Cidades · Marcas · Bricks</div>
-                <div class="proj-upload-slots">
-                    <div class="proj-slot" id="proj-slot-pdv">
-                        <span class="proj-slot-icon">🏪</span>
-                        <div class="proj-slot-info">
-                            <div class="proj-slot-label">PDVs / Farmácias</div>
-                            <div class="proj-slot-name" id="proj-slot-pdv-name">Clique ou arraste</div>
-                            <div class="proj-slot-status" id="proj-slot-pdv-status">Opcional</div>
-                        </div>
-                        <span class="proj-slot-check" id="proj-slot-pdv-check" style="display:none">✓</span>
-                        <input type="file" accept=".xlsx,.xls" style="display:none" id="proj-file-pdv">
-                    </div>
-                    <div class="proj-slot" id="proj-slot-cidade">
-                        <span class="proj-slot-icon">🏙️</span>
-                        <div class="proj-slot-info">
-                            <div class="proj-slot-label">Cidades</div>
-                            <div class="proj-slot-name" id="proj-slot-cidade-name">Clique ou arraste</div>
-                            <div class="proj-slot-status" id="proj-slot-cidade-status">Opcional</div>
-                        </div>
-                        <span class="proj-slot-check" id="proj-slot-cidade-check" style="display:none">✓</span>
-                        <input type="file" accept=".xlsx,.xls" style="display:none" id="proj-file-cidade">
-                    </div>
-                    <div class="proj-slot" id="proj-slot-marca">
-                        <span class="proj-slot-icon">🏷️</span>
-                        <div class="proj-slot-info">
-                            <div class="proj-slot-label">Marcas</div>
-                            <div class="proj-slot-name" id="proj-slot-marca-name">Clique ou arraste</div>
-                            <div class="proj-slot-status" id="proj-slot-marca-status">Opcional</div>
-                        </div>
-                        <span class="proj-slot-check" id="proj-slot-marca-check" style="display:none">✓</span>
-                        <input type="file" accept=".xlsx,.xls" style="display:none" id="proj-file-marca">
-                    </div>
-                    <div class="proj-slot" id="proj-slot-brick">
-                        <span class="proj-slot-icon">🧱</span>
-                        <div class="proj-slot-info">
-                            <div class="proj-slot-label">Bricks</div>
-                            <div class="proj-slot-name" id="proj-slot-brick-name">Clique ou arraste</div>
-                            <div class="proj-slot-status" id="proj-slot-brick-status">Opcional</div>
-                        </div>
-                        <span class="proj-slot-check" id="proj-slot-brick-check" style="display:none">✓</span>
-                        <input type="file" accept=".xlsx,.xls" style="display:none" id="proj-file-brick">
-                    </div>
-                </div>
-                <button class="btn-primary" id="proj-btnProcess" disabled style="margin-top:8px">Gerar Dashboard</button>
-                <div class="proj-upload-hint">Formatos aceitos: longo (Nome|PERÍODO|Valor) ou pivotado (meses como colunas). Carregue ao menos uma planilha.</div>
+        <div id="projecaoView" style="display:none">
+            <div class="proj-back-bar">
+                <button class="proj-back-btn" onclick="closeProjecaoView()">← Voltar</button>
+                <div class="proj-back-divider"></div>
+                <span class="proj-back-title">📈 Resultado Projetado</span>
+                <span id="proj-header-file" class="proj-header-file"></span>
             </div>
-        </div>
 
-        <!-- DASH STATE -->
-        <div id="proj-dashSection" style="display:none">
-
-            <!-- BLOCO FIXO: filtros + KPI cards -->
-            <div class="proj-sticky-header" id="proj-stickyHeader">
-                <!-- CONTROLS -->
-                <div class="proj-controls-bar">
-                    <!-- Tipo de Aba -->
-                    <div class="proj-ctrl-group">
-                        <label class="proj-ctrl-label">Tipo</label>
-                        <select id="proj-filterType">
-                            <option value="all">Todos</option>
-                            <option value="pdv">PDVs</option>
-                            <option value="cidade">Cidades</option>
-                            <option value="marca">Marcas</option>
-                            <option value="brick">Bricks</option>
-                        </select>
-                    </div>
-                    <div class="proj-ctrl-sep"></div>
-
-                    <!-- toggle de modo -->
-                    <div class="proj-period-mode-wrap">
-                        <button class="proj-period-mode-btn" id="proj-btnModeSingle" onclick="projSetMode('single')">
-                            <span class="proj-mode-ico">&#9632;</span>Mês a Mês
-                        </button>
-                        <button class="proj-period-mode-btn active" id="proj-btnModeRange" onclick="projSetMode('range')">
-                            <span class="proj-mode-ico">&#9646;&#9646;</span>Intervalo
-                        </button>
-                    </div>
-
-                    <!-- MÊS A MÊS -->
-                    <div id="proj-single-controls" style="display:none;align-items:center;gap:8px">
-                        <div class="proj-pill-block proj-pill-a">
-                            <span class="proj-pill-tag">A</span>
-                            <select id="proj-filterBase"></select>
+            <!-- UPLOAD STATE -->
+            <div id="proj-uploadSection">
+                <div class="proj-upload-wrap">
+                    <div style="font-size:2.5rem">📊</div>
+                    <div class="proj-upload-title">Resultado Projetado</div>
+                    <div class="proj-upload-sub">Carregue <strong>uma ou mais</strong> planilhas — o dashboard exibe
+                        apenas os dados disponíveis.<br>PDVs · Cidades · Marcas · Bricks</div>
+                    <div class="proj-upload-slots">
+                        <div class="proj-slot" id="proj-slot-pdv">
+                            <span class="proj-slot-icon">🏪</span>
+                            <div class="proj-slot-info">
+                                <div class="proj-slot-label">PDVs / Farmácias</div>
+                                <div class="proj-slot-name" id="proj-slot-pdv-name">Clique ou arraste</div>
+                                <div class="proj-slot-status" id="proj-slot-pdv-status">Opcional</div>
+                            </div>
+                            <span class="proj-slot-check" id="proj-slot-pdv-check" style="display:none">✓</span>
+                            <input type="file" accept=".xlsx,.xls" style="display:none" id="proj-file-pdv">
                         </div>
-                        <span class="proj-vs-sep">vs</span>
-                        <div class="proj-pill-block proj-pill-b">
-                            <span class="proj-pill-tag">B</span>
-                            <select id="proj-filterComp"></select>
+                        <div class="proj-slot" id="proj-slot-cidade">
+                            <span class="proj-slot-icon">🏙️</span>
+                            <div class="proj-slot-info">
+                                <div class="proj-slot-label">Cidades</div>
+                                <div class="proj-slot-name" id="proj-slot-cidade-name">Clique ou arraste</div>
+                                <div class="proj-slot-status" id="proj-slot-cidade-status">Opcional</div>
+                            </div>
+                            <span class="proj-slot-check" id="proj-slot-cidade-check" style="display:none">✓</span>
+                            <input type="file" accept=".xlsx,.xls" style="display:none" id="proj-file-cidade">
                         </div>
-                    </div>
-
-                    <!-- PERÍODO A vs B -->
-                    <div id="proj-range-controls" style="display:flex;align-items:center;gap:8px">
-                        <div class="proj-range-block proj-range-a">
-                            <span class="proj-range-tag">A</span>
-                            <select id="proj-filterAFrom"></select>
-                            <span class="proj-range-arrow">→</span>
-                            <select id="proj-filterATo"></select>
+                        <div class="proj-slot" id="proj-slot-marca">
+                            <span class="proj-slot-icon">🏷️</span>
+                            <div class="proj-slot-info">
+                                <div class="proj-slot-label">Marcas</div>
+                                <div class="proj-slot-name" id="proj-slot-marca-name">Clique ou arraste</div>
+                                <div class="proj-slot-status" id="proj-slot-marca-status">Opcional</div>
+                            </div>
+                            <span class="proj-slot-check" id="proj-slot-marca-check" style="display:none">✓</span>
+                            <input type="file" accept=".xlsx,.xls" style="display:none" id="proj-file-marca">
                         </div>
-                        <span class="proj-vs-sep">vs</span>
-                        <div class="proj-range-block proj-range-b">
-                            <span class="proj-range-tag">B</span>
-                            <select id="proj-filterBFrom"></select>
-                            <span class="proj-range-arrow">→</span>
-                            <select id="proj-filterBTo"></select>
+                        <div class="proj-slot" id="proj-slot-brick">
+                            <span class="proj-slot-icon">🧱</span>
+                            <div class="proj-slot-info">
+                                <div class="proj-slot-label">Bricks</div>
+                                <div class="proj-slot-name" id="proj-slot-brick-name">Clique ou arraste</div>
+                                <div class="proj-slot-status" id="proj-slot-brick-status">Opcional</div>
+                            </div>
+                            <span class="proj-slot-check" id="proj-slot-brick-check" style="display:none">✓</span>
+                            <input type="file" accept=".xlsx,.xls" style="display:none" id="proj-file-brick">
                         </div>
                     </div>
-
-                    <!-- spacer empurra Meta/Tipo para a direita -->
-                    <div style="flex:1"></div>
-
-                    <!-- Meta -->
-                    <div class="proj-ctrl-group" style="gap:4px">
-                        <label class="proj-ctrl-label">🎯 Meta (%)</label>
-                        <input type="number" id="proj-filterTarget" value="14.2" step="0.1" min="0" style="width:58px">
-                    </div>
-                    <div class="proj-ctrl-sep"></div>
-                    <!-- Tipo de Meta -->
-                    <div class="proj-ctrl-group" style="gap:4px">
-                        <label class="proj-ctrl-label">⚙️ Tipo de Meta</label>
-                        <select id="proj-filterMetaType">
-                            <option value="padrao">Padrão</option>
-                            <option value="ajustada">Ajustada por Performance</option>
-                        </select>
-                    </div>
-                    <div class="proj-ctrl-sep"></div>
-                    <!-- Ações -->
-                    <button class="hdr-clear-btn" id="proj-btnChangeFiles">↑ Trocar</button>
-                    <button class="hdr-send-btn" id="proj-btnExportCSV" disabled>⬇ Excel</button>
+                    <button class="btn-primary" id="proj-btnProcess" disabled style="margin-top:8px">Gerar
+                        Dashboard</button>
+                    <div class="proj-upload-hint">Formatos aceitos: longo (Nome|PERÍODO|Valor) ou pivotado (meses como
+                        colunas). Carregue ao menos uma planilha.</div>
                 </div>
-                <!-- CARDS -->
-                <div class="proj-cards-row">
-                    <div class="proj-card" style="--proj-card-top:#6b7280"><div class="proj-card-icon">📅</div><div class="proj-card-label" id="proj-lbl-base">Total Base</div><div class="proj-card-value" id="proj-card-base">—</div></div>
-                    <div class="proj-card" style="--proj-card-top:#4361ee"><div class="proj-card-icon">📆</div><div class="proj-card-label" id="proj-lbl-comp">Total Comp.</div><div class="proj-card-value proj-val-blue" id="proj-card-comp">—</div></div>
-                    <div class="proj-card" id="proj-card-var-wrap" style="--proj-card-top:#2d9d5f"><div class="proj-card-icon">📈</div><div class="proj-card-label" id="proj-lbl-var">Var. BRL</div><div class="proj-card-value" id="proj-card-var">—</div></div>
-                    <div class="proj-card" id="proj-card-pct-wrap" style="--proj-card-top:#2d9d5f"><div class="proj-card-icon">⚡</div><div class="proj-card-label" id="proj-lbl-pct">Evolução %</div><div class="proj-card-value" id="proj-card-pct">—</div></div>
-                    <div class="proj-card" style="--proj-card-top:#e17055"><div class="proj-card-icon">🎯</div><div class="proj-card-label" id="proj-lbl-target">Meta Total</div><div class="proj-card-value proj-val-pos" id="proj-card-target">—</div></div>
-                    <div class="proj-card" id="proj-card-gap-wrap" style="--proj-card-top:#d63031"><div class="proj-card-icon">⚠️</div><div class="proj-card-label" id="proj-lbl-gap">Faltam p/ Meta</div><div class="proj-card-value" id="proj-card-gap">—</div></div>
-                </div>
-                <!-- v6.16: apenas TOOLBAR (tabs + busca) fica no bloco fixo.
+            </div>
+
+            <!-- DASH STATE -->
+            <div id="proj-dashSection" style="display:none">
+
+                <!-- BLOCO FIXO: filtros + KPI cards -->
+                <div class="proj-sticky-header" id="proj-stickyHeader">
+                    <!-- CONTROLS -->
+                    <div class="proj-controls-bar">
+                        <!-- Tipo de Aba -->
+                        <div class="proj-ctrl-group">
+                            <label class="proj-ctrl-label">Tipo</label>
+                            <select id="proj-filterType">
+                                <option value="all">Todos</option>
+                                <option value="pdv">PDVs</option>
+                                <option value="cidade">Cidades</option>
+                                <option value="marca">Marcas</option>
+                                <option value="brick">Bricks</option>
+                            </select>
+                        </div>
+                        <div class="proj-ctrl-sep"></div>
+
+                        <!-- toggle de modo -->
+                        <div class="proj-period-mode-wrap">
+                            <button class="proj-period-mode-btn" id="proj-btnModeSingle"
+                                onclick="projSetMode('single')">
+                                <span class="proj-mode-ico">&#9632;</span>Mês a Mês
+                            </button>
+                            <button class="proj-period-mode-btn active" id="proj-btnModeRange"
+                                onclick="projSetMode('range')">
+                                <span class="proj-mode-ico">&#9646;&#9646;</span>Intervalo
+                            </button>
+                        </div>
+
+                        <!-- MÊS A MÊS -->
+                        <div id="proj-single-controls" style="display:none;align-items:center;gap:8px">
+                            <div class="proj-pill-block proj-pill-a">
+                                <span class="proj-pill-tag">A</span>
+                                <select id="proj-filterBase"></select>
+                            </div>
+                            <span class="proj-vs-sep">vs</span>
+                            <div class="proj-pill-block proj-pill-b">
+                                <span class="proj-pill-tag">B</span>
+                                <select id="proj-filterComp"></select>
+                            </div>
+                        </div>
+
+                        <!-- PERÍODO A vs B -->
+                        <div id="proj-range-controls" style="display:flex;align-items:center;gap:8px">
+                            <div class="proj-range-block proj-range-a">
+                                <span class="proj-range-tag">A</span>
+                                <select id="proj-filterAFrom"></select>
+                                <span class="proj-range-arrow">→</span>
+                                <select id="proj-filterATo"></select>
+                            </div>
+                            <span class="proj-vs-sep">vs</span>
+                            <div class="proj-range-block proj-range-b">
+                                <span class="proj-range-tag">B</span>
+                                <select id="proj-filterBFrom"></select>
+                                <span class="proj-range-arrow">→</span>
+                                <select id="proj-filterBTo"></select>
+                            </div>
+                        </div>
+
+                        <!-- spacer empurra Meta/Tipo para a direita -->
+                        <div style="flex:1"></div>
+
+                        <!-- Meta -->
+                        <div class="proj-ctrl-group" style="gap:4px">
+                            <label class="proj-ctrl-label">🎯 Meta (%)</label>
+                            <input type="number" id="proj-filterTarget" value="14.2" step="0.1" min="0"
+                                style="width:58px">
+                        </div>
+                        <div class="proj-ctrl-sep"></div>
+                        <!-- Tipo de Meta -->
+                        <div class="proj-ctrl-group" style="gap:4px">
+                            <label class="proj-ctrl-label">⚙️ Tipo de Meta</label>
+                            <select id="proj-filterMetaType">
+                                <option value="padrao">Padrão</option>
+                                <option value="ajustada">Ajustada por Performance</option>
+                            </select>
+                        </div>
+                        <div class="proj-ctrl-sep"></div>
+                        <!-- Ações -->
+                        <button class="hdr-clear-btn" id="proj-btnChangeFiles">↑ Trocar</button>
+                        <button class="hdr-send-btn" id="proj-btnExportCSV" disabled>⬇ Excel</button>
+                    </div>
+                    <!-- CARDS -->
+                    <div class="proj-cards-row">
+                        <div class="proj-card" style="--proj-card-top:#6b7280">
+                            <div class="proj-card-icon">📅</div>
+                            <div class="proj-card-label" id="proj-lbl-base">Total Base</div>
+                            <div class="proj-card-value" id="proj-card-base">—</div>
+                        </div>
+                        <div class="proj-card" style="--proj-card-top:#4361ee">
+                            <div class="proj-card-icon">📆</div>
+                            <div class="proj-card-label" id="proj-lbl-comp">Total Comp.</div>
+                            <div class="proj-card-value proj-val-blue" id="proj-card-comp">—</div>
+                        </div>
+                        <div class="proj-card" id="proj-card-var-wrap" style="--proj-card-top:#2d9d5f">
+                            <div class="proj-card-icon">📈</div>
+                            <div class="proj-card-label" id="proj-lbl-var">Var. BRL</div>
+                            <div class="proj-card-value" id="proj-card-var">—</div>
+                        </div>
+                        <div class="proj-card" id="proj-card-pct-wrap" style="--proj-card-top:#2d9d5f">
+                            <div class="proj-card-icon">⚡</div>
+                            <div class="proj-card-label" id="proj-lbl-pct">Evolução %</div>
+                            <div class="proj-card-value" id="proj-card-pct">—</div>
+                        </div>
+                        <div class="proj-card" style="--proj-card-top:#e17055">
+                            <div class="proj-card-icon">🎯</div>
+                            <div class="proj-card-label" id="proj-lbl-target">Meta Total</div>
+                            <div class="proj-card-value proj-val-pos" id="proj-card-target">—</div>
+                        </div>
+                        <div class="proj-card" id="proj-card-gap-wrap" style="--proj-card-top:#d63031">
+                            <div class="proj-card-icon">⚠️</div>
+                            <div class="proj-card-label" id="proj-lbl-gap">Faltam p/ Meta</div>
+                            <div class="proj-card-value" id="proj-card-gap">—</div>
+                        </div>
+                    </div>
+                    <!-- v6.16: apenas TOOLBAR (tabs + busca) fica no bloco fixo.
                      O cabeçalho de colunas (NOME, TIPO, MAI/2025...) foi movido para
                      junto da tabela principal abaixo, com sticky local. -->
-                <div class="proj-thead-wrap" id="proj-theadWrap">
-                    <div class="proj-table-toolbar" id="proj-tableToolbar">
-                        <div class="proj-table-toolbar-left">
-                            <div class="proj-tab-btns" id="proj-tabBtns">
-                                <button class="proj-tab-btn active" data-tab="all">Todos</button>
-                                <button class="proj-tab-btn" data-tab="pdv">PDVs <span id="proj-cnt-pdv" style="opacity:.7"></span></button>
-                                <button class="proj-tab-btn" data-tab="cidade">Cidades <span id="proj-cnt-cidade" style="opacity:.7"></span></button>
-                                <button class="proj-tab-btn" data-tab="marca">Marcas <span id="proj-cnt-marca" style="opacity:.7"></span></button>
-                                <button class="proj-tab-btn" data-tab="brick" id="proj-tab-brick-btn" style="display:none">Bricks <span id="proj-cnt-brick" style="opacity:.7"></span></button>
+                    <div class="proj-thead-wrap" id="proj-theadWrap">
+                        <div class="proj-table-toolbar" id="proj-tableToolbar">
+                            <div class="proj-table-toolbar-left">
+                                <div class="proj-tab-btns" id="proj-tabBtns">
+                                    <button class="proj-tab-btn active" data-tab="all">Todos</button>
+                                    <button class="proj-tab-btn" data-tab="pdv">PDVs <span id="proj-cnt-pdv"
+                                            style="opacity:.7"></span></button>
+                                    <button class="proj-tab-btn" data-tab="cidade">Cidades <span id="proj-cnt-cidade"
+                                            style="opacity:.7"></span></button>
+                                    <button class="proj-tab-btn" data-tab="marca">Marcas <span id="proj-cnt-marca"
+                                            style="opacity:.7"></span></button>
+                                    <button class="proj-tab-btn" data-tab="brick" id="proj-tab-brick-btn"
+                                        style="display:none">Bricks <span id="proj-cnt-brick"
+                                            style="opacity:.7"></span></button>
+                                </div>
+                                <input class="proj-search-box" id="proj-searchBox" placeholder="Buscar...">
                             </div>
-                            <input class="proj-search-box" id="proj-searchBox" placeholder="Buscar...">
+                            <span class="proj-table-info" id="proj-tableInfo"></span>
                         </div>
-                        <span class="proj-table-info" id="proj-tableInfo"></span>
                     </div>
                 </div>
-            </div>
 
-            <!-- CONTEÚDO ROLÁVEL -->
-            <div class="proj-main" id="proj-main">
+                <!-- CONTEÚDO ROLÁVEL -->
+                <div class="proj-main" id="proj-main">
 
-                <!-- RANKINGS -->
-                <div class="proj-rank-wrapper">
-                    <div class="proj-section-head">✏️ Crescimento</div>
-                    <div class="proj-rank-grid" id="proj-rankTop"></div>
-                </div>
-                <div class="proj-rank-wrapper">
-                    <div class="proj-section-head">📉 Queda</div>
-                    <div class="proj-rank-grid" id="proj-rankBot"></div>
-                </div>
+                    <!-- RANKINGS -->
+                    <div class="proj-rank-wrapper">
+                        <div class="proj-section-head">✏️ Crescimento</div>
+                        <div class="proj-rank-grid" id="proj-rankTop"></div>
+                    </div>
+                    <div class="proj-rank-wrapper">
+                        <div class="proj-section-head">📉 Queda</div>
+                        <div class="proj-rank-grid" id="proj-rankBot"></div>
+                    </div>
 
-                <!-- TABLE -->
-                <!-- v6.16: cabeçalho de colunas vive AQUI, junto da tabela.
+                    <!-- TABLE -->
+                    <!-- v6.16: cabeçalho de colunas vive AQUI, junto da tabela.
                      Ele tem position: sticky e gruda no topo apenas quando a
                      tabela principal entra na viewport. -->
-                <div class="proj-table-section">
-                    <div class="proj-colhead-sticky" id="proj-colHeadSticky">
-                        <table class="proj-thead-table" id="proj-theadTable">
-                            <thead id="proj-mainThead"></thead>
-                        </table>
+                    <div class="proj-table-section">
+                        <div class="proj-colhead-sticky" id="proj-colHeadSticky">
+                            <table class="proj-thead-table" id="proj-theadTable">
+                                <thead id="proj-mainThead"></thead>
+                            </table>
+                        </div>
+                        <div class="proj-tbl-outer" id="proj-tblOuter">
+                            <table class="proj-main-table" id="proj-mainTable">
+                                <thead id="proj-mainTheadHidden"></thead>
+                                <tbody id="proj-mainTbody"></tbody>
+                            </table>
+                        </div>
+                        <div class="proj-pagination" id="proj-pagDiv"></div>
                     </div>
-                    <div class="proj-tbl-outer" id="proj-tblOuter">
-                        <table class="proj-main-table" id="proj-mainTable">
-                            <thead id="proj-mainTheadHidden"></thead>
-                            <tbody id="proj-mainTbody"></tbody>
-                        </table>
-                    </div>
-                    <div class="proj-pagination" id="proj-pagDiv"></div>
-                </div>
 
+                </div>
             </div>
         </div>
-    </div>
 
-</main>
+    </main>
 
     <!-- ════════════════════════════════════════
      MODAL: Brick List (rec badge click)

@@ -6609,7 +6609,7 @@ function sprintParseMetasXLSX(buffer) {
             if (isPV) {
                 const nome = String(r[3] || '').trim(), meta = parseFloat(r[5]) || 0;
                 if (nome && nome !== 'PROPAGANDISTA' && nome !== 'Total Geral' && meta > 0)
-                    result[key].push({ nome, meta, tamMkt: parseFloat(r[4]) || 0, grupo: r[0], gd: String(r[2] || '').trim(), linha: key === 'pvInfinity' ? 'INFINITY' : 'PRIME' });
+                    result[key].push({ nome, meta, tamMkt: parseFloat(r[4]) || 0, grupo: r[0], gr: String(r[1] || '').trim(), gd: String(r[2] || '').trim(), linha: key === 'pvInfinity' ? 'INFINITY' : 'PRIME' });
             } else if (isGD) {
                 const nome = String(r[1] || '').trim(), meta = parseFloat(r[3]) || 0;
                 const linha = key === 'gdInfinity' ? 'INFINITY' : key === 'gdPrime' ? 'PRIME' : 'MISTO';
@@ -6961,10 +6961,100 @@ function renderSprint() {
     el.innerHTML = html;
     sprintBuildFilters();
     sprintBindEvents();
+    sprintInitMetasColFilters();
 }
 
 function sprintEmptyMsg(icon, msg) {
     return `<div class="sprint-empty"><div class="sprint-empty-icon">${icon}</div>${msg}</div>`;
+}
+
+/* ══════════════════════════════════════════
+   ORDENAÇÃO POR COLUNA — Tabela de Metas
+   Setinhas clicáveis no cabeçalho (alterna ▲/▼).
+   Detecta automaticamente coluna numérica vs texto.
+   Renumera o # conforme a ordem atual.
+══════════════════════════════════════════ */
+function sprintToggleGrupo(btn) {
+    const tr = btn.closest('tr');
+    if (!tr) return;
+    const detail = tr.nextElementSibling;
+    if (!detail || !detail.classList.contains('sprint-grp-detail')) return;
+    const open = detail.style.display !== 'none';
+    detail.style.display = open ? 'none' : '';
+    btn.textContent = open ? '+' : '−';
+    btn.classList.toggle('open', !open);
+}
+
+function sprintInitMetasColFilters() {
+    const parseNum = txt => {
+        if (txt == null) return null;
+        let t = txt.replace(/\s/g, '').replace(/\u00a0/g, '');
+        if (!/\d/.test(t)) return null; // "—", vazio, texto
+        t = t.replace(/[^\d.,-]/g, '');
+        if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.'); // formato BR
+        t = t.replace(/(?!^)-/g, '');
+        const v = parseFloat(t);
+        return isNaN(v) ? null : v;
+    };
+
+    document.querySelectorAll('table.sprint-tbl-metas').forEach(tbl => {
+        if (tbl.dataset.colsort === '1') return; // evita rebind
+        tbl.dataset.colsort = '1';
+
+        const headRow = tbl.querySelector('thead tr.sprint-metas-head');
+        const tbody = tbl.querySelector('tbody');
+        if (!headRow || !tbody) return;
+
+        const ths = Array.from(headRow.children);
+        const isDetail = tr => tr.classList.contains('sprint-grp-detail');
+        const dataRows = Array.from(tbody.children).filter(tr => !isDetail(tr));
+        if (!dataRows.length) return;
+        // mapeia cada linha-mãe → sua linha de detalhe (irmã imediata, se houver)
+        const detailOf = new Map();
+        dataRows.forEach(mr => {
+            const nx = mr.nextElementSibling;
+            if (nx && isDetail(nx)) detailOf.set(mr, nx);
+        });
+
+        const renumber = () => {
+            let i = 0;
+            Array.from(tbody.children).forEach(tr => {
+                if (isDetail(tr)) return;
+                const badge = tr.querySelector('.sprint-pos-badge');
+                if (badge) badge.textContent = i + 1;
+                tr.classList.toggle('sprint-zebra', i % 2 === 1);
+                i++;
+            });
+        };
+
+        let sortIdx = -1, sortDir = 1;
+        ths.forEach((th, idx) => {
+            const ftype = th.getAttribute('data-ftype') || 'none';
+            if (ftype === 'none') { th.style.cursor = 'default'; return; }
+            th.classList.add('sprint-sortable');
+            const arrow = document.createElement('span');
+            arrow.className = 'sprint-sort-arrow';
+            th.appendChild(arrow);
+            th.addEventListener('click', () => {
+                if (sortIdx === idx) sortDir = -sortDir; else { sortIdx = idx; sortDir = 1; }
+                ths.forEach(t => { const a = t.querySelector('.sprint-sort-arrow'); if (a) a.textContent = ''; });
+                arrow.textContent = sortDir === 1 ? ' ▲' : ' ▼';
+                const sorted = dataRows.slice().sort((ra, rb) => {
+                    const ta = (ra.children[idx]?.textContent || '');
+                    const tb = (rb.children[idx]?.textContent || '');
+                    const na = parseNum(ta), nb = parseNum(tb);
+                    if (na != null && nb != null) return (na - nb) * sortDir; // numérico
+                    if (na == null && nb == null) return ta.localeCompare(tb, 'pt-BR') * sortDir; // texto
+                    return na == null ? 1 : -1; // ausentes/texto vão pro fim
+                });
+                // re-anexa cada linha-mãe seguida da sua linha de detalhe
+                sorted.forEach(tr => { tbody.appendChild(tr); const d = detailOf.get(tr); if (d) tbody.appendChild(d); });
+                renumber();
+            });
+        });
+
+        renumber();
+    });
 }
 
 /* ══════════════════════════════════════════
@@ -7052,7 +7142,7 @@ function sprintBuildEvolTable(line, bRows, sRows, viewMode, loadedMonths) {
 function sprintBuildMetasView(loadedMonths) {
     const metas = SPRINT.metasData;
     const has = loadedMonths.length > 0;
-    let html = '';
+    let html = '<div class="sprint-metas-intro">📍 Exibindo apenas as metas da <strong>Regional Sul</strong>. Clique no <span class="sprint-intro-plus">+</span> de cada linha para ver os setores do mesmo <strong>grupo</strong> (mesmo porte de mercado, em todo o país) e suas cotas.</div>';
 
     // Casa uma linha de venda com o item de meta conforme o nível hierárquico.
     // 'gr' = Regional, 'gd' = Distrital, 'pv' = Setor/Propagandista.
@@ -7078,6 +7168,18 @@ function sprintBuildMetasView(loadedMonths) {
     };
     const realByCode = (code, prodList, level) => sumBy(loadedMonths, code, prodList, level);
     const baseByCode = (code, prodList, level) => sumBy(SPRINT.BASE_MONTHS, code, prodList, level);
+
+    // Versão SEM o filtro de distrital/setor — usada na coorte do grupo,
+    // onde queremos o realizado real de cada par (de qualquer distrital/regional).
+    const realByCodeRaw = (code, prodList, level) => {
+        if (!SPRINT.dddRows && !SPRINT.mdtrRows) return 0;
+        const src = SPRINT.dddRows || SPRINT.mdtrRows;
+        return src.filter(r =>
+            loadedMonths.includes(r.mes) &&
+            prodList.includes(r.marca) &&
+            matchLevel(r, level, code)
+        ).reduce((s, r) => s + r.valor, 0);
+    };
 
     // Filtra a lista de itens pelo filtro ativo de distrital/setor
     const filterMetaList = (list, level) => {
@@ -7126,6 +7228,19 @@ function sprintBuildMetasView(loadedMonths) {
         return grupoByGd.get(gdCode) || grupoByGd.get(gdCode.slice(0, 4)) || '';
     };
 
+    // ── Recorte da MINHA REGIONAL ───────────────────────────────────────
+    // A planilha de metas é nacional (todas as regionais). Aqui só exibimos
+    // como linha cheia os setores/distritais/regionais da Regional Sul
+    // (códigos iniciados em "1"). Os demais aparecem apenas no "+" do grupo.
+    // Para mudar de regional, basta trocar o dígito abaixo.
+    const MINHA_REGIONAL = '1';
+    const itemCode = item => String(item.nome || '').split(' - ')[0].trim();
+    const isMine = item => {
+        const code = itemCode(item);
+        if (!/^\d/.test(code)) return true; // linhas consolidadas / sem código → sempre mostra
+        return code.charAt(0) === MINHA_REGIONAL;
+    };
+
     // ── Nível REGIONAL ──
     // Usa a planilha "Meta GRs" se existir; senão consolida a partir das metas de distrital.
     const allProds = [...new Set([...SPRINT.LINES[0].products, ...SPRINT.LINES[1].products])];
@@ -7149,18 +7264,88 @@ function sprintBuildMetasView(loadedMonths) {
         { title: '🟠 PRIME — Por Propagandista', list: metas.pvPrime, prodList: SPRINT.LINES[1].products, color: 'l2', level: 'pv' },
     ].forEach(sec => {
         if (!sec.list || !sec.list.length) return;
-        // Aplica filtro de distrital/setor à lista de itens
-        const filteredList = filterMetaList(sec.list, sec.level);
-        if (!filteredList.length) return;
-        const totMeta = filteredList.reduce((s, r) => s + r.meta, 0);
-        let totReal = 0, totBase = 0, cntOk = 0;
         const isPV = sec.level === 'pv';
-
         const nMeses = loadedMonths.length; // 0, 1, 2 ou 3
         const isComplete = nMeses === 3;
+        const colCount = isPV ? 11 : 10;
 
-        const rowsH = filteredList.map((item, i) => {
+        // Lista exibida como linha cheia = SÓ a minha regional (respeitando o filtro de distrital/setor)
+        const ownList = filterMetaList(sec.list, sec.level).filter(isMine);
+        if (!ownList.length) return;
+
+        // Coorte por GRUPO (nacional) — base da expansão "+"
+        const grupoMap = new Map();
+        sec.list.forEach(it => {
+            const g = resolveGrupo(it, isPV);
+            if (!g) return;
+            if (!grupoMap.has(g)) grupoMap.set(g, []);
+            grupoMap.get(g).push(it);
+        });
+        grupoMap.forEach(arr => arr.sort((a, b) => b.meta - a.meta));
+
+        // Códigos presentes nos dados carregados (p/ exibir o realizado dos demais setores)
+        const fieldFor = sec.level === 'gr' ? 'regional' : sec.level === 'gd' ? 'distrital' : 'setor';
+        const presentArr = [];
+        if (nMeses > 0) {
+            const lsrc = SPRINT.dddRows || SPRINT.mdtrRows || [];
+            const seen = new Set();
+            lsrc.forEach(r => { if (loadedMonths.includes(r.mes) && r[fieldFor]) seen.add(r[fieldFor]); });
+            presentArr.push(...seen);
+        }
+        const codeHasData = code => presentArr.some(v => v === code || v.startsWith(code));
+
+        // Detalhe (tabela do grupo) de um item — só cotas se não houver dados carregados
+        const buildGrpDetail = item => {
+            const g = resolveGrupo(item, isPV);
+            const cohort = grupoMap.get(g) || [];
+            if (cohort.length <= 1) return { toggle: false, html: '' };
+            const myCode = itemCode(item);
+            const showReal = nMeses > 0;
+            const lbl = sec.level === 'pv' ? 'propagandistas' : sec.level === 'gd' ? 'distritais' : 'regionais';
+            const preH = sec.level === 'pv' ? '<th>Regional</th><th>Distrital</th><th>Propagandista</th>'
+                : sec.level === 'gd' ? '<th>Regional</th><th>Distrital</th>'
+                    : '<th>Regional</th>';
+            const headExtra = showReal ? '<th class="r">Realiz.</th><th class="r">Ating.%</th>' : '';
+            const rowsD = cohort.map((m, idx) => {
+                const mc = itemCode(m);
+                const reg = mc.charAt(0) + '00000';
+                const nm = m.nome.split(' - ').slice(1).join(' - ').trim() || m.nome;
+                const mine = mc === myCode;
+                let extra = '';
+                if (showReal) {
+                    if (codeHasData(mc)) {
+                        const rv = realByCodeRaw(mc, sec.prodList, sec.level);
+                        const atv = m.meta > 0 ? rv / m.meta * 100 : 0;
+                        extra = `<td class="r">${sprintFmtRS(rv)}</td><td class="r">${atv.toFixed(1)}%</td>`;
+                    } else {
+                        extra = `<td class="r sprint-grp-nd">—</td><td class="r sprint-grp-nd">—</td>`;
+                    }
+                }
+                const pre = sec.level === 'pv' ? `<td>${reg}</td><td>${m.gd || '—'}</td><td title="${m.nome}">${nm}</td>`
+                    : sec.level === 'gd' ? `<td>${reg}</td><td title="${m.nome}">${mc} · ${nm}</td>`
+                        : `<td title="${m.nome}">${mc} · ${nm}</td>`;
+                return `<tr class="${mine ? 'sprint-grp-me' : ''}">
+                    ${pre}
+                    <td class="r"><strong>${sprintFmtRS(m.meta)}</strong></td>${extra}
+                </tr>`;
+            }).join('');
+            const note = showReal ? '' : `<div class="sprint-grp-note">💡 Carregue DDD/MDTR para ver o realizado dos demais setores. Por enquanto, apenas as cotas.</div>`;
+            const html = `<tr class="sprint-grp-detail" style="display:none"><td colspan="${colCount}">
+                <div class="sprint-grp-box">
+                    <div class="sprint-grp-title">👥 Grupo ${g} · ${cohort.length} ${lbl} de mesmo porte de mercado · cotas Mai–Jul/26</div>
+                    ${note}
+                    <table class="sprint-grp-tbl"><thead><tr>${preH}<th class="r">Cota</th>${headExtra}</tr></thead>
+                    <tbody>${rowsD}</tbody></table>
+                </div></td></tr>`;
+            return { toggle: true, html };
+        };
+
+        const totMeta = ownList.reduce((s, r) => s + r.meta, 0);
+        let totReal = 0, totBase = 0, cntOk = 0;
+
+        const rowsH = ownList.map((item, i) => {
             const code = item.nome.split(' - ')[0].trim();
+            const det = buildGrpDetail(item);
             const real = realByCode(code, sec.prodList, sec.level);
             const base = baseByCode(code, sec.prodList, sec.level);
             totReal += real; totBase += base;
@@ -7198,7 +7383,7 @@ function sprintBuildMetasView(loadedMonths) {
             const atFmt = has ? at.toFixed(1) + '%' : '—';
 
             return `<tr>
-                <td><span class="sprint-pos-badge">${i + 1}</span></td>
+                <td class="sprint-c-pos">${det.toggle ? `<button class="sprint-grp-toggle" onclick="sprintToggleGrupo(this)" title="Ver setores do mesmo grupo">+</button>` : ''}<span class="sprint-pos-badge">${i + 1}</span></td>
                 <td class="sprint-td-label" title="${item.nome}">${item.nome}</td>
                 ${isPV ? `<td class="sprint-td-small" title="${item.gd || ''}">${item.gd || '—'}</td>` : ''}
                 <td class="r sprint-td-small">${resolveGrupo(item, isPV) || '—'}</td>
@@ -7209,7 +7394,7 @@ function sprintBuildMetasView(loadedMonths) {
                 <td class="r"><span class="${aCls}">${isComplete ? atFmt : projAtFmt}</span></td>
                 <td class="r ${has ? dCls : ''}">${has ? (diff >= 0 ? '+' : '') + sprintFmtRS(diff) : '—'}</td>
                 <td class="c"><span class="sprint-status-badge sprint-status-${aCls.replace('sprint-ating-', '')}">${has ? statusTxt : '⏳'}</span></td>
-            </tr>`;
+            </tr>${det.html}`;
         }).join('');
 
         const totAt = totMeta > 0 ? totReal / totMeta * 100 : 0;
@@ -7224,17 +7409,17 @@ function sprintBuildMetasView(loadedMonths) {
             </div>
             ${statusLegend}
             <div style="overflow-x:auto"><table class="sprint-tbl sprint-tbl-metas">
-                <thead><tr>
-                    <th style="width:30px">#</th><th>${sec.level === 'pv' ? 'Propagandista' : sec.level === 'gd' ? 'Distrital' : 'Regional'}</th>
-                    ${isPV ? '<th>Distrital</th>' : ''}
-                    <th class="r">Grupo</th>
-                    <th class="r">Base 1TRI/26</th>
-                    <th class="r sprint-meta-col">Meta</th>
-                    <th class="r">Realiz. Sprint</th>
-                    <th class="r">Proj. TRI</th>
-                    <th class="r">Ating./Proj.%</th>
-                    <th class="r">Falta/Sobra</th>
-                    <th class="c">Status</th>
+                <thead><tr class="sprint-metas-head">
+                    <th style="width:30px" data-ftype="none">#</th><th data-ftype="text">${sec.level === 'pv' ? 'Propagandista' : sec.level === 'gd' ? 'Distrital' : 'Regional'}</th>
+                    ${isPV ? '<th data-ftype="select">Distrital</th>' : ''}
+                    <th class="r" data-ftype="select">Grupo</th>
+                    <th class="r" data-ftype="num">Base 1TRI/26</th>
+                    <th class="r sprint-meta-col" data-ftype="num">Meta</th>
+                    <th class="r" data-ftype="num">Realiz. Sprint</th>
+                    <th class="r" data-ftype="num">Proj. TRI</th>
+                    <th class="r" data-ftype="num">Ating./Proj.%</th>
+                    <th class="r" data-ftype="num">Falta/Sobra</th>
+                    <th class="c" data-ftype="select">Status</th>
                 </tr></thead>
                 <tbody>${rowsH}</tbody>
                 <tfoot><tr class="sprint-total-row">

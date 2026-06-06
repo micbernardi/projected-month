@@ -5866,6 +5866,73 @@ td.pdv-growth-neg {
 .sprint-tbl-metas tbody td.r { text-align: center; }
 .sprint-tbl-metas tfoot td.r { text-align: center; }
 
+/* ── Ordenação por coluna (tabela de metas) ── */
+.sprint-tbl-metas thead th.sprint-sortable { cursor: pointer; }
+.sprint-metas-head th.sprint-sortable:hover { background: #324a73; }
+.sprint-sort-arrow { font-size: .85em; opacity: .9; margin-left: 2px; }
+
+/* Zebra explícita (mantém o padrão ao reordenar) */
+.sprint-tbl-metas tbody tr:nth-child(even) td { background: transparent; }
+.sprint-tbl-metas tbody tr.sprint-zebra td { background: rgba(241,245,249,.55); }
+.sprint-tbl-metas tbody tr:hover td { background: #f4f8ff; }
+.sprint-tbl-metas tbody tr.sprint-grp-detail:hover td { background: transparent; }
+
+/* ── Expansão de Grupo (+) ── */
+.sprint-metas-intro {
+    font-size: .72rem;
+    color: var(--txt);
+    background: #eef4ff;
+    border: 1px solid #d4e2fb;
+    border-radius: 8px;
+    padding: 9px 13px;
+    margin-bottom: 12px;
+    line-height: 1.45;
+}
+.sprint-intro-plus {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 4px;
+    background: var(--navy); color: #fff; font-weight: 800; font-size: .72rem;
+    vertical-align: middle;
+}
+.sprint-c-pos { white-space: nowrap; text-align: center; }
+.sprint-grp-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px; height: 18px;
+    margin-right: 5px;
+    border: 1px solid var(--navy4);
+    border-radius: 5px;
+    background: #fff;
+    color: var(--navy);
+    font-size: .8rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background .12s, color .12s;
+}
+.sprint-grp-toggle:hover { background: var(--navy); color: #fff; }
+.sprint-grp-toggle.open { background: var(--navy); color: #fff; }
+
+.sprint-tbl-metas tbody tr.sprint-grp-detail td { padding: 0; border-bottom: 1px solid var(--s3); }
+.sprint-grp-box { padding: 10px 14px 12px; background: #f7f9fd; }
+.sprint-grp-title { font-size: .68rem; font-weight: 800; color: var(--navy); margin-bottom: 6px; }
+.sprint-grp-note { font-size: .64rem; color: var(--txt2); background: #fff8e6; border: 1px solid #f4e2b8; border-radius: 6px; padding: 5px 8px; margin-bottom: 7px; }
+.sprint-grp-tbl { width: 100%; border-collapse: collapse; font-size: .66rem; background: #fff; border: 1px solid var(--s3); border-radius: 6px; overflow: hidden; }
+.sprint-grp-tbl thead th {
+    background: var(--s3); color: var(--txt2);
+    font-size: .56rem; font-weight: 800; text-transform: uppercase; letter-spacing: .3px;
+    padding: 4px 8px; text-align: left; white-space: nowrap;
+}
+.sprint-grp-tbl thead th.r { text-align: right; }
+.sprint-grp-tbl tbody td { padding: 4px 8px; border-top: 1px solid var(--s3); color: var(--txt); white-space: nowrap; }
+.sprint-grp-tbl tbody td.r { text-align: right; font-variant-numeric: tabular-nums; }
+.sprint-grp-tbl tbody tr:hover td { background: #f4f8ff; }
+.sprint-grp-tbl .sprint-grp-nd { color: var(--txt3); }
+.sprint-grp-tbl tr.sprint-grp-me td { background: #eaf4ea; font-weight: 700; }
+.sprint-grp-tbl tr.sprint-grp-me:hover td { background: #e0eede; }
+
 /* Células de evolução */
 .sprint-evol-pos { color: var(--grn); font-weight: 700; }
 .sprint-evol-neg { color: var(--red); font-weight: 700; }
