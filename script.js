@@ -136,7 +136,8 @@ let UI = {
     regional: 'all',
     distrital: 'all',
     sector: 'all',
-    market: 'all',
+    market: 'all',       // legado: valor único derivado (compat. PDV/outras leituras)
+    markets: [],         // multi-seleção de mercados; [] = todos
     rec: 'all',
     search: '',
     unitMode: 'UN',
@@ -988,7 +989,7 @@ function renderResumo() {
     const searchStr = norm(UI.search);
 
     const fRows = getFilteredRows().filter(r => {
-        if (UI.market !== 'all' && r.market !== UI.market) return false;
+        if (!marketMatchesUI(r.market)) return false;
         if (searchStr) {
             const blob = norm(r.market + ' ' + r.cidade + ' ' + r.brickName + ' ' + r.product);
             if (!blob.includes(searchStr)) return false;
@@ -1740,6 +1741,7 @@ function onHierarchyChange() {
     /* Reset filtros dependentes (setor/mercado podem não existir mais no recorte). */
     UI.sector = 'all';
     UI.market = 'all';
+    UI.markets = [];
     applyHierarchy();
     rebuildSelectors();
     buildSectorTabs();
@@ -1764,7 +1766,7 @@ function renderBrick() {
     const searchStr = norm(UI.search);
 
     const fRows = getFilteredRows().filter(r => {
-        if (UI.market !== 'all' && r.market !== UI.market) return false;
+        if (!marketMatchesUI(r.market)) return false;
         if (searchStr) {
             const blob = norm(r.market + ' ' + r.cidade + ' ' + r.brickName + ' ' + r.product);
             if (!blob.includes(searchStr)) return false;
@@ -2317,6 +2319,176 @@ function refreshGlobalMarketFilter(tabName) {
     const cur = (UI && UI.market) || 'all';
     sel.value = items.includes(cur) ? cur : 'all';
     if (UI) UI.market = sel.value;
+    /* v6.x — reconstrói o multi-select visível a partir do novo universo */
+    if (typeof syncMarketMulti === 'function') syncMarketMulti();
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MULTI-SELECT DO FILTRO DE MERCADO (v6.x)
+   - Mantém o <select id="fbMkt"> oculto como fonte de dados/compatibilidade.
+   - UI.markets = array de mercados selecionados; [] (vazio) = todos.
+   - Modelo "aplicar ao fechar": marcar/desmarcar não re-renderiza a tabela;
+     a aplicação ocorre ao fechar o painel (Aplicar, clique fora, Esc ou toggle).
+════════════════════════════════════════════════════════════════════ */
+function _msIsMktModeMarca() {
+    const lbl = document.getElementById('fbMktLabel');
+    return !!(lbl && lbl.textContent.trim().toLowerCase().startsWith('marca'));
+}
+/* true se a linha passa no filtro de mercado (UI.markets vazio = todos) */
+function marketMatchesUI(m) {
+    const sel = UI && UI.markets;
+    if (!sel || !sel.length) return true;
+    return sel.indexOf(m) !== -1;
+}
+function getMarketOptions() {
+    const sel = document.getElementById('fbMkt');
+    if (!sel) return [];
+    return [...sel.options].slice(1).map(o => o.value);  // pula "Todos…"
+}
+function _msAllLabel() { return _msIsMktModeMarca() ? 'Todas as Marcas' : 'Todos os Mercados'; }
+function updateMarketToggleText() {
+    const btn = document.getElementById('fbMktToggle');
+    const txt = document.getElementById('fbMktText');
+    if (!txt || !btn) return;
+    const sel = UI.markets || [];
+    let label, active = false;
+    if (!sel.length) { label = _msAllLabel(); }
+    else if (sel.length === 1) { label = sel[0].length > 22 ? sel[0].slice(0, 22) + '…' : sel[0]; active = true; }
+    else { label = sel.length + (_msIsMktModeMarca() ? ' marcas' : ' mercados'); active = true; }
+    txt.textContent = label;
+    btn.classList.toggle('pdv-ms-active', active);
+}
+function buildMarketList(opts) {
+    const list = document.getElementById('fbMktList');
+    if (!list) return;
+    const selSet = new Set(UI.markets || []);
+    const allChecked = selSet.size === 0;
+    // quando "todos", todos os itens aparecem marcados (espelha o padrão da aba PDV)
+    let html = `<label class="pdv-ms-item pdv-ms-all${allChecked ? ' checked' : ''}">`
+        + `<input type="checkbox" value="__all__"${allChecked ? ' checked' : ''}>`
+        + `<span>(Todos)</span></label>`;
+    html += opts.map(m => {
+        const c = allChecked || selSet.has(m);
+        return `<label class="pdv-ms-item${c ? ' checked' : ''}">`
+            + `<input type="checkbox" value="${escapeHTML(m)}"${c ? ' checked' : ''}>`
+            + `<span>${escapeHTML(m)}</span></label>`;
+    }).join('');
+    list.innerHTML = html;
+}
+/* Reconstrói o widget a partir do universo atual (chamado por refreshGlobalMarketFilter). */
+function syncMarketMulti() {
+    const panel = document.getElementById('fbMktPanel');
+    const opts = getMarketOptions();
+    // remove seleções que não existem mais no recorte atual
+    UI.markets = (UI.markets || []).filter(m => opts.includes(m));
+    // espelha valor único legado (compat. com leituras de UI.market — ex.: aba PDV)
+    UI.market = (UI.markets.length === 1) ? UI.markets[0] : 'all';
+    const sel = document.getElementById('fbMkt');
+    if (sel) sel.value = (UI.markets.length === 1 && opts.includes(UI.markets[0])) ? UI.markets[0] : 'all';
+    // não reconstruir a lista enquanto o painel está aberto (preserva interação)
+    if (!panel || panel.style.display === 'none') buildMarketList(opts);
+    updateMarketToggleText();
+}
+/* Lê os checkboxes → UI.markets, aplica e re-renderiza. */
+function commitMarketMulti() {
+    const list = document.getElementById('fbMktList');
+    if (!list) return;
+    const itemCbs = [...list.querySelectorAll('input[type=checkbox]')].filter(c => c.value !== '__all__');
+    const selected = itemCbs.filter(c => c.checked).map(c => c.value);
+    // nenhum ou todos marcados ⇒ "todos" ([] = sem filtro)
+    UI.markets = (selected.length === 0 || selected.length === itemCbs.length) ? [] : selected;
+    UI.market = (UI.markets.length === 1) ? UI.markets[0] : 'all';
+    const sel = document.getElementById('fbMkt');
+    if (sel) sel.value = (UI.markets.length === 1) ? UI.markets[0] : 'all';
+    updateMarketToggleText();
+    onFilterChange();
+}
+function _msPositionPanel() {
+    const toggle = document.getElementById('fbMktToggle');
+    const panel = document.getElementById('fbMktPanel');
+    if (!toggle || !panel) return;
+    const r = toggle.getBoundingClientRect();
+    panel.style.position = 'fixed';
+    panel.style.top = (r.bottom + 3) + 'px';
+    // mantém dentro da viewport
+    const pw = panel.offsetWidth || 240;
+    let left = r.left;
+    if (left + pw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - pw - 8);
+    panel.style.left = left + 'px';
+}
+function openMarketPanel() {
+    const panel = document.getElementById('fbMktPanel');
+    if (!panel) return;
+    buildMarketList(getMarketOptions());           // garante lista atualizada
+    panel.style.display = 'block';
+    _msPositionPanel();
+    const si = document.getElementById('fbMktSearch');
+    if (si) { si.value = ''; si.focus(); }
+    panel.querySelectorAll('.pdv-ms-list .pdv-ms-item').forEach(l => { l.style.display = ''; });
+}
+function closeMarketPanel(commit) {
+    const panel = document.getElementById('fbMktPanel');
+    if (!panel || panel.style.display === 'none') return;
+    panel.style.display = 'none';
+    if (commit) commitMarketMulti();
+}
+function wireMarketMulti() {
+    const wrap = document.getElementById('fbMktMulti');
+    const toggle = document.getElementById('fbMktToggle');
+    const panel = document.getElementById('fbMktPanel');
+    const apply = document.getElementById('fbMktApply');
+    const search = document.getElementById('fbMktSearch');
+    if (!wrap || !toggle || !panel) return;
+
+    // inicializa a lista
+    buildMarketList(getMarketOptions());
+    updateMarketToggleText();
+
+    toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = panel.style.display !== 'none';
+        if (isOpen) closeMarketPanel(true);
+        else openMarketPanel();
+    });
+
+    if (apply) apply.addEventListener('click', (e) => { e.stopPropagation(); closeMarketPanel(true); });
+
+    // busca interna — apenas filtra visualmente a lista
+    if (search) {
+        search.addEventListener('input', () => {
+            const q = search.value.toLowerCase();
+            panel.querySelectorAll('.pdv-ms-list .pdv-ms-item').forEach(lbl => {
+                lbl.style.display = lbl.textContent.toLowerCase().includes(q) ? '' : 'none';
+            });
+        });
+        search.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); closeMarketPanel(true); } });
+    }
+
+    // toggle visual dos checkboxes (sem aplicar ainda)
+    panel.addEventListener('change', (e) => {
+        const cb = e.target;
+        if (!cb || cb.type !== 'checkbox') return;
+        const allCb = panel.querySelector('input[value="__all__"]');
+        const itemCbs = [...panel.querySelectorAll('.pdv-ms-list input[type=checkbox]')].filter(c => c.value !== '__all__');
+        if (cb.value === '__all__') {
+            itemCbs.forEach(c => { c.checked = cb.checked; c.closest('.pdv-ms-item').classList.toggle('checked', cb.checked); });
+        } else {
+            cb.closest('.pdv-ms-item').classList.toggle('checked', cb.checked);
+            const allChecked = itemCbs.length > 0 && itemCbs.every(c => c.checked);
+            if (allCb) { allCb.checked = allChecked; allCb.closest('.pdv-ms-item').classList.toggle('checked', allChecked); }
+        }
+    });
+
+    // clique fora — aplica e fecha
+    document.addEventListener('click', (e) => {
+        if (panel.style.display === 'none') return;
+        if (e.target.closest('#fbMktMulti')) return;
+        closeMarketPanel(true);
+    });
+    // Esc — aplica e fecha
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && panel.style.display !== 'none') closeMarketPanel(true);
+    });
 }
 
 /* ===== EXPORT XLSX ===== */
@@ -2639,6 +2811,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const el = $(id);
         if (el) el.addEventListener('change', onFilterChange);
     });
+    /* v6.x — multi-select do filtro de Mercado */
+    if (typeof wireMarketMulti === 'function') wireMarketMulti();
     const searchEl = $('fbSearch');
     if (searchEl) {
         // input dispara em tempo real; debounce leve para tabelas grandes
@@ -6137,8 +6311,10 @@ function projBuildRankCard(title, rows, isTop) {
                 closeProjecaoView();
                 // Limpa filtro de mercado (mostra todos os mercados)
                 UI.market = 'all';
+                UI.markets = [];
                 const fbMkt = document.getElementById('fbMkt');
                 if (fbMkt) fbMkt.value = 'all';
+                if (typeof syncMarketMulti === 'function') syncMarketMulti();
                 // Define o search com o nome/código do brick para filtrar a tabela
                 UI.search = brickName;
                 const fbSearch = document.getElementById('fbSearch');
