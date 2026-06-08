@@ -135,7 +135,8 @@ let UI = {
     /* v3.16 — níveis hierárquicos acima de Setor. */
     regional: 'all',
     distrital: 'all',
-    sector: 'all',
+    sector: 'all',      // legado: valor único derivado
+    sectors: [],         // multi-seleção de setores; [] = todos
     market: 'all',       // legado: valor único derivado (compat. PDV/outras leituras)
     markets: [],         // multi-seleção de mercados; [] = todos
     rec: 'all',
@@ -776,9 +777,14 @@ function applyHierarchy() {
    mercados de outras linhas apareçam ao filtrar por GD/distrital. */
 function getFilteredRows(extraSector) {
     let rows = DB.rows;
-    const sec = extraSector || (UI.sector !== 'all' ? UI.sector : null);
-    if (sec) rows = rows.filter(r => r.sector === sec);
-    if ((UI.distrital && UI.distrital !== 'all') || sec) {
+    /* v6.x — suporte a multi-seleção de setores (UI.sectors). extraSector,
+       quando passado, força um único setor (uso interno legado). */
+    let secList = null;
+    if (extraSector) secList = [extraSector];
+    else if (UI.sectors && UI.sectors.length) secList = UI.sectors;
+    else if (UI.sector && UI.sector !== 'all') secList = [UI.sector];
+    if (secList) { const ss = new Set(secList); rows = rows.filter(r => ss.has(r.sector)); }
+    if ((UI.distrital && UI.distrital !== 'all') || secList) {
         const superaMkts = new Set(rows.filter(r => r.role === 'SUPERA').map(r => r.market));
         rows = rows.filter(r => superaMkts.has(r.market));
     }
@@ -1358,7 +1364,9 @@ function showBrickModal(market, rec) {
         } else { b.gapProximo = 0; }
     });
     const bricks = _sortBricks(allBricks);
-    const sectorLabel = UI.sector !== 'all' ? ` · ${cleanSectorName(UI.sector)}` : '';
+    const _selSecs = (UI.sectors && UI.sectors.length) ? UI.sectors : (UI.sector !== 'all' ? [UI.sector] : []);
+    const sectorLabel = _selSecs.length === 1 ? ` · ${cleanSectorName(_selSecs[0])}`
+        : (_selSecs.length > 1 ? ` · ${_selSecs.length} setores` : '');
 
     const titleMap = {
         'LÍDER': 'DEFENDER LIDERANÇA',
@@ -1618,9 +1626,10 @@ function onFilterChange() {
     const _fbDist = $('fbDist'); if (_fbDist) UI.distrital = _fbDist.value;
     UI.expandedRows.clear();
     BRICK_PAGE = 1;
-    // Reflete o setor selecionado nas abas (highlight da aba do setor)
-    document.querySelectorAll('.tab-sector').forEach(t => {
-        t.classList.toggle('active-sector', t.getAttribute('data-sector') === UI.sector);
+    // Reflete o(s) setor(es) selecionado(s) nas abas (highlight)
+    document.querySelectorAll('.tab-sector[data-sector]').forEach(t => {
+        const ds = t.getAttribute('data-sector');
+        t.classList.toggle('active-sector', (UI.sectors && UI.sectors.length) ? UI.sectors.includes(ds) : (ds === UI.sector));
     });
     // v5: sincroniza a busca global com a aba PDV (busca compartilhada)
     if (typeof PDV !== 'undefined' && PDV.filter) {
@@ -1726,6 +1735,8 @@ function rebuildSelectors() {
     if ($('fbMkt')) $('fbMkt').value = markets.includes(UI.market) ? UI.market : 'all';
     if (!sectors.includes(UI.sector)) UI.sector = 'all';
     if (!markets.includes(UI.market)) UI.market = 'all';
+    /* v6.x — reconstrói o multi-select de Setor a partir do novo universo */
+    if (typeof syncSectorMulti === 'function') syncSectorMulti();
     /* v5.9 — após reconstruir o universo, reaplica a transformação
        Mercado→Marca quando a aba ativa for PDV; nas demais, mantém mercados. */
     if (typeof refreshGlobalMarketFilter === 'function') {
@@ -1740,6 +1751,7 @@ function onHierarchyChange() {
     if (fbDist) UI.distrital = fbDist.value;
     /* Reset filtros dependentes (setor/mercado podem não existir mais no recorte). */
     UI.sector = 'all';
+    UI.sectors = [];
     UI.market = 'all';
     UI.markets = [];
     applyHierarchy();
@@ -2107,18 +2119,18 @@ function buildSectorTabs() {
             btn.setAttribute('data-sector', sec);
             btn.setAttribute('title', cleanSectorName(sec) || sec);
             btn.innerHTML = '<span class="tab-sector-dot"></span>' + label;
-            if (UI.sector === sec) btn.classList.add('active-sector');
+            if ((UI.sectors && UI.sectors.length) ? UI.sectors.includes(sec) : (UI.sector === sec)) btn.classList.add('active-sector');
             btn.addEventListener('click', () => {
-                const wasActive = btn.classList.contains('active-sector');
-                document.querySelectorAll('.tab-sector').forEach(t => t.classList.remove('active-sector'));
-                if (wasActive) {
-                    UI.sector = 'all';
-                    $('fbSec').value = 'all';
-                } else {
-                    btn.classList.add('active-sector');
-                    UI.sector = sec;
-                    $('fbSec').value = sec;
-                }
+                /* v6.x — clique alterna o setor na multi-seleção (UI.sectors) */
+                const set = new Set(UI.sectors && UI.sectors.length ? UI.sectors : (UI.sector !== 'all' ? [UI.sector] : []));
+                if (set.has(sec)) set.delete(sec); else set.add(sec);
+                UI.sectors = [...set];
+                UI.sector = (UI.sectors.length === 1) ? UI.sectors[0] : 'all';
+                if ($('fbSec')) $('fbSec').value = (UI.sectors.length === 1) ? UI.sectors[0] : 'all';
+                // realça todas as abas de setor ativas
+                document.querySelectorAll('.tab-sector[data-sector]').forEach(t =>
+                    t.classList.toggle('active-sector', UI.sectors.includes(t.getAttribute('data-sector'))));
+                if (typeof syncSectorMulti === 'function') syncSectorMulti();
                 UI.expandedRows.clear();
                 BRICK_PAGE = 1;
                 renderActiveTab();
@@ -2491,6 +2503,146 @@ function wireMarketMulti() {
     });
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   MULTI-SELECT DO FILTRO DE SETOR (v6.x) — mesmo padrão do de Mercado.
+   UI.sectors = array de setores; [] = todos. UI.sector = valor único derivado.
+════════════════════════════════════════════════════════════════════ */
+function getSectorOptions() {
+    const sel = document.getElementById('fbSec');
+    if (!sel) return [];
+    return [...sel.options].slice(1).map(o => o.value);
+}
+function _secShort(s) { return s.length > 24 ? s.slice(0, 24) + '…' : s; }
+function updateSectorToggleText() {
+    const btn = document.getElementById('fbSecToggle');
+    const txt = document.getElementById('fbSecText');
+    if (!txt || !btn) return;
+    const sel = UI.sectors || [];
+    let label, active = false;
+    if (!sel.length) label = 'Todos os Setores';
+    else if (sel.length === 1) { label = _secShort(typeof cleanSectorName === 'function' ? (cleanSectorName(sel[0]) || sel[0]) : sel[0]); active = true; }
+    else { label = sel.length + ' setores'; active = true; }
+    txt.textContent = label;
+    btn.classList.toggle('pdv-ms-active', active);
+}
+function buildSectorList(opts) {
+    const list = document.getElementById('fbSecList');
+    if (!list) return;
+    const selSet = new Set(UI.sectors || []);
+    const allChecked = selSet.size === 0;
+    let html = `<label class="pdv-ms-item pdv-ms-all${allChecked ? ' checked' : ''}">`
+        + `<input type="checkbox" value="__all__"${allChecked ? ' checked' : ''}>`
+        + `<span>(Todos)</span></label>`;
+    html += opts.map(s => {
+        const c = allChecked || selSet.has(s);
+        return `<label class="pdv-ms-item${c ? ' checked' : ''}">`
+            + `<input type="checkbox" value="${escapeHTML(s)}"${c ? ' checked' : ''}>`
+            + `<span>${escapeHTML(s)}</span></label>`;
+    }).join('');
+    list.innerHTML = html;
+}
+function syncSectorMulti() {
+    const panel = document.getElementById('fbSecPanel');
+    const opts = getSectorOptions();
+    UI.sectors = (UI.sectors || []).filter(s => opts.includes(s));
+    UI.sector = (UI.sectors.length === 1) ? UI.sectors[0] : 'all';
+    const sel = document.getElementById('fbSec');
+    if (sel) sel.value = (UI.sectors.length === 1 && opts.includes(UI.sectors[0])) ? UI.sectors[0] : 'all';
+    if (!panel || panel.style.display === 'none') buildSectorList(opts);
+    updateSectorToggleText();
+}
+function commitSectorMulti() {
+    const list = document.getElementById('fbSecList');
+    if (!list) return;
+    const itemCbs = [...list.querySelectorAll('input[type=checkbox]')].filter(c => c.value !== '__all__');
+    const selected = itemCbs.filter(c => c.checked).map(c => c.value);
+    UI.sectors = (selected.length === 0 || selected.length === itemCbs.length) ? [] : selected;
+    UI.sector = (UI.sectors.length === 1) ? UI.sectors[0] : 'all';
+    const sel = document.getElementById('fbSec');
+    if (sel) sel.value = (UI.sectors.length === 1) ? UI.sectors[0] : 'all';
+    updateSectorToggleText();
+    onFilterChange();
+}
+function _secPositionPanel() {
+    const toggle = document.getElementById('fbSecToggle');
+    const panel = document.getElementById('fbSecPanel');
+    if (!toggle || !panel) return;
+    const r = toggle.getBoundingClientRect();
+    panel.style.position = 'fixed';
+    panel.style.top = (r.bottom + 3) + 'px';
+    const pw = panel.offsetWidth || 240;
+    let left = r.left;
+    if (left + pw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - pw - 8);
+    panel.style.left = left + 'px';
+}
+function openSectorPanel() {
+    const panel = document.getElementById('fbSecPanel');
+    if (!panel) return;
+    buildSectorList(getSectorOptions());
+    panel.style.display = 'block';
+    _secPositionPanel();
+    const si = document.getElementById('fbSecSearch');
+    if (si) { si.value = ''; si.focus(); }
+    panel.querySelectorAll('.pdv-ms-list .pdv-ms-item').forEach(l => { l.style.display = ''; });
+}
+function closeSectorPanel(commit) {
+    const panel = document.getElementById('fbSecPanel');
+    if (!panel || panel.style.display === 'none') return;
+    panel.style.display = 'none';
+    if (commit) commitSectorMulti();
+}
+function wireSectorMulti() {
+    const wrap = document.getElementById('fbSecMulti');
+    const toggle = document.getElementById('fbSecToggle');
+    const panel = document.getElementById('fbSecPanel');
+    const apply = document.getElementById('fbSecApply');
+    const search = document.getElementById('fbSecSearch');
+    if (!wrap || !toggle || !panel) return;
+
+    buildSectorList(getSectorOptions());
+    updateSectorToggleText();
+
+    toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (panel.style.display !== 'none') closeSectorPanel(true);
+        else openSectorPanel();
+    });
+    if (apply) apply.addEventListener('click', (e) => { e.stopPropagation(); closeSectorPanel(true); });
+
+    if (search) {
+        search.addEventListener('input', () => {
+            const q = search.value.toLowerCase();
+            panel.querySelectorAll('.pdv-ms-list .pdv-ms-item').forEach(lbl => {
+                lbl.style.display = lbl.textContent.toLowerCase().includes(q) ? '' : 'none';
+            });
+        });
+        search.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); closeSectorPanel(true); } });
+    }
+
+    panel.addEventListener('change', (e) => {
+        const cb = e.target;
+        if (!cb || cb.type !== 'checkbox') return;
+        const allCb = panel.querySelector('input[value="__all__"]');
+        const itemCbs = [...panel.querySelectorAll('.pdv-ms-list input[type=checkbox]')].filter(c => c.value !== '__all__');
+        if (cb.value === '__all__') {
+            itemCbs.forEach(c => { c.checked = cb.checked; c.closest('.pdv-ms-item').classList.toggle('checked', cb.checked); });
+        } else {
+            cb.closest('.pdv-ms-item').classList.toggle('checked', cb.checked);
+            const allChecked = itemCbs.length > 0 && itemCbs.every(c => c.checked);
+            if (allCb) { allCb.checked = allChecked; allCb.closest('.pdv-ms-item').classList.toggle('checked', allChecked); }
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (panel.style.display === 'none') return;
+        if (e.target.closest('#fbSecMulti')) return;
+        closeSectorPanel(true);
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && panel.style.display !== 'none') closeSectorPanel(true);
+    });
+}
+
 /* ===== EXPORT XLSX ===== */
 /* smartExport — detecta a aba/view ativa e chama a função de exportação correta */
 function smartExport() {
@@ -2813,6 +2965,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     /* v6.x — multi-select do filtro de Mercado */
     if (typeof wireMarketMulti === 'function') wireMarketMulti();
+    /* v6.x — multi-select do filtro de Setor */
+    if (typeof wireSectorMulti === 'function') wireSectorMulti();
     const searchEl = $('fbSearch');
     if (searchEl) {
         // input dispara em tempo real; debounce leve para tabelas grandes

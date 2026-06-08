@@ -199,7 +199,21 @@
                     </select>
                 </span>
                 <label class="fb-label">Setor</label>
-                <select id="fbSec" onchange="onFilterChange()">
+                <div class="pdv-ms-wrap fbSec-ms" id="fbSecMulti">
+                    <button class="pdv-ms-btn" id="fbSecToggle" type="button">
+                        <span class="pdv-ms-lbl" id="fbSecText">Todos os Setores</span>
+                        <span class="pdv-ms-arrow">▾</span>
+                    </button>
+                    <div class="pdv-ms-panel" id="fbSecPanel" style="display:none">
+                        <div class="pdv-ms-search-wrap">
+                            <input class="pdv-ms-search" id="fbSecSearch" placeholder="🔍 Buscar..." autocomplete="off">
+                        </div>
+                        <div class="pdv-ms-list" id="fbSecList"></div>
+                        <button class="pdv-ms-apply" id="fbSecApply" type="button">✓ Aplicar</button>
+                    </div>
+                </div>
+                <!-- select oculto: fonte de dados/compatibilidade (populado por rebuildSelectors) -->
+                <select id="fbSec" style="display:none" tabindex="-1" aria-hidden="true">
                     <option value="all">Todos os Setores</option>
                 </select>
                 <label class="fb-label" id="fbMktLabel">Mercado</label>
