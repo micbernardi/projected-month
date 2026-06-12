@@ -6832,7 +6832,8 @@ const SPRINT = {
     MONTH_LABELS: { 202605: 'Mai', 202606: 'Jun', 202607: 'Jul' },
 
     dddRows: null,   // DDD: todos os produtos (supera + concorrência)
-    mdtrRows: null,   // MDTR: só nossos produtos, com PDV/bandeira
+    mdtrRows: null,   // MDTR: só nossos produtos, com PDV/bandeira (acumula múltiplas planilhas)
+    mdtrFiles: [],     // nomes dos arquivos MDTR já carregados (evita duplicar)
     metasData: null,   // metas/cotas da campanha
 
     filterDistrital: [],   // [] = todos; array com strings = distritais selecionadas
@@ -6918,6 +6919,172 @@ function sprintParseMDTR(buffer) {
     }).filter(r => r.valor > 0 && r.mes > 0);
 }
 
+
+/* ── Parser JSZip para planilhas MDTR muito grandes (Brasil inteiro) que o
+   SheetJS não consegue ler. Mesma estratégia do _parseDDDViaJSZip: abre o ZIP,
+   descomprime o XML da aba em Uint8Array, decodifica em fatias de 16 MB com
+   tail overlap e processa <row> a <row> via indexOf, sem montar string gigante.
+   Pré-agrega por (regional|distrital|setor|marca|brick|bandeira|pdv|apres|mes)
+   somando valor — resultado idêntico ao parser normal, com muito menos objetos. */
+async function _sprintParseMDTRViaJSZip(buf, fileName, setProgress) {
+    const prog = setProgress || (t => console.log('[Sprint MDTR]', t));
+    prog('Abrindo ' + fileName + ' (modo arquivo grande)...');
+    await _yield();
+
+    const zip = await JSZip.loadAsync(buf);
+
+    /* SharedStrings */
+    const ssFile = zip.file('xl/sharedStrings.xml');
+    const ssXml = ssFile ? await ssFile.async('string') : '';
+    const sharedStrings = [];
+    const tRe = /<t(?:\s[^>]*)?>([^<]*)<\/t>/g;
+    let tm;
+    while ((tm = tRe.exec(ssXml)) !== null) {
+        sharedStrings.push(tm[1]
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#xD;/g, ''));
+    }
+
+    const sheetKey = Object.keys(zip.files).find(k => /xl\/worksheets\/sheet\d+\.xml$/.test(k));
+    if (!sheetKey) throw new Error('Sheet não encontrada no ZIP.');
+
+    prog('Descompactando ' + fileName + '...');
+    await _yield();
+    const xmlBytes = await zip.files[sheetKey].async('uint8array');
+    prog(fileName + ': ' + Math.round(xmlBytes.length / 1024 / 1024) + ' MB de XML. Processando...');
+    await _yield();
+
+    const SLICE = 16 * 1024 * 1024;
+    const decoder = new TextDecoder('utf-8');
+    const unesc = s => s.indexOf('&') < 0 ? s : s
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+        .replace(/&#xD;/g, '').replace(/&amp;/g, '&');
+
+    const parseCells = (rowStr, ss) => {
+        const cells = {};
+        let pos = 0;
+        while (true) {
+            const cs = rowStr.indexOf('<c ', pos);
+            if (cs < 0) break;
+            const ce = rowStr.indexOf('>', cs);
+            if (ce < 0) break;
+            const ctag = rowStr.slice(cs, ce + 1);
+            const ri = ctag.indexOf(' r="');
+            if (ri < 0) { pos = ce + 1; continue; }
+            let colEnd = ri + 4;
+            while (colEnd < ctag.length && ctag[colEnd] >= 'A' && ctag[colEnd] <= 'Z') colEnd++;
+            const col = ctag.slice(ri + 4, colEnd);
+            const isShared = ctag.indexOf('t="s"') >= 0;
+            const nextC = rowStr.indexOf('<c ', ce + 1);
+            const vs = rowStr.indexOf('<v>', ce);
+            let val = '';
+            if (vs >= 0 && (nextC < 0 || vs < nextC)) {
+                const ve = rowStr.indexOf('</v>', vs);
+                if (ve >= 0) val = rowStr.slice(vs + 3, ve);
+            } else if (ctag.indexOf('t="inlineStr"') >= 0) {
+                /* inline string: <c t="inlineStr"><is><t>texto</t></is></c> */
+                const ts = rowStr.indexOf('<t', ce);
+                if (ts >= 0 && (nextC < 0 || ts < nextC)) {
+                    const tEnd = rowStr.indexOf('>', ts);
+                    const te = rowStr.indexOf('</t>', tEnd);
+                    if (tEnd >= 0 && te >= 0) val = rowStr.slice(tEnd + 1, te);
+                }
+            }
+            cells[col] = (isShared && val !== '') ? (ss[parseInt(val)] || '') : unesc(val);
+            pos = ce + 1;
+        }
+        return cells;
+    };
+
+    /* Cabeçalho (row r="1") nos primeiros 2 MB */
+    const headerChunk = decoder.decode(xmlBytes.slice(0, Math.min(2 * 1024 * 1024, xmlBytes.length)), { stream: false });
+    const rh = headerChunk.indexOf(' r="1"');
+    if (rh < 0) throw new Error('Linha de cabeçalho não encontrada.');
+    const hTagEnd = headerChunk.indexOf('>', rh);
+    const hRowEnd = headerChunk.indexOf('</row>', hTagEnd);
+    if (hTagEnd < 0 || hRowEnd < 0) throw new Error('Linha de cabeçalho malformada.');
+    const headerCells = parseCells(headerChunk.slice(hTagEnd + 1, hRowEnd), sharedStrings);
+
+    const colMap = {};
+    for (const [col, val] of Object.entries(headerCells)) colMap[col] = norm(String(val));
+    const colByPat = (patterns) => {
+        for (const [col, name] of Object.entries(colMap))
+            if (patterns.some(p => p.test(name))) return col;
+        return null;
+    };
+
+    const cRegional = colByPat([/^regional$/, /regional/]);
+    const cDistrital = colByPat([/^distrital$/, /^gd$/, /gerente\s*distrital/, /distrital/]);
+    const cSetor = colByPat([/^setor$/, /^pv$/, /propagandista/, /setor/]);
+    const cMarca = colByPat([/^marca$/, /^produto$/, /marca/, /produto/]);
+    const cBrick = colByPat([/^brick$/, /brick/]);
+    const cBandeira = colByPat([/^bandeira$/, /^rede$/, /bandeira/, /farmacia/]);
+    const cPdv = colByPat([/^pdv$/, /^cnpj$/, /^nome\s*pdv$/, /razao\s*social/, /pdv/]);
+    const cApres = colByPat([/^apresentacao$/, /apresenta/]);
+    const cValor = colByPat([/^valor$/, /^vendas?$/, /^r\$$/, /^rs$/, /valor/, /venda/]);
+    const cMes = colByPat([/^mes$/, /^mes\s*referencia$/, /mes/]);
+
+    if (!cValor || !cMes) throw new Error('Colunas Valor/Mês não encontradas. Colunas: ' + Object.values(colMap).join(' | '));
+    console.log('[Sprint MDTR JSZip] Colunas:', { Regional: cRegional, Distrital: cDistrital, Setor: cSetor, Marca: cMarca, Brick: cBrick, Bandeira: cBandeira, PDV: cPdv, Apres: cApres, Valor: cValor, Mes: cMes });
+
+    /* Processa todas as rows em blocos de 16 MB com tail overlap, pré-agregando */
+    const agg = new Map();
+    let rowCount = 0;
+    let tail = '';
+    const TAIL_MAX = 200 * 1024;
+    const totalSlices = Math.ceil(xmlBytes.length / SLICE);
+    let sliceN = 0;
+
+    for (let byteOffset = 0; byteOffset < xmlBytes.length; byteOffset += SLICE) {
+        sliceN++;
+        const slice = xmlBytes.slice(byteOffset, byteOffset + SLICE);
+        const chunk = tail + decoder.decode(slice, { stream: byteOffset + SLICE < xmlBytes.length });
+        tail = '';
+
+        let pos = 0;
+        while (true) {
+            const rs = chunk.indexOf('<row', pos);
+            if (rs < 0) { tail = chunk.slice(Math.max(0, chunk.length - TAIL_MAX)); break; }
+            const tagEnd = chunk.indexOf('>', rs);
+            if (tagEnd < 0) { tail = chunk.slice(rs); break; }
+            const rowEnd = chunk.indexOf('</row>', tagEnd);
+            if (rowEnd < 0) { tail = chunk.slice(rs); break; }
+
+            const tag = chunk.slice(rs, tagEnd + 1);
+            pos = rowEnd + 6;
+
+            const ri = tag.indexOf(' r="');
+            if (ri < 0) continue;
+            let numEnd = ri + 4;
+            while (numEnd < tag.length && tag[numEnd] >= '0' && tag[numEnd] <= '9') numEnd++;
+            const rowNum = parseInt(tag.slice(ri + 4, numEnd));
+            if (rowNum <= 1) continue;
+
+            const cells = parseCells(chunk.slice(tagEnd + 1, rowEnd), sharedStrings);
+            const valor = Number(cells[cValor]) || 0;
+            const mes = Number(cells[cMes]) || 0;
+            if (valor <= 0 || mes <= 0) continue;
+
+            const g = c => c ? String(cells[c] || '').trim() : '';
+            const regional = g(cRegional), distrital = g(cDistrital), setor = g(cSetor),
+                marca = g(cMarca), brick = g(cBrick), bandeira = g(cBandeira),
+                pdv = g(cPdv), apresentacao = g(cApres);
+
+            const key = [regional, distrital, setor, marca, brick, bandeira, pdv, apresentacao, mes].join('|');
+            const ex = agg.get(key);
+            if (ex) ex.valor += valor;
+            else agg.set(key, { regional, distrital, setor, marca, brick, bandeira, pdv, apresentacao, valor, mes });
+            rowCount++;
+        }
+        prog(fileName + ': bloco ' + sliceN + '/' + totalSlices + ' · ' + rowCount.toLocaleString('pt-BR') + ' linhas...');
+        await _yield();
+    }
+
+    console.log('[Sprint MDTR JSZip] ' + fileName + ': ' + rowCount + ' linhas → ' + agg.size + ' registros agregados.');
+    return [...agg.values()];
+}
+
 /* ── Parse planilha de METAS ── */
 function sprintParseMetasXLSX(buffer) {
     const wb = XLSX.read(buffer, { type: 'array' });
@@ -6963,6 +7130,21 @@ function sprintFmtEvol(base, sprint) {
     if (!base) return { txt: '—', cls: 'sprint-evol-neu' };
     const pct = (sprint / base - 1) * 100;
     return { txt: (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%', cls: pct >= 0 ? 'sprint-evol-pos' : 'sprint-evol-neg' };
+}
+
+/* Status 4 faixas (cortes 80/90/100) — mesmo critério da tabela de metas:
+   sprint encerrado usa realizado vs meta; em andamento usa projeção vs meta */
+function sprintStatusFor(pct, isComplete) {
+    if (isComplete) {
+        if (pct >= 100) return { txt: '✅ Bateu', cls: 'ok' };
+        if (pct >= 90) return { txt: '⚠️ Quase', cls: 'med' };
+        if (pct >= 80) return { txt: '🟠 Abaixo', cls: 'warn' };
+        return { txt: '❌ Não Bateu', cls: 'low' };
+    }
+    if (pct >= 100) return { txt: '🟢 No Ritmo', cls: 'ok' };
+    if (pct >= 90) return { txt: '🟡 Atenção', cls: 'med' };
+    if (pct >= 80) return { txt: '🟠 Risco', cls: 'warn' };
+    return { txt: '🔴 Fora do Ritmo', cls: 'low' };
 }
 
 /* ── Filtros do Sprint (isolados do app principal) ── */
@@ -7154,11 +7336,13 @@ function renderSprint() {
             </div>
         </div>
         <div class="sprint-upload-card sprint-upload-card-mdtr ${hasMDTR ? 'loaded' : ''}" onclick="sprintTriggerUpload('mdtr')">
-            <div class="sprint-upload-icon">${hasMDTR ? '📊' : '📊'}</div>
+            <div class="sprint-upload-icon">📊</div>
             <div class="sprint-upload-info">
                 <div class="sprint-upload-title">Planilha MDTR (R$)</div>
-                <div class="sprint-upload-sub">${hasMDTR ? (SPRINT.diagMDTR || 'Vendas por PDV carregadas ✓') : 'Clique para carregar — nossas marcas por PDV'}</div>
+                <div class="sprint-upload-sub">${hasMDTR ? (SPRINT.diagMDTR || 'Vendas por PDV carregadas ✓') : 'Clique para carregar — aceita várias planilhas'}</div>
+                ${hasMDTR ? '<div class="sprint-upload-hint">+ clique para adicionar mais planilhas</div>' : ''}
             </div>
+            ${hasMDTR ? '<button class="sprint-upload-clear" onclick="sprintClearMDTR(event)" title="Limpar planilhas MDTR carregadas">✕</button>' : ''}
         </div>
         <div class="sprint-upload-card sprint-upload-card-metas ${hasMetas ? 'loaded' : ''}" onclick="sprintTriggerUpload('metas')">
             <div class="sprint-upload-icon">🎯</div>
@@ -7635,36 +7819,64 @@ function sprintBuildMetasView(loadedMonths) {
             const preH = sec.level === 'pv' ? '<th>Regional</th><th>Distrital</th><th>Propagandista</th>'
                 : sec.level === 'gd' ? '<th>Regional</th><th>Distrital</th>'
                     : '<th>Regional</th>';
-            const headExtra = showReal ? '<th class="r">Realiz.</th><th class="r">Ating.%</th>' : '';
-            const rowsD = cohort.map((m, idx) => {
+            const headExtra = showReal ? '<th class="r">Realiz.</th><th class="r">Ating.%</th><th class="r">Ating. Proj.%</th><th class="c">Status</th>' : '';
+
+            /* Calcula realizado/projeção/status de cada membro do grupo */
+            const cohortCalc = cohort.map(m => {
                 const mc = itemCode(m);
+                const hasData = showReal && codeHasData(mc);
+                let rv = 0, atv = 0, projAt = 0;
+                if (hasData) {
+                    rv = realByCodeRaw(mc, sec.prodList, sec.level);
+                    atv = m.meta > 0 ? rv / m.meta * 100 : 0;
+                    const proj = nMeses > 0 ? (rv / nMeses) * 3 : 0;
+                    projAt = m.meta > 0 ? proj / m.meta * 100 : 0;
+                }
+                return { m, mc, hasData, rv, atv, projAt };
+            });
+
+            /* Ranking: maior evolução primeiro (atingimento projetado; realizado se encerrado).
+               Quem não tem dados carregados vai para o fim, ordenado por cota. */
+            const rankOf = c => isComplete ? c.atv : c.projAt;
+            cohortCalc.sort((a, b) => {
+                if (a.hasData !== b.hasData) return a.hasData ? -1 : 1;
+                if (a.hasData) return rankOf(b) - rankOf(a);
+                return b.m.meta - a.m.meta;
+            });
+
+            const rowsD = cohortCalc.map((c, idx) => {
+                const { m, mc, hasData } = c;
                 const reg = mc.charAt(0) + '00000';
                 const nm = m.nome.split(' - ').slice(1).join(' - ').trim() || m.nome;
                 const mine = mc === myCode;
                 let extra = '';
                 if (showReal) {
-                    if (codeHasData(mc)) {
-                        const rv = realByCodeRaw(mc, sec.prodList, sec.level);
-                        const atv = m.meta > 0 ? rv / m.meta * 100 : 0;
-                        extra = `<td class="r">${sprintFmtRS(rv)}</td><td class="r">${atv.toFixed(1)}%</td>`;
+                    if (hasData) {
+                        const refPct = isComplete ? c.atv : c.projAt;
+                        const st = sprintStatusFor(refPct, isComplete);
+                        const projCell = isComplete ? '—' : `<span class="sprint-ating-${st.cls}">${c.projAt.toFixed(1)}%</span>`;
+                        extra = `<td class="r">${sprintFmtRS(c.rv)}</td><td class="r">${c.atv.toFixed(1)}%</td><td class="r">${projCell}</td><td class="c"><span class="sprint-status-badge sprint-status-${st.cls}">${st.txt}</span></td>`;
                     } else {
-                        extra = `<td class="r sprint-grp-nd">—</td><td class="r sprint-grp-nd">—</td>`;
+                        extra = `<td class="r sprint-grp-nd">—</td><td class="r sprint-grp-nd">—</td><td class="r sprint-grp-nd">—</td><td class="c sprint-grp-nd">—</td>`;
                     }
                 }
                 const pre = sec.level === 'pv' ? `<td>${reg}</td><td>${m.gd || '—'}</td><td title="${m.nome}">${nm}</td>`
                     : sec.level === 'gd' ? `<td>${reg}</td><td title="${m.nome}">${mc} · ${nm}</td>`
                         : `<td title="${m.nome}">${mc} · ${nm}</td>`;
+                const medal = (showReal && hasData) ? (idx === 0 ? ' top1' : idx === 1 ? ' top2' : idx === 2 ? ' top3' : '') : '';
                 return `<tr class="${mine ? 'sprint-grp-me' : ''}">
+                    <td class="c"><span class="sprint-pos-badge${medal}">${idx + 1}</span></td>
                     ${pre}
                     <td class="r"><strong>${sprintFmtRS(m.meta)}</strong></td>${extra}
                 </tr>`;
             }).join('');
             const note = showReal ? '' : `<div class="sprint-grp-note">💡 Carregue DDD/MDTR para ver o realizado dos demais setores. Por enquanto, apenas as cotas.</div>`;
+            const rankNote = showReal ? `<div class="sprint-grp-note">🏆 Ranking por ${isComplete ? 'atingimento realizado' : 'atingimento projetado'} — do maior para o menor.</div>` : '';
             const html = `<tr class="sprint-grp-detail" style="display:none"><td colspan="${colCount}">
                 <div class="sprint-grp-box">
                     <div class="sprint-grp-title">👥 Grupo ${g} · ${cohort.length} ${lbl} de mesmo porte de mercado · cotas Mai–Jul/26</div>
-                    ${note}
-                    <table class="sprint-grp-tbl"><thead><tr>${preH}<th class="r">Cota</th>${headExtra}</tr></thead>
+                    ${note}${rankNote}
+                    <table class="sprint-grp-tbl"><thead><tr><th class="c">#</th>${preH}<th class="r">Cota</th>${headExtra}</tr></thead>
                     <tbody>${rowsD}</tbody></table>
                 </div></td></tr>`;
             return { toggle: true, html };
@@ -8215,21 +8427,79 @@ function sprintBindEvents() {
     const input = document.getElementById('sprint-fileInput');
     if (!input) return;
     input.onchange = function (e) {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = [...e.target.files];
+        if (!files.length) return;
+        const target = input.getAttribute('data-target');
+
+        if (target === 'mdtr') {
+            /* ── MDTR: aceita VÁRIAS planilhas e ACUMULA as linhas ──
+               Permite desmembrar a base do Brasil inteiro em vários arquivos
+               (limite de linhas do Excel) e carregar todos, de uma vez ou
+               em uploads sucessivos. Arquivos com o mesmo nome já carregado
+               são ignorados para não duplicar valores.
+               Processa SEQUENCIALMENTE (um por vez) para não estourar a memória,
+               e usa o parser JSZip (mesmo do DDD gigante) como fallback quando
+               o SheetJS não dá conta do arquivo. */
+            const LARGE = 50 * 1024 * 1024; // >50 MB: nem tenta SheetJS
+            const dupes = [], errs = [];
+
+            /* feedback de progresso direto no card do MDTR */
+            const setProg = t => {
+                const el = document.querySelector('.sprint-upload-card-mdtr .sprint-upload-sub');
+                if (el) el.textContent = t;
+                console.log('[Sprint MDTR]', t);
+            };
+
+            (async () => {
+                let i = 0;
+                for (const file of files) {
+                    i++;
+                    if (SPRINT.mdtrFiles.includes(file.name)) { dupes.push(file.name); continue; }
+                    try {
+                        setProg(`Lendo arquivo ${i}/${files.length}: ${file.name}...`);
+                        await _yield();
+                        const buf = new Uint8Array(await file.arrayBuffer());
+                        let rows = null;
+                        if (file.size < LARGE) {
+                            try { rows = sprintParseMDTR(buf); }
+                            catch (e1) { console.warn('[Sprint MDTR] SheetJS falhou em ' + file.name + ' — usando parser JSZip.', e1); }
+                        }
+                        if ((!rows || !rows.length) && typeof JSZip !== 'undefined') {
+                            rows = await _sprintParseMDTRViaJSZip(buf, file.name, setProg);
+                        }
+                        if (!rows || !rows.length) throw new Error('nenhuma linha válida encontrada');
+                        SPRINT.mdtrRows = [...(SPRINT.mdtrRows || []), ...rows];
+                        SPRINT.mdtrFiles.push(file.name);
+                    } catch (err) {
+                        console.error('[Sprint MDTR] Erro ao ler ' + file.name, err);
+                        errs.push(file.name + (err && err.message ? ' — ' + err.message : ''));
+                    }
+                }
+                if (SPRINT.mdtrRows && SPRINT.mdtrRows.length) {
+                    const mdtrDists = [...new Set(SPRINT.mdtrRows.map(r => r.distrital).filter(Boolean))];
+                    SPRINT.diagMDTR = `${SPRINT.mdtrFiles.length} arquivo(s) · ${SPRINT.mdtrRows.length.toLocaleString('pt-BR')} linhas · ${mdtrDists.length} distrital(is)`;
+                    if (SPRINT.subTab !== 'pdv') SPRINT.subTab = 'pdv';
+                }
+                let msg = '';
+                if (dupes.length) msg += 'Já carregados (ignorados): ' + dupes.join(', ') + '\nPara substituir um arquivo, limpe o MDTR (botão ✕) e carregue tudo novamente.';
+                if (errs.length) msg += (msg ? '\n\n' : '') + 'Falha ao ler:\n' + errs.join('\n');
+                if (msg) alert(msg);
+                input.value = '';
+                sprintBuildFilters();
+                renderSprint();
+            })();
+            return;
+        }
+
+        /* ── DDD e Metas: um arquivo só (substitui) ── */
+        const file = files[0];
         const reader = new FileReader();
         reader.onload = function (ev) {
             const buf = new Uint8Array(ev.target.result);
-            const target = input.getAttribute('data-target');
             if (target === 'ddd') {
                 SPRINT.dddRows = sprintParseDDD(buf);
                 const dddDists = [...new Set(SPRINT.dddRows.map(r => r.distrital).filter(Boolean))];
                 SPRINT.diagDDD = `${SPRINT.dddRows.length} linhas · ${dddDists.length} distrital(is): ${dddDists.slice(0, 3).join(', ')}${dddDists.length > 3 ? '...' : ''}`;
-            } else if (target === 'mdtr') {
-                SPRINT.mdtrRows = sprintParseMDTR(buf);
-                const mdtrDists = [...new Set(SPRINT.mdtrRows.map(r => r.distrital).filter(Boolean))];
-                SPRINT.diagMDTR = `${SPRINT.mdtrRows.length} linhas · ${mdtrDists.length} distrital(is): ${mdtrDists.slice(0, 3).join(', ')}${mdtrDists.length > 3 ? '...' : ''}`;
-                if (SPRINT.subTab !== 'pdv') SPRINT.subTab = 'pdv';
             } else if (target === 'metas') {
                 SPRINT.metasData = sprintParseMetasXLSX(buf);
                 if (SPRINT.subTab === 'evolucao') SPRINT.subTab = 'metas';
@@ -8246,7 +8516,21 @@ function sprintTriggerUpload(target) {
     const input = document.getElementById('sprint-fileInput');
     if (!input) return;
     input.setAttribute('data-target', target);
+    if (target === 'mdtr') input.setAttribute('multiple', 'multiple');
+    else input.removeAttribute('multiple');
     input.click();
+}
+
+/* Limpa todas as planilhas MDTR acumuladas (para recarregar do zero) */
+function sprintClearMDTR(e) {
+    if (e) e.stopPropagation();
+    if (!confirm('Limpar todas as planilhas MDTR carregadas?')) return;
+    SPRINT.mdtrRows = null;
+    SPRINT.mdtrFiles = [];
+    SPRINT.diagMDTR = null;
+    if (SPRINT.subTab === 'pdv') SPRINT.subTab = 'evolucao';
+    sprintBuildFilters();
+    renderSprint();
 }
 
 /* ── helpers genéricos para multi-select ── */

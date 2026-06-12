@@ -5657,6 +5657,33 @@ td.pdv-growth-neg {
     text-overflow: ellipsis;
 }
 .sprint-upload-card.loaded .sprint-upload-sub { color: #059669; }
+.sprint-upload-hint {
+    font-size: .6rem;
+    color: var(--txt3);
+    margin-top: 2px;
+    font-style: italic;
+}
+.sprint-upload-clear {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--brd);
+    border-radius: 50%;
+    background: #fff;
+    color: #b91c1c;
+    font-size: .7rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, border-color .15s;
+}
+.sprint-upload-clear:hover {
+    background: #fef2f2;
+    border-color: #b91c1c;
+}
 
 /* Progress bar campanha */
 .sprint-progress-wrap {
