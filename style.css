@@ -312,6 +312,26 @@ body {
     color: #fff
 }
 
+/* v7.1 — período MÊS indisponível na base carregada */
+.period-btn:disabled,
+.period-btn.period-btn-off {
+    opacity: .38;
+    cursor: not-allowed;
+}
+
+.period-btn:disabled:hover,
+.period-btn.period-btn-off:hover {
+    background: rgba(255, 255, 255, .08);
+    color: #c9d9f0;
+}
+
+.pdv-period-note {
+    font-size: 10px;
+    font-weight: 600;
+    color: #94a3b8;
+    letter-spacing: .2px;
+}
+
 .hdr-upload-btn,
 .hdr-send-btn {
     border: 1px solid rgba(255, 255, 255, .30);
