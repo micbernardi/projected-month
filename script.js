@@ -1642,7 +1642,7 @@ function showVerModal(market) {
    Setor / Mercado / Recomendação / Busca. Ela atualiza UI.* e re-renderiza
    a aba ATIVA (não só o Resumo). Assim os filtros ficam globais. */
 function getActiveTab() {
-    const ids = ['resumo', 'brick', 'oport', 'entrar', 'graficos', 'lideranca', 'pdv'];
+    const ids = ['resumo', 'brick', 'graficos', 'lideranca', 'pdv'];
     for (const k of ids) {
         const el = $('tab-' + k);
         if (el && el.style.display !== 'none') return k;
@@ -1656,8 +1656,6 @@ function renderActiveTab() {
     if (typeof refreshGlobalMarketFilter === 'function') refreshGlobalMarketFilter(t);
     if (t === 'resumo') renderResumo();
     else if (t === 'brick') renderBrick();
-    else if (t === 'oport') renderOport();
-    else if (t === 'entrar') renderEntrar();
     else if (t === 'graficos') renderGraficos();
     else if (t === 'lideranca') renderLideranca();
     else if (t === 'pdv') renderPDV();
@@ -2320,7 +2318,7 @@ function updateDistritalHeader() {
 }
 
 function switchTab(tn) {
-    ['resumo', 'brick', 'oport', 'entrar', 'graficos', 'lideranca', 'pdv'].forEach(k => {
+    ['resumo', 'brick', 'graficos', 'lideranca', 'pdv'].forEach(k => {
         const v = $('tab-' + k);
         if (v) v.style.display = (k === tn) ? 'block' : 'none';
     });
@@ -2329,8 +2327,6 @@ function switchTab(tn) {
        Em qualquer outra aba, restaura o comportamento original. */
     refreshGlobalMarketFilter(tn);
     if (tn === 'brick') renderBrick();
-    if (tn === 'oport') renderOport();
-    if (tn === 'entrar') renderEntrar();
     if (tn === 'graficos') renderGraficos();
     if (tn === 'lideranca') renderLideranca();
     if (tn === 'resumo') renderResumo();
@@ -3045,150 +3041,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fbGoto = $('fbGoto');
     if (fbGoto) fbGoto.addEventListener('change', () => { gotoMarket(fbGoto.value); fbGoto.value = ''; });
 });
-
-/* ===== ABAS AUXILIARES ===== */
-function renderOport() {
-    const el = $('tab-oport'); if (!el) return;
-    const pd = UI.periodMode;
-    const mkts = aggMarkets(getFilteredRows(), pd);
-    const medianCur = median(mkts.map(m => m.current));
-    const totalSuperaGlobal = mkts.reduce((s, m) => s + m.supera, 0);
-    const mktsComSupera = mkts.filter(m => m.supera > 0);
-    const avgShare = mktsComSupera.length
-        ? mktsComSupera.reduce((s, m) => s + m.share, 0) / mktsComSupera.length : 20;
-    const shareAlertaLimite = avgShare / 2;
-
-    function superaELider(m) {
-        const ranking = aggMarketRanking(rowsRespectingExclusions(m.rows, m.market), pd);
-        return ranking.length > 0 && ranking[0].role === 'SUPERA';
-    }
-
-    /* OPORTUNIDADES: share 10–49%, não líder, volume ≥ mediana */
-    const oport = mkts
-        .filter(m => m.current >= medianCur && m.share >= 10 && m.share <= 49 && !superaELider(m))
-        .map(m => ({ ...m, gapTo50: m.current * 0.5 - m.supera }))
-        .sort((a, b) => b.gapTo50 - a.gapTo50);
-
-    /* ACOMPANHAR ALERTA: volume ≥ R$1M + share < metade da média */
-    const acompAlerta = mkts
-        .filter(m => m.current >= 1_000_000 && m.share > 0 && m.share < shareAlertaLimite)
-        .sort((a, b) => b.current - a.current);
-
-    /* ACOMPANHAR ROTINA: representatividade < 0,5% do total Supera */
-    const REPRES_CORTE = 0.005;
-    const acompRotina = mkts
-        .filter(m => {
-            if (m.supera <= 0) return false;
-            const repres = totalSuperaGlobal > 0 ? m.supera / totalSuperaGlobal : 0;
-            return repres < REPRES_CORTE;
-        })
-        .filter(m => !(m.current >= 1_000_000 && m.share > 0 && m.share < shareAlertaLimite))
-        .sort((a, b) => b.current - a.current);
-
-    function buildOportTable(rows) {
-        if (!rows.length) return '<p class="panel-sub" style="padding:12px 0;color:var(--text-secondary)">Nenhum mercado encontrado com esses critérios nos filtros ativos.</p>';
-        let t = `<table class="modal-tbl"><thead><tr>
-            <th>Mercado</th><th class="r">Vol. Mercado</th><th class="r">Supera</th>
-            <th class="r">Share</th><th class="r">Cresc. Mercado</th>
-            <th class="r">Gap p/ 50%</th><th class="c">Potencial</th>
-        </tr></thead><tbody>`;
-        rows.forEach(m => {
-            const potLabel = m.share <= 20 ? 'Alta' : m.share <= 35 ? 'Média' : 'Moderada';
-            const potStyle = m.share <= 20 ? 'background:#d1fae5;color:#065f46'
-                : m.share <= 35 ? 'background:#fef3c7;color:#92400e'
-                    : 'background:#e0f2fe;color:#075985';
-            const gCls = (m.growth != null && m.growth >= 0) ? 'vpos' : 'vneg';
-            const gTxt = m.growth != null ? ((m.growth >= 0 ? '+' : '') + fmtPct(m.growth)) : '—';
-            t += `<tr>
-                <td><strong>${m.market}</strong></td>
-                <td class="r">${fmtValue(m.current)}</td>
-                <td class="r vacc">${fmtValue(m.supera)}</td>
-                <td class="r"><strong>${m.share.toFixed(1)}%</strong></td>
-                <td class="r ${gCls}">${gTxt}</td>
-                <td class="r">${fmtValue(m.gapTo50)}</td>
-                <td class="c"><span class="pot-pill" style="${potStyle}">${potLabel}</span></td>
-            </tr>`;
-        });
-        return t + '</tbody></table>';
-    }
-
-    function buildAcompTable(rows, showRepres) {
-        if (!rows.length) return '<p class="panel-sub" style="padding:12px 0;color:var(--text-secondary)">Nenhum mercado nesta categoria.</p>';
-        const extraTh = showRepres ? '<th class="r">Represent.</th>' : '';
-        let t = `<table class="modal-tbl"><thead><tr>
-            <th>Mercado</th><th class="r">Vol. Mercado</th><th class="r">Supera</th>
-            <th class="r">Share</th><th class="r">Cresc. Mercado</th>${extraTh}
-        </tr></thead><tbody>`;
-        rows.forEach(m => {
-            const gCls = (m.growth != null && m.growth >= 0) ? 'vpos' : 'vneg';
-            const gTxt = m.growth != null ? ((m.growth >= 0 ? '+' : '') + fmtPct(m.growth)) : '—';
-            const represTd = showRepres
-                ? `<td class="r" style="color:var(--text-secondary)">${totalSuperaGlobal > 0 ? ((m.supera / totalSuperaGlobal) * 100).toFixed(2) + '%' : '—'}</td>`
-                : '';
-            t += `<tr>
-                <td><strong>${m.market}</strong></td>
-                <td class="r">${fmtValue(m.current)}</td>
-                <td class="r vacc">${fmtValue(m.supera)}</td>
-                <td class="r">${m.share.toFixed(1)}%</td>
-                <td class="r ${gCls}">${gTxt}</td>
-                ${represTd}
-            </tr>`;
-        });
-        return t + '</tbody></table>';
-    }
-
-    let html = '';
-    html += '<div class="panel-block">';
-    html += '<h3 class="panel-h3">🎯 Oportunidades</h3>';
-    html += `<p class="panel-sub">Mercados <strong>relevantes</strong> (volume ≥ mediana) onde a Supera tem <strong>share entre 10% e 49%</strong> e <strong>não é líder</strong>. Ordenados pelo maior gap absoluto até 50% de share.</p>`;
-    html += buildOportTable(oport);
-    html += `<p class="panel-sub" style="margin-top:10px;font-size:.72rem;color:var(--text-secondary)">
-        <strong style="color:#065f46">Alta</strong>: share ≤ 20% &nbsp;|&nbsp;
-        <strong style="color:#92400e">Média</strong>: share 21–35% &nbsp;|&nbsp;
-        <strong style="color:#075985">Moderada</strong>: share 36–49%
-    </p></div>`;
-
-    html += '<div class="panel-block" style="margin-top:24px">';
-    html += '<h3 class="panel-h3" style="color:var(--c-oport,#f59e0b)">⚠️ Acompanhar — Alerta</h3>';
-    html += `<p class="panel-sub">Mercados com <strong>volume ≥ R$ 1 milhão</strong> onde o share da Supera está abaixo de <strong>${shareAlertaLimite.toFixed(1)}%</strong> (metade da média geral de ${avgShare.toFixed(1)}%). Alto volume, presença muito fraca — exigem decisão estratégica.</p>`;
-    html += buildAcompTable(acompAlerta, false);
-    html += '</div>';
-
-    html += '<div class="panel-block" style="margin-top:24px">';
-    html += '<h3 class="panel-h3" style="color:var(--text-secondary,#6b7280)">📋 Acompanhar — Rotina</h3>';
-    html += `<p class="panel-sub">Mercados onde a venda Supera representa <strong>menos de 0,5%</strong> do total da equipe. A coluna <em>Represent.</em> mostra o peso real de cada mercado.</p>`;
-    html += buildAcompTable(acompRotina.slice(0, 60), true);
-    if (acompRotina.length > 60) html += `<p class="panel-sub" style="margin-top:6px;font-size:.72rem">... e mais ${acompRotina.length - 60} mercados.</p>`;
-    html += '</div>';
-    el.innerHTML = html;
-}
-
-
-function renderEntrar() {
-    const el = $('tab-entrar'); if (!el) return;
-    const pd = UI.periodMode;
-    const mkts = aggMarkets(getFilteredRows(), pd);
-    const entrar = [];
-    mkts.forEach(m => m.recs['ENTRAR'].forEach(b => entrar.push({ market: m.market, brick: b })));
-    entrar.sort((a, b) => b.brick.totalCur - a.brick.totalCur);
-
-    let html = '<div class="panel-block"><h3 class="panel-h3">Entrar no Mercado</h3>';
-    html += '<p class="panel-sub">Bricks em que a Supera hoje tem vendas zeradas mas o mercado existe.</p>';
-    html += '<table class="modal-tbl"><thead><tr><th>Mercado</th><th>Brick</th><th>Setor</th><th class="r">Mercado ' + periodLabel(pd) + ' Ant.</th><th class="r">Mercado ' + periodLabel(pd) + ' Atual</th><th class="r">Maior concorrente</th></tr></thead><tbody>';
-    if (!entrar.length) html += '<tr><td colspan="6" class="tbl-empty">Nenhum brick em "Entrar".</td></tr>';
-    entrar.slice(0, 300).forEach(e => {
-        html += `<tr>
-            <td><strong>${e.market}</strong></td>
-            <td><code class="brick-code-mono">${e.brick.brick}</code> <small>${e.brick.cidade || ''}</small></td>
-            <td>${e.brick.sector || '—'}</td>
-            <td class="r">${fmtValue(e.brick.totalPrev)}</td>
-            <td class="r">${fmtValue(e.brick.totalCur)}</td>
-            <td class="r">${fmtValue(e.brick.concMax)}</td>
-        </tr>`;
-    });
-    html += '</tbody></table></div>';
-    el.innerHTML = html;
-}
 
 /* ===== ABA LIDERANÇA — Mercados Montados onde Supera é Líder ===== */
 function renderLideranca() {
