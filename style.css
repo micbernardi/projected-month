@@ -600,6 +600,50 @@ body {
     min-height: 36px;
 }
 .tab-rail-main::-webkit-scrollbar { height: 0; }
+
+/* ── KPIs principais dentro da barra de abas (Mercado / Supera / Share) ── */
+.rail-kpis {
+    margin-left: auto;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex-shrink: 0;
+    padding-left: 14px;
+}
+
+.rk-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    padding: 0 13px;
+    border-left: 1px solid var(--navy4);
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
+.rk-item:last-child {
+    padding-right: 2px;
+}
+
+.rk-lbl {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #1d4ed8;
+    text-transform: uppercase;
+    letter-spacing: .55px;
+}
+
+.rk-val {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -.2px;
+}
+
+.rk-share .rk-val {
+    color: #1d4ed8;
+}
 /* Linha 2 — distritais/setores: botões iguais cobrindo 100% */
 .tab-rail-sectors {
     display: flex;
@@ -1678,6 +1722,22 @@ body {
     .tab-rail-main {
         min-height: 32px;
         gap: 4px;
+    }
+
+    .rail-kpis {
+        padding-left: 8px;
+    }
+
+    .rk-item {
+        padding: 0 8px;
+    }
+
+    .rk-val {
+        font-size: 12px;
+    }
+
+    .rk-lbl {
+        font-size: 7.5px;
     }
 
     .main-tbl {

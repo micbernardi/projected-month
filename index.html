@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=113">
+    <link rel="stylesheet" href="style.css?v=114">
 </head>
 
 <body>
@@ -129,6 +129,22 @@
                         Liderança</button>
                     <button class="tab tab-pdv-special" data-tab="pdv" title="Análise por farmácia / CNPJ">🏥 PDVs por
                         Brick (MDTR)</button>
+
+                    <!-- KPIs principais — ancorados à direita da barra de abas -->
+                    <div class="rail-kpis" id="railKpis">
+                        <div class="rk-item">
+                            <span class="rk-lbl">Mercado Total</span>
+                            <span class="rk-val" id="ks-mercado">—</span>
+                        </div>
+                        <div class="rk-item">
+                            <span class="rk-lbl">Total Supera</span>
+                            <span class="rk-val" id="ks-supera">—</span>
+                        </div>
+                        <div class="rk-item rk-share">
+                            <span class="rk-lbl">Share Geral</span>
+                            <span class="rk-val" id="ks-share">—</span>
+                        </div>
+                    </div>
                 </div>
                 <!-- Linha 2: distritais / setores — tamanho igual, 100% largura -->
                 <div class="tab-rail-sectors" id="sectorTabs"></div>
@@ -498,7 +514,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=113"></script>
+    <script src="script.js?v=114"></script>
 </body>
 
 </html>
