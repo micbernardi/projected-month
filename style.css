@@ -61,8 +61,8 @@
     /* alturas das barras sticky (densas) — v6.7: estética central de inteligência */
     --hdr-h: 42px;
     --kpi-h: 0px;   /* KPI strip removida — abas ocupam o lugar */
-    --tab-h: 42px;
-    --fb-h: 32px;
+    --tab-h: 61px;
+    --fb-h: 42px;
     --r: 5px;
 
     --sticky-tab: calc(var(--hdr-h) + var(--kpi-h));
@@ -592,12 +592,12 @@ body {
 .tab-rail-main {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
+    gap: 5px;
+    padding: 3px 10px;
     flex-wrap: nowrap;
     overflow-x: auto;
     border-bottom: 1px solid var(--navy4);
-    min-height: 46px;
+    min-height: 36px;
 }
 .tab-rail-main::-webkit-scrollbar { height: 0; }
 /* Linha 2 — distritais/setores: botões iguais cobrindo 100% */
@@ -605,7 +605,7 @@ body {
     display: flex;
     align-items: stretch;
     width: 100%;
-    height: 26px;
+    height: 24px;
     overflow: hidden;
 }
 .tab-rail::-webkit-scrollbar { height: 0; }
@@ -615,8 +615,8 @@ body {
     border: 1px solid var(--navy4);
     border-radius: 6px;
     border-bottom: none;
-    padding: 9px 20px;
-    font-size: 14px;
+    padding: 6px 14px;
+    font-size: 12.5px;
     font-weight: 600;
     color: var(--top-txt2);
     cursor: pointer;
@@ -666,8 +666,8 @@ body {
     height: var(--fb-h);
     display: flex;
     align-items: center;
-    padding: 0 10px;
-    gap: 6px;
+    padding: 0 14px;
+    gap: 9px;
     position: fixed;
     top: var(--sticky-fb);
     left: 0;
@@ -683,7 +683,7 @@ body {
 }
 
 .fb-label {
-    font-size: 9.5px;
+    font-size: 10.5px;
     font-weight: 700;
     color: var(--top-txt3);
     text-transform: uppercase;
@@ -697,8 +697,8 @@ body {
     border: 1px solid var(--navy4);
     color: var(--top-txt);
     border-radius: var(--r);
-    padding: 2px 7px;
-    font-size: 10.5px;
+    padding: 5px 9px;
+    font-size: 11.5px;
     font-family: inherit;
     cursor: pointer;
     line-height: 1.5;
@@ -780,8 +780,8 @@ body {
 .fb-btn {
     border: 1px solid var(--navy4);
     border-radius: var(--r);
-    padding: 3px 10px;
-    font-size: 10.5px;
+    padding: 5px 12px;
+    font-size: 11.5px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
@@ -1666,17 +1666,17 @@ body {
 
 @media (max-width: 720px) {
     .tab {
-        padding: 6px 12px;
-        font-size: 12px;
+        padding: 5px 10px;
+        font-size: 11.5px;
     }
 
     .tab.tab-pdv-special {
-        padding: 6px 11px !important;
-        margin-left: 6px;
+        padding: 5px 9px !important;
+        margin-left: 5px;
     }
 
     .tab-rail-main {
-        min-height: 38px;
+        min-height: 32px;
         gap: 4px;
     }
 
@@ -3788,8 +3788,8 @@ td.vneg strong {
     border-radius: 6px 6px 0 0;
     color: #047857 !important;
     font-weight: 700 !important;
-    margin-left: 10px;
-    padding: 9px 18px !important;
+    margin-left: 8px;
+    padding: 6px 13px !important;
     position: relative;
     transition: all .15s ease;
 }
