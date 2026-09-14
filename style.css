@@ -61,7 +61,7 @@
     /* alturas das barras sticky (densas) — v6.7: estética central de inteligência */
     --hdr-h: 42px;
     --kpi-h: 48px;
-    --tab-h: 28px;
+    --tab-h: 42px;
     --fb-h: 32px;
     --r: 5px;
 
@@ -592,12 +592,12 @@ body {
 .tab-rail-main {
     display: flex;
     align-items: center;
-    gap: 3px;
-    padding: 3px 10px;
+    gap: 6px;
+    padding: 5px 12px;
     flex-wrap: nowrap;
     overflow-x: auto;
     border-bottom: 1px solid var(--navy4);
-    min-height: 34px;
+    min-height: 46px;
 }
 .tab-rail-main::-webkit-scrollbar { height: 0; }
 /* Linha 2 — distritais/setores: botões iguais cobrindo 100% */
@@ -613,10 +613,10 @@ body {
 .tab {
     background: rgba(255,255,255,.55);
     border: 1px solid var(--navy4);
-    border-radius: 4px;
+    border-radius: 6px;
     border-bottom: none;
-    padding: 4px 11px;
-    font-size: 11.5px;
+    padding: 9px 20px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--top-txt2);
     cursor: pointer;
@@ -1665,6 +1665,21 @@ body {
 }
 
 @media (max-width: 720px) {
+    .tab {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .tab.tab-pdv-special {
+        padding: 6px 11px !important;
+        margin-left: 6px;
+    }
+
+    .tab-rail-main {
+        min-height: 38px;
+        gap: 4px;
+    }
+
     .main-tbl {
         min-width: 900px
     }
@@ -3773,8 +3788,8 @@ td.vneg strong {
     border-radius: 6px 6px 0 0;
     color: #047857 !important;
     font-weight: 700 !important;
-    margin-left: 6px;
-    padding: 4px 10px !important;
+    margin-left: 10px;
+    padding: 9px 18px !important;
     position: relative;
     transition: all .15s ease;
 }
