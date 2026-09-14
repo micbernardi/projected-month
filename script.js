@@ -184,6 +184,10 @@ function rowsRespectingExclusions(rows, market) {
 
 /* ===== HELPERS ===== */
 const $ = id => document.getElementById(id);
+/* v7.2 — a KPI strip do topo foi removida; estes helpers mantêm o código
+   legado funcionando sem quebrar quando os elementos não existem mais. */
+const setKS = (id, txt) => { const e = document.getElementById(id); if (e) e.textContent = txt; };
+const setKpiStrip = disp => { const e = document.getElementById('kpiStrip'); if (e) e.style.display = disp; };
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 const normU = s => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 const fmtN = n => n == null || n === 0 ? '—' : Math.round(n).toLocaleString('pt-BR');
@@ -1058,9 +1062,9 @@ function renderResumo() {
     const totalMkt = mktAgg.reduce((s, m) => s + m.current, 0);
     const superaTotal = mktAgg.reduce((s, m) => s + m.supera, 0);
     const superaShare = totalMkt ? (superaTotal / totalMkt) * 100 : 0;
-    $('ks-mercado').textContent = fmtValue(totalMkt);
-    $('ks-supera').textContent = fmtValue(superaTotal);
-    $('ks-share').textContent = totalMkt ? superaShare.toFixed(1) + '%' : '—';
+    setKS('ks-mercado', fmtValue(totalMkt));
+    setKS('ks-supera', fmtValue(superaTotal));
+    setKS('ks-share', totalMkt ? superaShare.toFixed(1) + '%' : '—');
 
     // (v3.6) KPIs do header agora contam BRICKS FÍSICOS ÚNICOS (Brick + Cidade)
     // em vez de ocorrências brick × mercado. Um mesmo brick pode aparecer em
@@ -1087,13 +1091,13 @@ function renderResumo() {
             allBricksSet.add(key);
         });
     });
-    $('ks-lider').textContent = recBrickSets['LÍDER'].size.toLocaleString('pt-BR');
-    $('ks-crescer').textContent = recBrickSets['CRESCER'].size.toLocaleString('pt-BR');
-    $('ks-oport').textContent = recBrickSets['OPORTUNIDADE'].size.toLocaleString('pt-BR');
-    $('ks-acomp').textContent = recBrickSets['ACOMPANHAR'].size.toLocaleString('pt-BR');
-    $('ks-entrar').textContent = recBrickSets['ENTRAR'].size.toLocaleString('pt-BR');
-    $('ks-mkts').textContent = mktAgg.length.toLocaleString('pt-BR');
-    $('ks-bricks').textContent = allBricksSet.size.toLocaleString('pt-BR');
+    setKS('ks-lider', recBrickSets['LÍDER'].size.toLocaleString('pt-BR'));
+    setKS('ks-crescer', recBrickSets['CRESCER'].size.toLocaleString('pt-BR'));
+    setKS('ks-oport', recBrickSets['OPORTUNIDADE'].size.toLocaleString('pt-BR'));
+    setKS('ks-acomp', recBrickSets['ACOMPANHAR'].size.toLocaleString('pt-BR'));
+    setKS('ks-entrar', recBrickSets['ENTRAR'].size.toLocaleString('pt-BR'));
+    setKS('ks-mkts', mktAgg.length.toLocaleString('pt-BR'));
+    setKS('ks-bricks', allBricksSet.size.toLocaleString('pt-BR'));
     $('hdrPeriodLabel').textContent = periodLabel(pd) + ' — ' + (UI.unitMode === 'RS' ? 'R$' : 'Unidades');
 
     // === SORT ===
@@ -2861,7 +2865,7 @@ async function init(files, opts) {
 
         $('uploadView').style.display = 'none';
         $('dashView').style.display = 'block';
-        $('kpiStrip').style.display = 'flex';
+        setKpiStrip('flex');
         rebuildSelectors();
         buildSectorTabs();
         updateDistritalHeader();
@@ -2915,7 +2919,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             $('uploadView').style.display = 'none';
             $('dashView').style.display = 'block';
-            $('kpiStrip').style.display = 'flex';
+            setKpiStrip('flex');
 
             rebuildSelectors();
             buildSectorTabs();
@@ -2978,7 +2982,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             UI.regional = 'all';
             UI.distrital = 'all';
             $('dashView').style.display = 'none';
-            $('kpiStrip').style.display = 'none';
+            setKpiStrip('none');
             $('uploadView').style.display = 'flex';
             toast('Base limpa');
         });
@@ -5560,7 +5564,7 @@ async function smartUpload(filesIn, opts) {
         if (upView && dashView && getComputedStyle(upView).display !== 'none' && !hadConsolidated) {
             upView.style.display = 'none';
             dashView.style.display = 'block';
-            const kpiStrip = $('kpiStrip'); if (kpiStrip) kpiStrip.style.display = !hadConsolidated ? 'none' : 'flex';
+            setKpiStrip(!hadConsolidated ? 'none' : 'flex');
         }
         await handlePDVUpload(pdvFiles, opts);
         // Atualiza dropdowns globais (Setor / Mercado) com setores/marcas dos PDVs
@@ -5707,7 +5711,7 @@ function projUpdateStickyOffsets() {
 function openProjecaoView() {
     document.getElementById('uploadView').style.display = 'none';
     document.getElementById('dashView').style.display = 'none';
-    document.getElementById('kpiStrip').style.display = 'none';
+    setKpiStrip('none');
     // Ocultar botões do header que não têm função nessa tela
     ['periodGrp', 'unitGrp', 'datasetStatus', 'btnUpload', 'btnClearData',
         'btnClearHistory', 'historyIndicator', 'btnProjecao', 'btnEnviar'
@@ -5788,7 +5792,7 @@ function closeProjecaoView() {
     const hasData = DB.rows && DB.rows.length > 0;
     document.getElementById('uploadView').style.display = hasData ? 'none' : 'block';
     document.getElementById('dashView').style.display = hasData ? 'block' : 'none';
-    document.getElementById('kpiStrip').style.display = hasData ? 'flex' : 'none';
+    setKpiStrip(hasData ? 'flex' : 'none');
 }
 
 /* ── helpers ──────────────────────────── */

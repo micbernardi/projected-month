@@ -60,7 +60,7 @@
 
     /* alturas das barras sticky (densas) — v6.7: estética central de inteligência */
     --hdr-h: 42px;
-    --kpi-h: 48px;
+    --kpi-h: 0px;   /* KPI strip removida — abas ocupam o lugar */
     --tab-h: 42px;
     --fb-h: 32px;
     --r: 5px;
