@@ -203,6 +203,113 @@ const PERIODS = ['TRI', 'YTD', 'MAT', 'MES'];
 const PERIOD_LABELS = { MAT: 'MAT', YTD: 'YTD', TRI: 'TRI', MES: 'MÊS' };
 const periodLabel = p => PERIOD_LABELS[p] || p;
 
+/* ===== v7.2 — MÊS DE REFERÊNCIA DA BASE =====
+   A planilha DDD não traz o mês no conteúdo (colunas genéricas MAT/YTD/TRI/Mês),
+   então o mês é lido do NOME do arquivo (ex.: "DDD - 101102 - AGOSTO - R$.xlsx").
+   Ano: usa 20xx se aparecer no nome; senão assume o ano corrente, ou o anterior
+   quando o mês ainda não chegou (ex.: "DEZEMBRO" carregado em janeiro).        */
+const MESES_NOME = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const MESES_ABR = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+function detectRefMonth(fileName) {
+    const n = String(fileName || '').toUpperCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/\.[A-Z0-9]+$/, '');
+    const full = ['JANEIRO', 'FEVEREIRO', 'MARCO', 'ABRIL', 'MAIO', 'JUNHO',
+        'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+    const abr = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+    let m = -1;
+    for (let i = 0; i < 12 && m < 0; i++) {
+        if (new RegExp('(^|[^A-Z])' + full[i] + '([^A-Z]|$)').test(n)) m = i;
+    }
+    /* Abreviação só como palavra isolada (evita "SETOR", "MARCA"...). */
+    for (let i = 0; i < 12 && m < 0; i++) {
+        if (new RegExp('(^|[^A-Z])' + abr[i] + '([^A-Z]|$)').test(n)) m = i;
+    }
+    if (m < 0) return null;
+    const now = new Date();
+    let y;
+    const y4 = n.match(/(^|\D)(20\d{2})(\D|$)/);
+    if (y4) y = +y4[2];
+    else {
+        /* ex.: "AGO26", "AGO/26", "AGO_26" logo após o mês */
+        const y2 = n.match(new RegExp('(' + full[m] + '|' + abr[m] + ')[\\s_\\-/.]*(\\d{2})(\\D|$)'));
+        if (y2) y = 2000 + (+y2[2]);
+        else y = (m > now.getMonth()) ? now.getFullYear() - 1 : now.getFullYear();
+    }
+    return { m, y };
+}
+
+/* Mês de referência ativo (segue o modo Un./R$ selecionado). */
+function getRefMonth() {
+    const by = DB.refMonthByMode || {};
+    return by[UI.unitMode] || by.UN || by.RS || null;
+}
+
+/* Janela de meses coberta por cada período, a partir do mês de referência. */
+function refWindowLabel(ref, pd) {
+    if (!ref) return '';
+    const abr = (m, y) => MESES_ABR[((m % 12) + 12) % 12] + '/' + String(y).slice(-2);
+    const shift = k => { const t = ref.y * 12 + ref.m - k; return { m: t % 12, y: Math.floor(t / 12) }; };
+    const end = abr(ref.m, ref.y);
+    if (pd === 'MES') return end + ' vs ' + abr(ref.m, ref.y - 1);
+    if (pd === 'TRI') { const s = shift(2); return abr(s.m, s.y) + ' a ' + end; }
+    if (pd === 'YTD') return 'Jan a ' + end;
+    if (pd === 'MAT') { const s = shift(11); return abr(s.m, s.y) + ' a ' + end; }
+    return '';
+}
+
+function updateRefMonthBadge() {
+    const el = document.getElementById('hdrRefMonth');
+    if (!el) return;
+    const hasData = !!(DB.rows && DB.rows.length);
+    el.style.display = hasData ? '' : 'none';
+    if (!hasData) return;
+    const ref = getRefMonth();
+    const by = DB.refMonthByMode || {};
+    const mismatch = by.UN && by.RS && (by.UN.m !== by.RS.m || by.UN.y !== by.RS.y);
+    el.classList.toggle('hdr-ref-missing', !ref);
+    el.classList.toggle('hdr-ref-warn', !!mismatch);
+    if (!ref) {
+        el.innerHTML = '<span class="hdr-ref-main">Mês não identificado</span><span class="hdr-ref-win">clique para informar</span>';
+        el.title = 'O nome da planilha não traz o mês. Clique para informar manualmente.';
+        return;
+    }
+    el.innerHTML = '<span class="hdr-ref-main">Dados de ' + MESES_NOME[ref.m] + '/' + ref.y + '</span>'
+        + '<span class="hdr-ref-win">' + periodLabel(UI.periodMode) + ': ' + refWindowLabel(ref, UI.periodMode) + '</span>';
+    el.title = mismatch
+        ? 'Atenção: Unidades = ' + MESES_NOME[by.UN.m] + '/' + by.UN.y + ' e R$ = ' + MESES_NOME[by.RS.m] + '/' + by.RS.y + '. Clique para corrigir.'
+        : 'Mês lido do nome da planilha. Clique para corrigir.';
+}
+
+/* Correção manual (quando o nome do arquivo não traz o mês ou veio errado). */
+function editRefMonth() {
+    if (!(DB.rows && DB.rows.length)) return;
+    const cur = getRefMonth();
+    const sug = cur ? String(cur.m + 1).padStart(2, '0') + '/' + cur.y : '';
+    const unitTxt = UI.unitMode === 'RS' ? 'R$' : 'Unidades';
+    const v = prompt('Mês de referência da base de ' + unitTxt + ' (MM/AAAA):', sug);
+    if (v === null) return;
+    const mm = String(v).trim().match(/^(\d{1,2})\s*[\/\-.]\s*(\d{2}|\d{4})$/);
+    if (!mm || +mm[1] < 1 || +mm[1] > 12) { toast('Formato inválido. Use MM/AAAA, ex.: 08/2026'); return; }
+    const y = mm[2].length === 2 ? 2000 + (+mm[2]) : +mm[2];
+    DB.refMonthByMode = DB.refMonthByMode || {};
+    DB.refMonthByMode[UI.unitMode] = { m: +mm[1] - 1, y };
+    updateRefMonthBadge();
+    _persistDashboard();
+    toast('Mês de referência: ' + MESES_NOME[+mm[1] - 1] + '/' + y);
+}
+
+function _persistDashboard() {
+    if (typeof DBPersist === 'undefined') return;
+    DBPersist.save({
+        DB: DB,
+        UI: { periodMode: UI.periodMode, unitMode: UI.unitMode, regional: UI.regional, distrital: UI.distrital },
+        timestamp: new Date().toISOString()
+    }).catch(e => console.warn('[SUPERA] Erro ao salvar dados:', e));
+}
+
 /* Períodos disponíveis na base de PDVs (planilha IQVIA de PDV não traz mês).
    Quando o header estiver em MÊS, a aba PDV usa MAT como referência.       */
 const PDV_PERIODS = ['MAT', 'YTD', 'TRI'];
@@ -564,8 +671,10 @@ async function parseFiles(files, forceUnit) {
 
     const rowsByMode = { UN: [], RS: [] };
     const diagnostics = [];
+    const refByMode = {};   /* v7.2 — mês de referência por modo (Un./R$) */
 
     for (const file of files) {
+        const fileRef = detectRefMonth(file.name);
         try {
             _setProgress('Lendo ' + file.name + '...');
             await _yield();
@@ -585,6 +694,7 @@ async function parseFiles(files, forceUnit) {
                 await _yield();
                 const jzResult = await _parseDDDViaJSZip(buf, file.name, forceUnit, _setProgress);
                 for (const b of jzResult) rowsByMode[b.unitMode].push(b);
+                if (fileRef && jzResult.length) refByMode[jzResult[0].unitMode] = fileRef;
                 console.log('[SUPERA] JSZip fallback:', jzResult.length, 'buckets para', file.name);
                 continue;
             }
@@ -644,7 +754,8 @@ async function parseFiles(files, forceUnit) {
                     matHeader: (iMAT >= 0 ? headers[iMAT] : (iYTD >= 0 ? headers[iYTD] : (iTRI >= 0 ? headers[iTRI] : ''))),
                     forceUnit
                 });
-                diagnostics.push({ file: file.name, sheet: sheetName, mode: unitMode, forced: !!forceUnit });
+                diagnostics.push({ file: file.name, sheet: sheetName, mode: unitMode, forced: !!forceUnit, ref: fileRef });
+                if (fileRef) refByMode[unitMode] = fileRef;
                 console.log('[SUPERA] Aba', sheetName, '— colunas detectadas:', {
                     Regional: iRegional >= 0 ? headers[iRegional] : '❌ NÃO ENCONTRADO',
                     Distrital: iDistrital >= 0 ? headers[iDistrital] : '❌ NÃO ENCONTRADO',
@@ -760,7 +871,7 @@ async function parseFiles(files, forceUnit) {
         }
     }
     _setProgress('');
-    return { rowsByMode, diagnostics };
+    return { rowsByMode, diagnostics, refByMode };
 }
 
 /* ===== BUILD DATABASE =====
@@ -1658,6 +1769,7 @@ function renderActiveTab() {
     /* v5.9 — mantém o select global #fbMkt sincronizado com a aba ativa
        (Marca quando aba=pdv, Mercado para as demais). */
     if (typeof refreshGlobalMarketFilter === 'function') refreshGlobalMarketFilter(t);
+    updateRefMonthBadge();
     if (t === 'resumo') renderResumo();
     else if (t === 'brick') renderBrick();
     else if (t === 'graficos') renderGraficos();
@@ -2820,7 +2932,7 @@ async function init(files, opts) {
     try {
         const forceUnit = (opts && opts.forceUnit) ? opts.forceUnit : null;
         toast('Processando planilhas...');
-        const { rowsByMode, diagnostics } = await parseFiles(files, forceUnit);
+        const { rowsByMode, diagnostics, refByMode } = await parseFiles(files, forceUnit);
         if (!rowsByMode.UN.length && !rowsByMode.RS.length) {
             toast('Nenhuma linha encontrada. Verifique o cabeçalho das planilhas (veja o console para detalhes).');
             console.error('[SUPERA] Nenhuma linha processada. Verifique se a planilha tem as colunas: Mercado, Produto/Marca, Brick, MAT/YTD/TRI.');
@@ -2838,7 +2950,19 @@ async function init(files, opts) {
            para o usuário ver o universo carregado. */
         UI.regional = 'all';
         UI.distrital = 'all';
+        /* v7.2 — mês de referência: substitui o do modo recém-carregado
+           (mesma regra de substituição dos dados). Sem mês no nome → fica vazio. */
+        const prevRef = DB.refMonthByMode || {};
+        const newRef = {
+            UN: rowsByMode.UN.length ? (refByMode.UN || null) : (prevRef.UN || null),
+            RS: rowsByMode.RS.length ? (refByMode.RS || null) : (prevRef.RS || null)
+        };
         buildDB(merged);
+        DB.refMonthByMode = newRef;
+        if (newRef.UN && newRef.RS && (newRef.UN.m !== newRef.RS.m || newRef.UN.y !== newRef.RS.y)) {
+            setTimeout(() => toast('⚠️ Unidades é de ' + MESES_NOME[newRef.UN.m] + '/' + newRef.UN.y
+                + ' e R$ é de ' + MESES_NOME[newRef.RS.m] + '/' + newRef.RS.y + '.'), 2500);
+        }
 
         /* v5.5 — Ajusta UI.unitMode automaticamente para o modo que tem dados,
            garantindo que o Resumo Geral não fique vazio independente da ordem de upload.
@@ -2890,6 +3014,7 @@ async function init(files, opts) {
 
         const msg = diagnostics.map(d => `${d.file}${d.forced ? ' (forçada)' : ''}: ${d.mode === 'RS' ? 'R$' : 'Unidades'}`).join(' · ');
         updateDatasetStatus();
+        updateRefMonthBadge();
         toast(DB.markets.length + ' mercados · ' + msg);
 
         /* v6.2 — Salvar dados no IndexedDB para persistência */
@@ -2934,6 +3059,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             switchTab('resumo');
             updateDatasetStatus();
+            updateRefMonthBadge();
 
             /* Mostrar indicador de dados salvos */
             const historyInd = $('historyIndicator');
@@ -2947,6 +3073,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {
         console.warn('[SUPERA] Erro ao carregar dados salvos:', e);
     }
+
+    const refBadge = $('hdrRefMonth');
+    if (refBadge) refBadge.addEventListener('click', editRefMonth);
 
     const fileInput = $('fileInput');
     $('btnUpload').addEventListener('click', () => fileInput.click());
@@ -2979,8 +3108,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             DB.rows = [];
             DB.regionals = [];
             DB.distritais = [];
+            DB.refMonthByMode = {};
             UI.regional = 'all';
             UI.distrital = 'all';
+            updateRefMonthBadge();
             $('dashView').style.display = 'none';
             setKpiStrip('none');
             $('uploadView').style.display = 'flex';

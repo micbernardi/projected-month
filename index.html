@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=114">
+    <link rel="stylesheet" href="style.css?v=115">
 </head>
 
 <body>
@@ -77,8 +77,12 @@
         </div>
         <!-- Linha 2: badge contextual + busca rápida CNPJ/Brick -->
         <div class="hdr-bottom">
-            <div class="hdr-sub"><span id="hdrDistrital"></span> <span class="hdr-sub-sep">|</span> <span
-                    id="hdrPeriodLabel"></span></div>
+            <div class="hdr-bottom-left">
+                <div class="hdr-sub"><span id="hdrDistrital"></span> <span class="hdr-sub-sep">|</span> <span
+                        id="hdrPeriodLabel"></span></div>
+                <button type="button" class="hdr-ref-month" id="hdrRefMonth" style="display:none"
+                    title="Mês de referência dos dados"></button>
+            </div>
             <div class="cnpj-quick-wrap" title="Digite o CNPJ e pressione Enter para abrir os dados da farmácia">
                 <span class="cnpj-quick-icon">🔎</span>
                 <input id="cnpjQuickInput" class="cnpj-quick-input" placeholder="Buscar CNPJ ou Brick (ex: 8606)"
@@ -514,7 +518,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=114"></script>
+    <script src="script.js?v=115"></script>
 </body>
 
 </html>
