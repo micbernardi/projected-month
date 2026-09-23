@@ -5695,3 +5695,8 @@ td.pdv-growth-neg {
 @media (max-width: 768px) {
     .hdr-ref-win { display: none; }
 }
+
+
+/* v7.3 — setor que só existe na planilha de PDVs (sem base DDD) */
+.tab-sector.tab-sector-pdvonly { border-style: dashed; }
+.tab-sector.tab-sector-pdvonly .tab-sector-dot { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }

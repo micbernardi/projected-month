@@ -2294,14 +2294,16 @@ function buildSectorTabs() {
             host.appendChild(btn);
         });
     } else {
-        /* === modo "Setores" (clássico) === */
-        DB.sectors.forEach(sec => {
+        /* === modo "Setores" (clássico) ===
+           v7.3 — inclui setores que só existem na planilha de PDVs. */
+        const _uni = sectorTabUniverse();
+        _uni.list.forEach(sec => {
             const label = shortSectorLabel(sec);
             const btn = document.createElement('button');
-            btn.className = 'tab tab-sector';
+            btn.className = 'tab tab-sector' + (_uni.pdvOnly.has(sec) ? ' tab-sector-pdvonly' : '');
             btn.setAttribute('data-tab', 'brick');
             btn.setAttribute('data-sector', sec);
-            btn.setAttribute('title', cleanSectorName(sec) || sec);
+            btn.setAttribute('title', (cleanSectorName(sec) || sec) + (_uni.pdvOnly.has(sec) ? ' — só na planilha de PDVs (sem DDD carregado)' : ''));
             btn.innerHTML = '<span class="tab-sector-dot"></span>' + label;
             if ((UI.sectors && UI.sectors.length) ? UI.sectors.includes(sec) : (UI.sector === sec)) btn.classList.add('active-sector');
             btn.addEventListener('click', () => {
@@ -3364,6 +3366,59 @@ function median(arr) {
    permite consultar dados públicos de cada farmácia (BrasilAPI).
    ════════════════════════════════════════════════════════════════ */
 
+/* v7.3 — Setores ativos no header para a aba PDV (aceita multi-seleção).
+   Antes só UI.sector (valor único) era considerado: com 2+ setores marcados
+   a aba ignorava a seleção, e com 1 marcado mostrava só aquele. */
+function pdvActiveSectors() {
+    if (typeof UI === 'undefined') return [];
+    if (UI.sectors && UI.sectors.length) return UI.sectors;
+    return (UI.sector && UI.sector !== 'all') ? [UI.sector] : [];
+}
+function pdvSectorLabel() {
+    const a = pdvActiveSectors();
+    if (!a.length) return null;
+    return a.length === 1 ? a[0] : a.length + ' setores';
+}
+function pdvSectorMatch(prodSetor) {
+    const a = pdvActiveSectors();
+    if (!a.length) return true;
+    const code = x => { const m = String(x || '').match(/(\d{4,6})/); return m ? m[1].padEnd(6, '0').slice(0, 6) : ''; };
+    const u = String(prodSetor || '').toUpperCase().trim();
+    if (!u) return false;
+    const uc = code(u);
+    return a.some(t0 => {
+        const t = String(t0).toUpperCase().trim(), tc = code(t);
+        return (tc && uc && tc === uc) || u === t || u.includes(t) || t.includes(u);
+    });
+}
+
+/* v7.3 — universo de setores da barra de abas: base DDD + planilha de PDVs.
+   Setores que só existem nos PDVs entram também (antes ficavam de fora). */
+function sectorTabUniverse() {
+    const set = new Set(DB.sectors || []);
+    const pdvOnly = new Set();
+    if (typeof PDV !== 'undefined' && PDV.pdvsByValueMode) {
+        const mode = UI.unitMode;
+        const list = (PDV.pdvsByValueMode[mode] && PDV.pdvsByValueMode[mode].length)
+            ? PDV.pdvsByValueMode[mode]
+            : (PDV.pdvsByValueMode.RS && PDV.pdvsByValueMode.RS.length ? PDV.pdvsByValueMode.RS : (PDV.pdvsByValueMode.UN || []));
+        const code4 = x => { const m = String(x || '').match(/(\d{4,6})/); return m ? m[1].slice(0, 4) : ''; };
+        const dist = (UI.distrital && UI.distrital !== 'all') ? UI.distrital
+            : ((DB.distritais || []).length === 1 ? DB.distritais[0] : null);
+        const distCode = dist ? code4(dist) : '';
+        const codesInDB = new Set([...set].map(s => { const m = String(s).match(/(\d{6})/); return m ? m[1] : s; }));
+        list.forEach(p => (p.setores || []).forEach(sec => {
+            if (distCode && code4(sec) !== distCode) return;
+            const m = String(sec).match(/(\d{6})/); const c = m ? m[1] : sec;
+            if (codesInDB.has(c)) return;          /* mesmo setor com outro rótulo */
+            codesInDB.add(c);
+            set.add(sec); pdvOnly.add(sec);
+        }));
+    }
+    const arr = [...set].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
+    return { list: arr, pdvOnly };
+}
+
 const PDV = {
     viewMode: null,  // modo da aba PDV (null = usa UI.unitMode global)
     rowsByValueMode: { UN: [], RS: [] },  // todas as linhas brutas (uma por CNPJ × Marca × Brick)
@@ -3849,6 +3904,11 @@ async function handlePDVUpload(files, opts) {
     }
     if (errors.length) toast('Erros: ' + errors.join(' | '));
     if (typeof updateDatasetStatus === 'function') updateDatasetStatus();
+    /* v7.3 — atualiza filtro de Setor e barra de abas com os setores dos PDVs */
+    if (countOk) {
+        if (typeof rebuildSelectors === 'function') rebuildSelectors();
+        if (typeof buildSectorTabs === 'function') buildSectorTabs();
+    }
     renderPDV();
 }
 
@@ -3930,7 +3990,7 @@ function renderPDV() {
     // Aplicados PRIMEIRO sobre o universo completo de PDVs do modo atual.
     // Isso garante que os dropdowns e o contador reflitam apenas o recorte ativo.
     const f = PDV.filter;
-    const gSector = (typeof UI !== 'undefined' && UI.sector && UI.sector !== 'all') ? UI.sector : null;
+    const gSector = pdvSectorLabel();
     const gMarket = (typeof UI !== 'undefined' && UI.market && UI.market !== 'all') ? UI.market : null;
     const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
     const gRegional = (typeof UI !== 'undefined' && UI.regional && UI.regional !== 'all') ? UI.regional : null;
@@ -3968,7 +4028,7 @@ function renderPDV() {
     const pdvsGlobal = pdvs.filter(p => {
         if (gDistrital && !matchSector(p.distritais, gDistrital)) return false;
         if (gRegional && !matchSector(p.regionais, gRegional)) return false;
-        if (gSector && !matchSector(p.setores, gSector)) return false;
+        if (gSector && !p.setores.some(pdvSectorMatch)) return false;
         if (gMarket && !matchMarket(p.marcas, gMarket)) return false;
         return true;
     });
@@ -4129,11 +4189,7 @@ function renderPDV() {
         if (!gSector && !gDistrital && !(localDistrital && localDistrital.length)) return true;
         const u = String(prodSetor || '').toUpperCase().trim();
         const uCode = extractCode(u);
-        if (gSector) {
-            const t = String(gSector).toUpperCase().trim();
-            const tCode = extractCode(t);
-            return (tCode && uCode && tCode === uCode) || u === t || u.includes(t) || t.includes(u);
-        }
+        if (gSector) return pdvSectorMatch(prodSetor);
         const activeDistArr = localDistrital || (gDistrital ? [gDistrital] : null);
         if (activeDistArr) {
             return activeDistArr.some(d => {
@@ -4545,7 +4601,7 @@ async function exportPDVXLSX() {
     if (!pdvs.length) { toast('Nenhum dado de PDV carregado.'); return; }
 
     const f = PDV.filter || {};
-    const gSector = (typeof UI !== 'undefined' && UI.sector && UI.sector !== 'all') ? UI.sector : null;
+    const gSector = pdvSectorLabel();
     const gMarket = (typeof UI !== 'undefined' && UI.market && UI.market !== 'all') ? UI.market : null;
     const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
     const gRegional = (typeof UI !== 'undefined' && UI.regional && UI.regional !== 'all') ? UI.regional : null;
@@ -4570,10 +4626,7 @@ async function exportPDVXLSX() {
     const _matchProdSect = (prodSetor) => {
         if (!gSector && !gDistrital) return true;
         const u = String(prodSetor || '').toUpperCase().trim(), uCode = _ec(u);
-        if (gSector) {
-            const t = String(gSector).toUpperCase().trim(), tCode = _ec(t);
-            return (tCode && uCode && tCode === uCode) || u === t || u.includes(t) || t.includes(u);
-        }
+        if (gSector) return pdvSectorMatch(prodSetor);
         const distCode = _ec(String(gDistrital)).slice(0, 4);
         return distCode && uCode && uCode.slice(0, 4) === distCode;
     };
@@ -4615,7 +4668,7 @@ async function exportPDVXLSX() {
     let filtered = pdvs.filter(p => {
         if (gDistrital && !_matchSect(p.distritais, gDistrital)) return false;
         if (gRegional && !_matchSect(p.regionais, gRegional)) return false;
-        if (gSector && !_matchSect(p.setores, gSector)) return false;
+        if (gSector && !p.setores.some(pdvSectorMatch)) return false;
         if (gMarket && !_matchMkt(p.marcas, gMarket)) return false;
         if (f.brick && f.brick.length && !f.brick.some(v => p.bricks.includes(v))) return false;
         if (f.cidade && f.cidade.length && !f.cidade.includes(p.cidade)) return false;
@@ -4960,7 +5013,7 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         const prevK = period + '_prev';
 
         // ── Filtro de setor/distrital ativo no header ─────────────────────────
-        const gSector = (typeof UI !== 'undefined' && UI.sector && UI.sector !== 'all') ? UI.sector : null;
+        const gSector = pdvSectorLabel();
         const gDistrital = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
         // Filtro LOCAL de distrital da aba PDV (seletor "Distrital" na filterbar)
         const localDistFilter = (typeof PDV !== 'undefined' && PDV.filter && PDV.filter.distrital && PDV.filter.distrital.length)
@@ -4970,13 +5023,7 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
 
         const extractCode = s => { const m = String(s || '').match(/(\d{4,6})/); return m ? m[1].padEnd(6, '0').slice(0, 6) : ''; };
         const matchesSectorFilter = (prodSetor, prodDistrital) => {
-            if (gSector) {
-                const t = String(gSector).toUpperCase().trim(), tCode = extractCode(t);
-                const u = String(prodSetor || '').toUpperCase().trim(), uCode = extractCode(u);
-                if (tCode && uCode && tCode === uCode) return true;
-                if (u === t || u.includes(t) || t.includes(u)) return true;
-                return false;
-            }
+            if (gSector) return pdvSectorMatch(prodSetor);
             if (activeDistrital) {
                 // Compara pela distrital do produto diretamente (mais preciso)
                 if (prodDistrital) {
@@ -5226,17 +5273,13 @@ async function exportPDVModal(cnpjRaw) {
     // Produtos — filtra pelo setor/distrital ativo E pelas marcas selecionadas
     const periodUpper = pdvPeriod();
     const curK = periodUpper.toLowerCase() + '_cur';
-    const _gSector2 = (typeof UI !== 'undefined' && UI.sector && UI.sector !== 'all') ? UI.sector : null;
+    const _gSector2 = pdvSectorLabel();
     const _gDistrital2 = (typeof UI !== 'undefined' && UI.distrital && UI.distrital !== 'all') ? UI.distrital : null;
     const _activeMarcas2 = (typeof PDV !== 'undefined' && PDV.filter && PDV.filter.marca && PDV.filter.marca.length) ? PDV.filter.marca : [];
     const _extractCode2 = s => { const m = String(s || '').match(/(\d{4,6})/); return m ? m[1].padEnd(6, '0').slice(0, 6) : ''; };
     const _matchesSector2 = (prodSetor) => {
         if (!_gSector2 && !_gDistrital2) return true;
-        if (_gSector2) {
-            const t = String(_gSector2).toUpperCase().trim(), tCode = _extractCode2(t);
-            const u = String(prodSetor || '').toUpperCase().trim(), uCode = _extractCode2(u);
-            return (tCode && uCode && tCode === uCode) || u === t || u.includes(t) || t.includes(u);
-        }
+        if (_gSector2) return pdvSectorMatch(prodSetor);
         const distCode = _extractCode2(_gDistrital2).slice(0, 4);
         const sectCode = _extractCode2(prodSetor || '').slice(0, 4);
         return distCode && sectCode && distCode === sectCode;
