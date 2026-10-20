@@ -2275,6 +2275,18 @@ function shortSectorLabel(sec) {
     return cleaned.split(/\s+/).slice(0, 2).join(' ');
 }
 
+/* v7.4 — HTML interno do chip de setor/distrital: código + nome em spans
+   separados (o nome recebe ellipsis; o código fica sempre visível). */
+function sectorChipHTML(label) {
+    const parts = String(label).split(' — ');
+    const code = parts.length > 1 ? parts[0] : '';
+    const name = parts.length > 1 ? parts.slice(1).join(' — ') : parts[0];
+    const cap = name ? name.charAt(0).toUpperCase() + name.slice(1).toLowerCase() : '';
+    return '<span class="tab-sector-dot"></span>'
+        + (code ? '<span class="tab-sector-code">' + code + '</span>' : '')
+        + '<span class="tab-sector-name">' + cap + '</span>';
+}
+
 function buildSectorTabs() {
     /* v3.17 — quando a base tem mais de uma Distrital, o tab rail mostra
        Distritais (clicar filtra `UI.distrital`); quando há apenas uma
@@ -2301,7 +2313,7 @@ function buildSectorTabs() {
             btn.setAttribute('data-tab', 'brick');
             btn.setAttribute('data-distrital', d);
             btn.setAttribute('title', cleanSectorName(d) || d);
-            btn.innerHTML = '<span class="tab-sector-dot"></span>' + label;
+            btn.innerHTML = sectorChipHTML(label);
             if (UI.distrital === d) btn.classList.add('active-sector');
             btn.addEventListener('click', () => {
                 const wasActive = btn.classList.contains('active-sector');
@@ -2329,7 +2341,7 @@ function buildSectorTabs() {
             btn.setAttribute('data-tab', 'brick');
             btn.setAttribute('data-sector', sec);
             btn.setAttribute('title', (cleanSectorName(sec) || sec) + (_uni.pdvOnly.has(sec) ? ' — só na planilha de PDVs (sem DDD carregado)' : ''));
-            btn.innerHTML = '<span class="tab-sector-dot"></span>' + label;
+            btn.innerHTML = sectorChipHTML(label);
             if ((UI.sectors && UI.sectors.length) ? UI.sectors.includes(sec) : (UI.sector === sec)) btn.classList.add('active-sector');
             btn.addEventListener('click', () => {
                 /* v6.x — clique alterna o setor na multi-seleção (UI.sectors) */
