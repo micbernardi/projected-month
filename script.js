@@ -1044,34 +1044,51 @@ function getFilteredRows(extraSector) {
         - CRESCER    → Supera crescendo > 20% vs período anterior
         - ACOMPANHAR → Supera caindo < -10%
         - OPORTUNIDADE → caso contrário                                ===== */
-/* v7.0 — Recomendação por brick: critério único baseado em gap
+/* v7.7 — Recomendação por brick: degrau a degrau
    ────────────────────────────────────────────────────────────────
-   Regra simples e consistente para TODOS os mercados, em R$ e Unidades:
-     • Supera sem venda                              → ENTRAR
-     • Posição 1ª                                    → LÍDER
-     • Posição 2ª                                    → CRESCER
-     • Supera entrando (superaPrev = 0)              → OPORTUNIDADE
-     • gap p/ posição imediatamente acima ≤ 3× Supera → OPORTUNIDADE
-     • gap p/ posição imediatamente acima > 3× Supera → ACOMPANHAR
-
-   Usa sempre o gap para a posição ACIMA (não o gap para o líder),
-   o que torna o critério independente do tamanho do mercado e do
-   preço médio do produto — funciona igualmente em R$ e Unidades.
-*/
+   A referência é sempre a posição IMEDIATAMENTE ACIMA da Supera no
+   brick (estratégia de ganhar um degrau por vez), medida pelo múltiplo
+   de venda necessário para empatar com ela:
+       mult = venda do concorrente acima ÷ venda Supera
+     • Supera sem venda                         → ENTRAR
+     • Posição 1ª                               → LÍDER
+     • Posição 2ª                               → CRESCER (vice-liderança)
+     • mult ≤ 1 + REC_OPORT_MULT  (dobrando)    → OPORTUNIDADE  (ação do ciclo)
+     • mult ≤ 1 + REC_RADAR_MULT  (triplicando) → ACOMPANHAR + marcador "NO RADAR"
+     • acima disso                              → ACOMPANHAR
+   Supera entrando (anterior = 0) passa pelo mesmo teste de gap — não é
+   mais OPORTUNIDADE automática.
+   Os dois parâmetros abaixo são o único ajuste da regra.                */
+const REC_OPORT_MULT = 1;   // gap ≤ 1× Supera  ⇒ alcança o próximo dobrando
+const REC_RADAR_MULT = 2;   // gap ≤ 2× Supera  ⇒ alcança o próximo triplicando
 function calcRecBrick(superaCur, superaPrev, concMax, growth, pos, gapLider, liderGrowth, shareBrick, gapProximo) {
     if (!superaCur || superaCur <= 0) return 'ENTRAR';
     if (pos === 1) return 'LÍDER';
     if (pos === 2) return 'CRESCER';
-
-    // Supera entrando no brick (sem histórico anterior) → sempre OPORTUNIDADE
-    if (!superaPrev || superaPrev <= 0) return 'OPORTUNIDADE';
-
-    // Gap para a posição imediatamente acima
-    // Fallback para gapLider apenas se gapProximo não estiver disponível
     const gapRef = (gapProximo != null && gapProximo > 0) ? gapProximo : (gapLider || 0);
-    const alcancavel = gapRef <= superaCur * 3;  // gap ≤ 3× venda Supera
-
-    return alcancavel ? 'OPORTUNIDADE' : 'ACOMPANHAR';
+    return gapRef <= superaCur * REC_OPORT_MULT ? 'OPORTUNIDADE' : 'ACOMPANHAR';
+}
+/* Brick ACOMPANHAR que fica a até REC_RADAR_MULT× de distância do degrau acima */
+function isRadarBrick(b) {
+    if (!b || b.rec !== 'ACOMPANHAR' || !b.superaCur) return false;
+    const gapRef = (b.gapProximo != null && b.gapProximo > 0) ? b.gapProximo : (b.gapLider || 0);
+    return gapRef > 0 && gapRef <= b.superaCur * REC_RADAR_MULT;
+}
+/* Rótulo "precisa N× para passar o Kº (MARCA)" — null quando é líder / sem venda */
+function stepInfo(b) {
+    if (!b || !b.superaCur || !b.posSupera || b.posSupera <= 1) return null;
+    const rk = b.ranking || (typeof brickRanking === 'function' ? brickRanking(b).ranking : []);
+    const next = rk[b.posSupera - 2];
+    if (!next) return null;
+    const mult = next.cur / b.superaCur;
+    return { mult, pos: b.posSupera - 1, name: String(next.name || '').replace(/\s*\([^)]+\)\s*$/, '').trim() };
+}
+const fmtMult = m => (Math.round(m * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '×';
+/* Um brick "casa" com o filtro de recomendação? ('RADAR' é virtual) */
+function recMatches(b, rec) {
+    if (!rec || rec === 'all') return true;
+    if (rec === 'RADAR') return isRadarBrick(b);
+    return b.rec === rec;
 }
 function recColorVar(rec) {
     return ({
@@ -1140,6 +1157,8 @@ function aggBricksOfMarket(rows, pd, excludeProducts) {
         b.liderGrowth = liderGrowth;
         b.rec = calcRecBrick(b.superaCur, b.superaPrev, concMax, b.growth,
             rk.posSupera, rk.gap1, liderGrowth, b.share, b.gapProximo);
+        b.ranking = rk.ranking;
+        b.radar = isRadarBrick(b);
         return b;
     });
 }
@@ -1162,8 +1181,8 @@ function aggMarkets(rows, pd) {
         const previous = bricks.reduce((s, b) => s + b.totalPrev, 0);
         const supera = bricks.reduce((s, b) => s + b.superaCur, 0);
         const superaPrev = bricks.reduce((s, b) => s + b.superaPrev, 0);
-        const recs = { 'LÍDER': [], 'CRESCER': [], 'OPORTUNIDADE': [], 'ACOMPANHAR': [], 'ENTRAR': [] };
-        bricks.forEach(b => recs[b.rec].push(b));
+        const recs = { 'LÍDER': [], 'CRESCER': [], 'OPORTUNIDADE': [], 'ACOMPANHAR': [], 'ENTRAR': [], 'RADAR': [] };
+        bricks.forEach(b => { recs[b.rec].push(b); if (b.radar) recs['RADAR'].push(b); });
         const growth = previous !== 0 ? ((current / previous) - 1) : null;
         const superaGrowth = superaPrev !== 0 ? ((supera / superaPrev) - 1) : null;
         const share = current ? (supera / current) * 100 : 0;
@@ -1582,9 +1601,24 @@ function renderResumo() {
 function recCell(mkt, rec, cls) {
     const count = mkt.recs[rec].length;
     if (count === 0) return '<td class="c"><span class="rec-badge zero">—</span></td>';
-    return `<td class="c"><span class="rec-badge ${cls}" onclick="showBrickModal('${escStr(mkt.market)}','${rec}')">${count}</span></td>`;
+    /* v7.7 — em ACOMPANHAR, mostra quantos estão "no radar" (clicável, abre só eles) */
+    const radarN = rec === 'ACOMPANHAR' ? (mkt.recs['RADAR'] || []).length : 0;
+    const radar = radarN
+        ? ` <span class="rec-radar-sub" title="${radarN} brick(s) no radar: alcançam o próximo degrau triplicando" onclick="event.stopPropagation();showBrickModal('${escStr(mkt.market)}','RADAR')">◎${radarN}</span>`
+        : '';
+    return `<td class="c"><span class="rec-badge ${cls}" onclick="showBrickModal('${escStr(mkt.market)}','${rec}')">${count}</span>${radar}</td>`;
 }
 
+/* v7.7 — pílula de recomendação com marcador de radar e múltiplo p/ o próximo degrau */
+function recPillHTML(b) {
+    const cls = recPillCls(b.rec);
+    const st = stepInfo(b);
+    const radar = b.radar ? '<span class="rec-radar-dot" title="No radar: alcança o próximo degrau triplicando">◎</span>' : '';
+    const mult = st && (b.rec === 'OPORTUNIDADE' || b.rec === 'ACOMPANHAR' || b.rec === 'CRESCER')
+        ? `<span class="rec-mult" title="Múltiplo da venda atual necessário para empatar com o ${st.pos}º (${st.name})">${fmtMult(st.mult)}</span>`
+        : '';
+    return `<span class="rec-pill ${cls}${b.radar ? ' rec-pill-radar' : ''}">${radar}${b.rec}</span>${mult}`;
+}
 function recPillCls(rec) {
     return ({
         'LÍDER': 'rb-lider',
@@ -1673,7 +1707,7 @@ function showBrickModal(market, rec) {
     const pd = UI.periodMode;
     let rows = getFilteredRows().filter(r => r.market === market);
     const excl = getEffectiveExclusions(market);
-    const allBricks = aggBricksOfMarket(rows, pd, excl).filter(b => b.rec === rec);
+    const allBricks = aggBricksOfMarket(rows, pd, excl).filter(b => recMatches(b, rec));
     // pre-calc gapProximo para sort
     allBricks.forEach(b => {
         const rk = brickRanking(b);
@@ -1692,6 +1726,7 @@ function showBrickModal(market, rec) {
         'CRESCER': 'ACELERAR CRESCIMENTO',
         'OPORTUNIDADE': 'CAPTURAR OPORTUNIDADE',
         'ACOMPANHAR': 'ACOMPANHAR DE PERTO',
+        'RADAR': '◎ NO RADAR — ALCANÇA O PRÓXIMO DEGRAU ATÉ 3×',
         'ENTRAR': 'ENTRAR NO MERCADO'
     };
     // Badge de exclusão visível no título quando há produtos excluídos
@@ -1902,7 +1937,7 @@ function showVerModal(market) {
             <td class="r">${fmtValue(b.totalCur)}</td>
             <td class="r"><strong>${b.share.toFixed(1)}%</strong></td>
             <td class="r"><strong>${pos || '—'}ª</strong></td>
-            <td class="c"><span class="rec-pill ${recPillCls(b.rec)}">${b.rec}</span></td>
+            <td class="c">${recPillHTML(b)}</td>
         </tr>`;
     });
     html += '</tbody></table>';
@@ -2143,7 +2178,7 @@ function renderBrick() {
             : getExclusionsForMarket(market);
         const bricks = aggBricksOfMarket(rs, pd, excl);
         bricks.forEach(b => {
-            if (UI.rec !== 'all' && b.rec !== UI.rec) return;
+            if (!recMatches(b, UI.rec)) return;
             const rk = brickRanking(b);
             const superaLabelLst = (MARKETS_BRANDS_MAP[normU(market)] || {}).supera || [];
             const superaLabel = superaLabelLst.length ? superaLabelLst[0].replace(/\s*\(SP0\)\s*/i, '') : market;
@@ -2168,6 +2203,10 @@ function renderBrick() {
                 growthMkt: b.totalPrev !== 0 ? (b.totalCur / b.totalPrev - 1) : null,
                 growthSup: b.superaPrev !== 0 ? (b.superaCur / b.superaPrev - 1) : null,
                 rec: b.rec,
+                radar: b.radar,
+                posSupera: rk.posSupera,
+                gapProximo: b.gapProximo,
+                gapLider: b.gapLider,
                 /* v3.13 — ranking completo (Supera + concorrentes) p/ painel expansível */
                 ranking: rk.ranking
             });
@@ -2257,7 +2296,7 @@ function renderBrick() {
                 <td class="r">${l.gap3 ? fmtValue(l.gap3) : '—'}</td>
                 <td class="r ${cMkt}"><strong>${fmtPct(l.growthMkt)}</strong></td>
                 <td class="r ${cSup}"><strong>${fmtPct(l.growthSup)}</strong></td>
-                <td class="c"><span class="rec-pill ${recCls}">${l.rec}</span></td>
+                <td class="c">${recPillHTML(l)}</td>
             </tr>`;
             /* v3.13 — linha expansível (oculta por padrão) com painel de concorrentes */
             html += renderBrickExpandRow(l, expandId, pdLbl);
@@ -2269,11 +2308,13 @@ function renderBrick() {
     html += `<div class="brick-footer">
         <div class="brick-legend">
             <strong>LEGENDA:</strong>
-            <span class="rec-pill rb-lider">DEFENDER (1ª)</span>
-            <span class="rec-pill rb-crescer">CRESCER (2ª)</span>
-            <span class="rec-pill rb-oport">OPORTUNIDADE (3ª)</span>
-            <span class="rec-pill rb-acomp">ACOMPANHAR (4ª+)</span>
-            <span class="rec-pill rb-entrar">ENTRAR (0%)</span>
+            <span class="rec-pill rb-lider" title="Supera é a 1ª marca do brick">LÍDER (1ª)</span>
+            <span class="rec-pill rb-crescer" title="Supera é a 2ª marca do brick — vice-liderança">CRESCER (2ª)</span>
+            <span class="rec-pill rb-oport" title="Alcança a posição imediatamente acima dobrando a venda (gap ≤ ${REC_OPORT_MULT}×)">OPORTUNIDADE (próximo degrau ≤ ${1 + REC_OPORT_MULT}×)</span>
+            <span class="rec-pill rb-acomp rec-pill-radar" title="Acompanhar, mas alcança o próximo degrau triplicando (gap ≤ ${REC_RADAR_MULT}×)">◎ NO RADAR (≤ ${1 + REC_RADAR_MULT}×)</span>
+            <span class="rec-pill rb-acomp" title="Próximo degrau exige mais de ${1 + REC_RADAR_MULT}× a venda atual">ACOMPANHAR (&gt; ${1 + REC_RADAR_MULT}×)</span>
+            <span class="rec-pill rb-entrar" title="Supera sem venda no brick">ENTRAR (0)</span>
+            <span class="brick-legend-note">N× = múltiplo da venda atual para empatar com a marca logo acima</span>
         </div>
         <div class="brick-pager">
             <button class="pager-btn" onclick="goBrickPage(1)" ${BRICK_PAGE === 1 ? 'disabled' : ''}>«</button>
@@ -2303,6 +2344,17 @@ function renderBrickExpandRow(l, expandId, pdLbl) {
     inner += `<span class="brick-exp-title">Concorrentes — <strong>${l.market}</strong> — ${l.cidade || '—'}</span>`;
     inner += `<span class="brick-exp-meta"><code>${l.brick}</code> &middot; ${cnt} marca${cnt === 1 ? '' : 's'} &middot; Mercado total: ${fmtValue(totalCur)} un.</span>`;
     inner += `</div>`;
+    /* v7.7 — próximo degrau */
+    const st = stepInfo(Object.assign({ superaCur: l.superaCur, posSupera: l.posSupera, ranking }, {}));
+    if (st) {
+        const next = ranking[l.posSupera - 2];
+        const gap = next ? next.cur - l.superaCur : 0;
+        const cls = l.rec === 'OPORTUNIDADE' ? 'step-oport' : (l.radar ? 'step-radar' : (l.rec === 'CRESCER' ? 'step-crescer' : 'step-acomp'));
+        inner += `<div class="brick-exp-step ${cls}">
+            <span class="step-lbl">Próximo degrau</span>
+            <span class="step-txt">${st.pos}º lugar — <strong>${st.name}</strong>: faltam <strong>${fmtValue(gap)}</strong>, ou seja, <strong>${fmtMult(st.mult)}</strong> a venda atual da Supera${l.rec === 'OPORTUNIDADE' ? ' · dá para alcançar dobrando' : (l.radar ? ' · no radar: alcança triplicando' : (l.rec === 'CRESCER' ? ' · vice-liderança: o degrau acima é o líder' : ''))}</span>
+        </div>`;
+    }
 
     inner += `<table class="brick-exp-tbl">`;
     inner += `<colgroup>`;

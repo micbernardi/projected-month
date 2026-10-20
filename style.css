@@ -5848,3 +5848,71 @@ td.pdv-growth-neg {
 /* v7.3 — setor que só existe na planilha de PDVs (sem base DDD) */
 .tab-sector.tab-sector-pdvonly { border-style: dashed; }
 .tab-sector.tab-sector-pdvonly .tab-sector-dot { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+
+
+/* ═══ v7.7 — Regra degrau a degrau: radar + múltiplo ═══ */
+.rec-radar-sub {
+    display: inline-block;
+    margin-left: 3px;
+    padding: 0 5px;
+    border-radius: 8px;
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    color: #c2410c;
+    font-size: 9.5px;
+    font-weight: 800;
+    cursor: pointer;
+    vertical-align: middle;
+}
+.rec-radar-sub:hover { background: #ffedd5; }
+.rec-radar-dot {
+    margin-right: 3px;
+    color: #ea580c;
+    font-weight: 900;
+}
+.rec-pill.rec-pill-radar {
+    box-shadow: inset 0 0 0 1.5px #fb923c;
+}
+.rec-mult {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 10px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #475569;
+    background: #f1f5f9;
+    border-radius: 6px;
+    padding: 1px 5px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.brick-legend-note {
+    margin-left: 10px;
+    font-size: 10px;
+    color: #64748b;
+    font-style: italic;
+}
+.brick-exp-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border-left: 4px solid #94a3b8;
+    background: #f8fafc;
+    font-size: 11.5px;
+    color: #1e293b;
+}
+.brick-exp-step .step-lbl {
+    font-size: 9.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #64748b;
+    white-space: nowrap;
+}
+.brick-exp-step.step-oport  { border-left-color: var(--c-oport, #d97706);  background: #fffbeb; }
+.brick-exp-step.step-radar  { border-left-color: #fb923c; background: #fff7ed; }
+.brick-exp-step.step-crescer{ border-left-color: var(--c-crescer, #2563eb); background: #eff6ff; }
+.brick-exp-step.step-acomp  { border-left-color: var(--c-acomp, #94a3b8); }
