@@ -1445,7 +1445,7 @@ function renderResumo() {
                             const shareTxt = ci.cur ? (b.cur / ci.cur * 100).toFixed(2).replace('.', ',') + '%' : '—';
                             return `<tr class="rank-brick-row${isExtra ? ' rank-city-extra-child' : ''}" data-parent="${cityId}" style="display:none">
                                 <td class="rank-brick-pos">${b_i + 1}</td>
-                                <td class="rank-brick-name"><span class="rank-brick-code">${b.brick}</span><span class="rank-brick-share" title="Importância do brick: participação na venda da marca nesta cidade">${shareTxt}</span></td>
+                                <td class="rank-brick-name"><div class="rank-brick-cell"><span class="rank-brick-code">${b.brick}</span><span class="rank-brick-share" title="Importância do brick: participação na venda da marca nesta cidade">${shareTxt}<small>da cidade</small></span></div></td>
                                 <td class="r rank-city-prev">${fmtValue(b.prev)}</td>
                                 <td class="r rank-brick-val">${fmtValue(b.cur)}</td>
                                 <td class="r rank-city-evol ${bgCls}">${bgTxt}</td>

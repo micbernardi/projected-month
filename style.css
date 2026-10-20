@@ -5555,17 +5555,45 @@ td.pdv-growth-neg {
     font-weight: 600;
 }
 .rank-brick-name { padding-left: 34px !important; }
+.rank-brick-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+}
 .rank-brick-code {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 10.5px;
     font-weight: 600;
     color: #334155;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 .rank-brick-share {
-    margin-left: 8px;
-    font-size: 9.5px;
-    font-weight: 700;
-    color: #94a3b8;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #e8effe;
+    border: 1px solid #c7d8f0;
+    color: #1d4ed8;
+    font-size: 10px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .2px;
+    white-space: nowrap;
+}
+.rank-brick-share small {
+    font-size: 8.5px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .4px;
 }
 .rank-brick-val {
     text-align: right;
