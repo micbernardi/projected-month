@@ -5460,6 +5460,12 @@ td.pdv-growth-neg {
     font-weight: 600;
     color: var(--txt, #1e293b);
 }
+.rank-city-prev {
+    text-align: right;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--txt3, #94a3b8);
+}
 .rank-city-val {
     text-align: right;
     font-weight: 700;
@@ -5471,6 +5477,24 @@ td.pdv-growth-neg {
     font-variant-numeric: tabular-nums;
     min-width: 64px;
 }
+.rank-city-more-row td.rank-city-more-cell {
+    padding: 4px 10px !important;
+    background: #f6f9ff;
+    border-bottom: none;
+}
+.rank-city-more-row:hover td { background: #f6f9ff !important; }
+.rank-city-more {
+    background: none;
+    border: none;
+    padding: 2px 0;
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    color: var(--blue, #2563eb);
+    cursor: pointer;
+}
+.rank-city-more:hover { text-decoration: underline; }
 .rank-city-empty {
     padding: 8px 10px !important;
     color: var(--txt3, #94a3b8);

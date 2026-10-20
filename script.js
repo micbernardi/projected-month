@@ -1328,20 +1328,28 @@ function renderResumo() {
                 const prodKey = c.name.replace(/'/g, "\\'");
                 const rowId = `city-exp-${i}-${mktKey.replace(/\W/g, '_')}`;
 
-                // Pré-calcula top 5 cidades para este produto
-                const cidades = topCidadesPorProduto(m.rows, c.name, pd, 5);
+                // Calcula TODAS as cidades deste produto; exibe 5 e esconde o restante atrás de "mostrar mais"
+                const CITY_LIMIT = 5;
+                const cidades = topCidadesPorProduto(m.rows, c.name, pd, Infinity);
+                const extraCount = Math.max(0, cidades.length - CITY_LIMIT);
                 const cidadeRows = cidades.length === 0
-                    ? `<tr><td colspan="4" class="rank-city-empty">Sem dados de cidade</td></tr>`
+                    ? `<tr><td colspan="5" class="rank-city-empty">Sem dados de cidade</td></tr>`
                     : cidades.map((ci, ci_i) => {
                         const cgCls = ci.growth == null ? 'vnull' : (ci.growth >= 0 ? 'vpos' : 'vneg');
                         const cgTxt = ci.growth == null ? '—' : ((ci.growth >= 0 ? '+' : '') + (ci.growth * 100).toFixed(1) + '%');
-                        return `<tr class="rank-city-row">
+                        const hidden = ci_i >= CITY_LIMIT ? ' rank-city-extra" style="display:none' : '';
+                        return `<tr class="rank-city-row${hidden}">
                             <td class="rank-city-pos">${ci_i + 1}º</td>
                             <td class="rank-city-name">📍 ${ci.cidade}</td>
+                            <td class="r rank-city-prev">${fmtValue(ci.prev)}</td>
                             <td class="r rank-city-val">${fmtValue(ci.cur)}</td>
                             <td class="r rank-city-evol ${cgCls}"><strong>${cgTxt}</strong></td>
                         </tr>`;
-                    }).join('');
+                    }).join('') + (extraCount > 0 ? `<tr class="rank-city-more-row">
+                            <td colspan="5" class="rank-city-more-cell">
+                                <button type="button" class="rank-city-more" data-more="${extraCount}">Mostrar mais ${extraCount} cidade${extraCount > 1 ? 's' : ''} ▾</button>
+                            </td>
+                        </tr>` : '');
 
                 return `<tr class="rank-row${isSup ? ' rank-supera' : ''}">
                     <td class="c rank-pos">${i + 1}º</td>
@@ -1361,6 +1369,7 @@ function renderResumo() {
                             <thead><tr>
                                 <th style="width:32px">#</th>
                                 <th>Cidade</th>
+                                <th class="r">${periodLabel(pd)} Anterior</th>
                                 <th class="r">${periodLabel(pd)} Atual</th>
                                 <th class="r">Evol.</th>
                             </tr></thead>
@@ -1416,6 +1425,22 @@ function renderResumo() {
             panel.style.display = isOpen ? 'none' : 'table-row';
             this.textContent = isOpen ? '+' : '−';
             this.classList.toggle('rank-city-toggle-open', !isOpen);
+        });
+    });
+
+    // Ativa botões "Mostrar mais / Mostrar menos" das tabelas de cidades
+    el.querySelectorAll('.rank-city-more').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const tbody = this.closest('tbody');
+            if (!tbody) return;
+            const extras = tbody.querySelectorAll('.rank-city-extra');
+            const expanded = this.classList.toggle('rank-city-more-open');
+            extras.forEach(tr => { tr.style.display = expanded ? 'table-row' : 'none'; });
+            const n = this.getAttribute('data-more');
+            this.textContent = expanded
+                ? 'Mostrar menos ▴'
+                : `Mostrar mais ${n} cidade${n > 1 ? 's' : ''} ▾`;
         });
     });
 }
