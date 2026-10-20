@@ -5501,6 +5501,78 @@ td.pdv-growth-neg {
     font-variant-numeric: tabular-nums;
     min-width: 64px;
 }
+/* v7.6 — detalhe por brick dentro da cidade */
+.rank-brick-toggle, .rank-brick-toggle-ph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+.rank-brick-toggle {
+    border: 1px solid #b9c8e8;
+    border-radius: 4px;
+    background: #fff;
+    color: var(--navy, #25395a);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+}
+.rank-brick-toggle:hover { background: #e8effe; }
+.rank-brick-toggle.rank-brick-toggle-open {
+    background: var(--navy, #25395a);
+    border-color: var(--navy, #25395a);
+    color: #fff;
+}
+.rank-city-nb {
+    margin-left: 6px;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #64748b;
+    background: #eef2f9;
+    border-radius: 8px;
+    padding: 1px 6px;
+    vertical-align: middle;
+}
+.rank-city-row.rank-city-open td { background: #f1f5ff; }
+.rank-brick-row td {
+    background: #f8faff;
+    font-size: 11px;
+    color: #475569;
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+}
+.rank-brick-row:hover td { background: #eef3ff !important; }
+.rank-brick-pos {
+    text-align: right;
+    color: #a0aec0;
+    font-size: 10px;
+    font-weight: 600;
+}
+.rank-brick-name { padding-left: 34px !important; }
+.rank-brick-code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #334155;
+}
+.rank-brick-share {
+    margin-left: 8px;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #94a3b8;
+}
+.rank-brick-val {
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #334155;
+}
 .rank-city-more-row td.rank-city-more-cell {
     padding: 4px 10px !important;
     background: #f6f9ff;

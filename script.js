@@ -396,7 +396,74 @@ function parseNum(v) {
      3) nome da ABA
      4) nome dos HEADERS da coluna MAT (MAT R$ → RS)
      5) fallback: UN                                                   */
-function detectUnitMode({ fileName, sheetName, matHeader, forceUnit }) {
+/* ══════════════════════════════════════════════════════════════════════
+   v7.5 — CONTROLE DE ACESSO POR HIERARQUIA
+   Regra: Regional Sul (códigos iniciados em 1) + distritais extras
+   explicitamente liberadas (lista abaixo, por prefixo do código).
+   A checagem é feita LINHA A LINHA: um arquivo regional que contenha a
+   604000 junto de outras distritais carrega só as linhas permitidas.
+   ══════════════════════════════════════════════════════════════════════ */
+const EXTRA_ALLOWED_DISTRITAIS = ['604000'];
+function _hierCode(v) {
+    const m = String(v || '').match(/\d{3,6}/);
+    return m ? m[0] : '';
+}
+function isAllowedHierarchy(regional, distrital, sector) {
+    const r = _hierCode(regional), d = _hierCode(distrital), sct = _hierCode(sector);
+    /* Regional Sul: todos os códigos presentes começam com 1 */
+    const sul = [r, d, sct].every(c => !c || c.charAt(0) === '1');
+    if (sul) return true;
+    /* Distritais extras: distrital (ou setor, quando não há coluna distrital)
+       começa com o código liberado — ex.: 604000 → setores 604101, 604102… */
+    return EXTRA_ALLOWED_DISTRITAIS.some(code => {
+        const pre = code.replace(/0+$/, '');            // 604000 → 604
+        return (d && d.startsWith(pre)) || (!d && sct && sct.startsWith(pre));
+    });
+}
+
+/* v7.5 — Planilhas "cruas" exportadas direto da ferramenta trazem, antes do
+   cabeçalho, um bloco de texto "Filtros aplicados: … Tipo de Métrica é Unidade /
+   Valor / PPP …". Essa declaração tem prioridade sobre o nome do arquivo. */
+function unitFromRawMeta(text) {
+    const t = norm(text);
+    if (!t) return null;
+    if (/tipo\s*de\s*metrica\s*(e|=|:)?\s*(valor|ppp|reais|r\$|faturamento)/.test(t)) return 'RS';
+    if (/tipo\s*de\s*metrica\s*(e|=|:)?\s*(unidade|unidades|un\b|uni\b)/.test(t)) return 'UN';
+    if (/\b(ppp|reais|r\$|valor)\b/.test(t) && !/unidade/.test(t)) return 'RS';
+    if (/\bunidades?\b/.test(t) && !/\b(ppp|reais|r\$)\b/.test(t)) return 'UN';
+    return null;
+}
+/* Localiza a linha de cabeçalho numa matriz (header:1): primeira linha que
+   contenha "mercado" e pelo menos um de MAT/YTD/TRI. Devolve o índice ou -1. */
+function findHeaderRowIdx(aoa, maxScan) {
+    const lim = Math.min(aoa.length, maxScan || 25);
+    for (let i = 0; i < lim; i++) {
+        const cells = (aoa[i] || []).map(v => norm(v));
+        if (cells.length < 3) continue;
+        const hasMkt = cells.some(c => /^mercado/.test(c) || /^marca$/.test(c) || /^produto/.test(c));
+        const hasPer = cells.some(c => /^(mat|ytd|tri)\b/.test(c));
+        if (hasMkt && hasPer) return i;
+    }
+    return -1;
+}
+/* Heurística numérica: se uma fração relevante dos valores tiver casas
+   decimais, é R$/PPP; unidades são sempre inteiras. */
+function unitFromSample(values) {
+    let total = 0, dec = 0;
+    for (const v of values) {
+        const n = parseNum(v);
+        if (!n) continue;
+        total++;
+        if (Math.abs(n - Math.round(n)) > 1e-9) dec++;
+    }
+    if (total < 20) return null;
+    return (dec / total > 0.10) ? 'RS' : 'UN';
+}
+
+function detectUnitMode({ fileName, sheetName, matHeader, forceUnit, metaUnit, sampleUnit }) {
+    /* v7.5 — a declaração dentro do arquivo ("Tipo de Métrica é …") vence tudo */
+    if (metaUnit === 'UN' || metaUnit === 'RS') return metaUnit;
+
     const blob = (fileName + ' | ' + sheetName + ' | ' + (matHeader || '')).toLowerCase();
     const b = blob.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
@@ -415,6 +482,8 @@ function detectUnitMode({ fileName, sheetName, matHeader, forceUnit }) {
     // Fallback: verifica aba e header da coluna MAT
     if (/reais?|r\$|\$|\bppp\b|valor/.test(b)) return 'RS';
     if (/unidades?|\buni\b|\bun\b|# ?un|dddunid/.test(b)) return 'UN';
+    // v7.5 — último recurso: amostra numérica (decimais ⇒ R$)
+    if (sampleUnit === 'UN' || sampleUnit === 'RS') return sampleUnit;
     return 'UN';
 }
 /* v3.19 — Parser streaming + pré-agregação.
@@ -510,15 +579,29 @@ async function _parseDDDViaJSZip(buf, fileName, forceUnit, setProgress) {
         return cells;
     };
 
-    /* Primeira passagem: localiza o cabeçalho (row r="1") nos primeiros 2 MB */
+    /* Primeira passagem: localiza o cabeçalho nos primeiros 2 MB.
+       v7.5 — arquivos "crus" trazem linhas de texto antes do cabeçalho
+       ("Filtros aplicados: … Tipo de Métrica é Unidade"), então varremos as
+       25 primeiras rows até achar uma com MERCADO/MARCA + MAT/YTD/TRI. */
     const headerBytes = xmlBytes.slice(0, Math.min(2 * 1024 * 1024, xmlBytes.length));
     const headerChunk = decoder.decode(headerBytes, { stream: false });
-    const rh = headerChunk.indexOf(' r="1"');
-    if (rh < 0) throw new Error('Linha de cabeçalho não encontrada.');
-    const hTagEnd = headerChunk.indexOf('>', rh);
-    const hRowEnd = headerChunk.indexOf('</row>', hTagEnd);
-    if (hTagEnd < 0 || hRowEnd < 0) throw new Error('Linha de cabeçalho malformada.');
-    const headerCells = parseCells(headerChunk.slice(hTagEnd + 1, hRowEnd), sharedStrings);
+    let headerCells = null, headerRowNum = 0, metaText = '';
+    for (let rn = 1; rn <= 25 && !headerCells; rn++) {
+        const rh = headerChunk.indexOf(' r="' + rn + '"');
+        if (rh < 0) continue;
+        const te = headerChunk.indexOf('>', rh);
+        const re = headerChunk.indexOf('</row>', te);
+        if (te < 0 || re < 0) break;
+        const cells = parseCells(headerChunk.slice(te + 1, re), sharedStrings);
+        const vals = Object.values(cells).map(v => norm(v));
+        const hasMkt = vals.some(c => /^mercado/.test(c) || /^marca$/.test(c) || /^produto/.test(c));
+        const hasPer = vals.some(c => /^(mat|ytd|tri)\b/.test(c));
+        if (hasMkt && hasPer) { headerCells = cells; headerRowNum = rn; }
+        else metaText += ' ' + Object.values(cells).join(' ');
+    }
+    if (!headerCells) throw new Error('Linha de cabeçalho não encontrada.');
+    const metaUnit = unitFromRawMeta(metaText);
+    if (headerRowNum > 1) console.log('[SUPERA JSZip] Cabeçalho na linha', headerRowNum, '— metadados:', metaText.trim().slice(0, 120), '→', metaUnit || 'sem indicação');
 
     const colMap = {};
     for (const [col, val] of Object.entries(headerCells)) colMap[col] = norm(String(val));
@@ -552,15 +635,13 @@ async function _parseDDDViaJSZip(buf, fileName, forceUnit, setProgress) {
     const unitMode = detectUnitMode({
         fileName, sheetName: 'Sheet1',
         matHeader: cMAT ? (colMap[cMAT] || '') : (cYTD ? (colMap[cYTD] || '') : ''),
-        forceUnit
+        forceUnit, metaUnit
     });
     console.log('[SUPERA JSZip] Colunas:', { MAT: cMAT, YTD: cYTD, TRI: cTRI, MES: cMES, MESAnt: cMESAnt, Mercado: cMercado, Brick: cBrick, Modo: unitMode });
 
     /* Segunda passagem: processa todas as rows em blocos de 16 MB com tail overlap */
     const agg = new Map();
-    const startsWithOne = v => !v || /^1/.test(String(v).replace(/\D/, ''));
-    let processed = 0, kept = 0, rowCount = 0;
-    let firstDataRow = true;
+    let processed = 0, kept = 0, rowCount = 0, blocked = 0;
     let tail = '';                    // fragmento incompleto do bloco anterior
     const TAIL_MAX = 200 * 1024;      // mantém até 200 KB de tail (maior row possível)
     const totalMB = Math.ceil(xmlBytes.length / 1024 / 1024);
@@ -589,20 +670,10 @@ async function _parseDDDViaJSZip(buf, fileName, forceUnit, setProgress) {
             let numEnd = ri + 4;
             while (numEnd < tag.length && tag[numEnd] >= '0' && tag[numEnd] <= '9') numEnd++;
             const rowNum = parseInt(tag.slice(ri + 4, numEnd));
-            if (rowNum <= 1) continue;
+            if (rowNum <= headerRowNum) continue;
 
             const rowStr = chunk.slice(tagEnd + 1, rowEnd);
             const cells = parseCells(rowStr, sharedStrings);
-
-            if (firstDataRow) {
-                firstDataRow = false;
-                const chkReg = cRegional ? (cells[cRegional] || '') : '';
-                const chkDist = cDistrital ? (cells[cDistrital] || '') : '';
-                const chkSet = cSetor ? (cells[cSetor] || '') : '';
-                if (!startsWithOne(chkReg) || !startsWithOne(chkDist) || !startsWithOne(chkSet)) {
-                    showRegionalSulBlock(); return [];
-                }
-            }
 
             const market = cMercado ? (cells[cMercado] || '').trim() : '';
             const product = cProduto ? (cells[cProduto] || '').trim() : '';
@@ -614,6 +685,8 @@ async function _parseDDDViaJSZip(buf, fileName, forceUnit, setProgress) {
 
             processed++;
             if (!market || (!brickName && !product)) continue;
+            /* v7.5 — controle de acesso linha a linha */
+            if (!isAllowedHierarchy(regional, distrital, sector)) { blocked++; continue; }
 
             const mat = parseNum(cMAT ? cells[cMAT] : 0);
             const ytd = parseNum(cYTD ? cells[cYTD] : 0);
@@ -652,6 +725,9 @@ async function _parseDDDViaJSZip(buf, fileName, forceUnit, setProgress) {
         setProgress('Lendo (alternativo)... ' + pct + '% — ' + processed.toLocaleString('pt-BR') + ' linhas, ' + kept.toLocaleString('pt-BR') + ' bricks');
         await _yield();
     }
+
+    if (kept === 0 && blocked > 0) { showRegionalSulBlock(); return []; }
+    if (blocked > 0) console.warn('[SUPERA JSZip]', blocked.toLocaleString('pt-BR'), 'linhas de outras regionais/distritais ignoradas.');
 
     const result = [];
     for (const b of agg.values()) {
@@ -708,7 +784,16 @@ async function parseFiles(files, forceUnit) {
                 /* AOA evita criar objeto por linha; muito mais leve em memória. */
                 const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false, blankrows: false });
                 if (!aoa.length) continue;
-                const headers = aoa[0].map(h => String(h || '').trim());
+                /* v7.5 — arquivo "cru": cabeçalho pode não estar na 1ª linha */
+                const hIdx = findHeaderRowIdx(aoa, 25);
+                if (hIdx < 0) {
+                    console.warn('[SUPERA] Aba', sheetName, '— cabeçalho (MERCADO + MAT/YTD/TRI) não localizado nas 25 primeiras linhas.');
+                    continue;
+                }
+                const metaText = hIdx > 0 ? aoa.slice(0, hIdx).map(r => (r || []).join(' ')).join(' ') : '';
+                const metaUnit = unitFromRawMeta(metaText);
+                if (hIdx > 0) console.log('[SUPERA] Aba', sheetName, '— cabeçalho na linha', hIdx + 1, '— metadados:', metaText.trim().slice(0, 120), '→', metaUnit || 'sem indicação');
+                const headers = aoa[hIdx].map(h => String(h || '').trim());
                 if (!headers.length) continue;
 
                 const findIdx = patterns => {
@@ -748,11 +833,20 @@ async function parseFiles(files, forceUnit) {
                     console.warn('[SUPERA] Aba', sheetName, '— coluna MERCADO não detectada. Headers:', headers.join(' | '));
                 }
 
+                /* v7.5 — amostra numérica da coluna principal p/ desempate (decimais ⇒ R$) */
+                const iSample = iMAT >= 0 ? iMAT : (iYTD >= 0 ? iYTD : iTRI);
+                const sampleVals = [];
+                for (let r = hIdx + 1; r < aoa.length && sampleVals.length < 2000; r++) {
+                    const v = aoa[r] && aoa[r][iSample];
+                    if (v !== '' && v != null) sampleVals.push(v);
+                }
+                const sampleUnit = unitFromSample(sampleVals);
+
                 const unitMode = detectUnitMode({
                     fileName: file.name,
                     sheetName,
                     matHeader: (iMAT >= 0 ? headers[iMAT] : (iYTD >= 0 ? headers[iYTD] : (iTRI >= 0 ? headers[iTRI] : ''))),
-                    forceUnit
+                    forceUnit, metaUnit, sampleUnit
                 });
                 diagnostics.push({ file: file.name, sheet: sheetName, mode: unitMode, forced: !!forceUnit, ref: fileRef });
                 if (fileRef) refByMode[unitMode] = fileRef;
@@ -775,27 +869,15 @@ async function parseFiles(files, forceUnit) {
 
                 /* Pré-agregação: chave = regional|distrital|setor|mercado|marca|brick|cidade */
                 const agg = new Map();
-                const total = aoa.length - 1;
+                const total = aoa.length - 1 - hIdx;
                 let processed = 0;
                 let kept = 0;
+                let blocked = 0;
                 const CHUNK = 50000;
 
-                /* ── VALIDAÇÃO: uso exclusivo da Regional Sul ──────────────────────────
-                   Lê a primeira linha de dados e bloqueia se algum campo de hierarquia
-                   não começar com o dígito 1.                                          */
-                if (aoa.length > 1) {
-                    const firstRow = aoa[1];
-                    const chkReg = iRegional >= 0 ? String(firstRow[iRegional] || '').trim() : '';
-                    const chkDist = iDistrital >= 0 ? String(firstRow[iDistrital] || '').trim() : '';
-                    const chkSec = iSetor >= 0 ? String(firstRow[iSetor] || '').trim() : '';
-                    const startsWithOne = v => !v || /^1/.test(String(v).replace(/\D/, ''));
-                    if (!startsWithOne(chkReg) || !startsWithOne(chkDist) || !startsWithOne(chkSec)) {
-                        showRegionalSulBlock();
-                        return;
-                    }
-                }
-
-                for (let r = 1; r < aoa.length; r++) {
+                /* ── CONTROLE DE ACESSO (v7.5): Regional Sul + distritais extras
+                   liberadas (EXTRA_ALLOWED_DISTRITAIS), avaliado linha a linha. ── */
+                for (let r = hIdx + 1; r < aoa.length; r++) {
                     const row = aoa[r];
                     if (!row || row.length === 0) continue;
                     const regional = iRegional >= 0 ? String(row[iRegional] || '').trim() : '';
@@ -808,6 +890,7 @@ async function parseFiles(files, forceUnit) {
 
                     processed++;
                     if (!market || (!brickName && !product)) continue;
+                    if (!isAllowedHierarchy(regional, distrital, sector)) { blocked++; continue; }
 
                     const mat = iMAT >= 0 ? parseNum(row[iMAT]) : 0;
                     const ytd = iYTD >= 0 ? parseNum(row[iYTD]) : 0;
@@ -852,6 +935,9 @@ async function parseFiles(files, forceUnit) {
                         await _yield();
                     }
                 }
+
+                if (kept === 0 && blocked > 0) { showRegionalSulBlock(); return; }
+                if (blocked > 0) console.warn('[SUPERA] Aba', sheetName, '—', blocked.toLocaleString('pt-BR'), 'linhas de outras regionais/distritais ignoradas.');
 
                 /* Calcula crescimento por bucket */
                 for (const b of agg.values()) {
@@ -898,9 +984,9 @@ function showRegionalSulBlock() {
     overlay.innerHTML = `
         <div class="rsul-box">
             <div class="rsul-icon">🔒</div>
-            <div class="rsul-title">DESCULPE, USO EXCLUSIVO DA REGIONAL SUL.</div>
-            <div class="rsul-sub">O arquivo carregado pertence a outra regional.<br>
-            Este dashboard é de uso exclusivo da Regional Sul.</div>
+            <div class="rsul-title">DESCULPE, ACESSO NÃO AUTORIZADO.</div>
+            <div class="rsul-sub">O arquivo carregado não contém dados da Regional Sul<br>
+            nem das distritais liberadas (${EXTRA_ALLOWED_DISTRITAIS.join(', ')}).</div>
             <button class="rsul-btn" onclick="document.getElementById('regionalSulBlock').remove()">Entendido</button>
         </div>`;
     document.body.appendChild(overlay);
@@ -1131,18 +1217,26 @@ function topCidadesPorProduto(rows, productName, pd, limit) {
     rows.forEach(function (r) {
         if (r.product !== productName) return;
         var cidade = r.cidade || '(sem cidade)';
-        if (!map.has(cidade)) map.set(cidade, { cidade: cidade, cur: 0, prev: 0 });
+        if (!map.has(cidade)) map.set(cidade, { cidade: cidade, cur: 0, prev: 0, bricks: new Map() });
         var c = map.get(cidade);
-        c.cur += r.data[pd].current || 0;
-        c.prev += r.data[pd].previous || 0;
+        var cur = r.data[pd].current || 0, prev = r.data[pd].previous || 0;
+        c.cur += cur;
+        c.prev += prev;
+        /* v7.6 — detalhe por brick dentro da cidade */
+        var bk = r.brickName || '—';
+        if (!c.bricks.has(bk)) c.bricks.set(bk, { brick: bk, cur: 0, prev: 0 });
+        var b = c.bricks.get(bk);
+        b.cur += cur; b.prev += prev;
     });
+    var growthOf = function (o) { return o.prev !== 0 ? (o.cur / o.prev - 1) : null; };
     return [...map.values()]
         .sort(function (a, b) { return b.cur - a.cur; })
         .slice(0, limit)
         .map(function (c) {
-            return Object.assign({}, c, {
-                growth: c.prev !== 0 ? (c.cur / c.prev - 1) : null
-            });
+            var bricks = [...c.bricks.values()]
+                .sort(function (a, b) { return b.cur - a.cur; })
+                .map(function (b) { return Object.assign({}, b, { growth: growthOf(b) }); });
+            return Object.assign({}, c, { growth: growthOf(c), bricks: bricks });
         });
 }
 
@@ -1337,14 +1431,33 @@ function renderResumo() {
                     : cidades.map((ci, ci_i) => {
                         const cgCls = ci.growth == null ? 'vnull' : (ci.growth >= 0 ? 'vpos' : 'vneg');
                         const cgTxt = ci.growth == null ? '—' : ((ci.growth >= 0 ? '+' : '') + (ci.growth * 100).toFixed(1) + '%');
-                        const hidden = ci_i >= CITY_LIMIT ? ' rank-city-extra" style="display:none' : '';
-                        return `<tr class="rank-city-row${hidden}">
+                        const isExtra = ci_i >= CITY_LIMIT;
+                        const hidden = isExtra ? ' rank-city-extra" style="display:none' : '';
+                        const multiBrick = ci.bricks.length > 1;
+                        const cityId = `${rowId}-c${ci_i}`;
+                        /* v7.6 — "+" na frente da cidade abre a venda por brick */
+                        const toggle = multiBrick
+                            ? `<button type="button" class="rank-brick-toggle" data-target="${cityId}" title="Ver venda por brick (${ci.bricks.length} bricks)">+</button>`
+                            : `<span class="rank-brick-toggle-ph"></span>`;
+                        const brickRows = multiBrick ? ci.bricks.map((b, b_i) => {
+                            const bgCls = b.growth == null ? 'vnull' : (b.growth >= 0 ? 'vpos' : 'vneg');
+                            const bgTxt = b.growth == null ? '—' : ((b.growth >= 0 ? '+' : '') + (b.growth * 100).toFixed(1) + '%');
+                            const shareTxt = ci.cur ? (b.cur / ci.cur * 100).toFixed(2).replace('.', ',') + '%' : '—';
+                            return `<tr class="rank-brick-row${isExtra ? ' rank-city-extra-child' : ''}" data-parent="${cityId}" style="display:none">
+                                <td class="rank-brick-pos">${b_i + 1}</td>
+                                <td class="rank-brick-name"><span class="rank-brick-code">${b.brick}</span><span class="rank-brick-share" title="Importância do brick: participação na venda da marca nesta cidade">${shareTxt}</span></td>
+                                <td class="r rank-city-prev">${fmtValue(b.prev)}</td>
+                                <td class="r rank-brick-val">${fmtValue(b.cur)}</td>
+                                <td class="r rank-city-evol ${bgCls}">${bgTxt}</td>
+                            </tr>`;
+                        }).join('') : '';
+                        return `<tr class="rank-city-row${hidden}" data-city="${cityId}">
                             <td class="rank-city-pos">${ci_i + 1}º</td>
-                            <td class="rank-city-name">📍 ${ci.cidade}</td>
+                            <td class="rank-city-name">${toggle}📍 ${ci.cidade}${multiBrick ? ` <span class="rank-city-nb">${ci.bricks.length} bricks</span>` : ''}</td>
                             <td class="r rank-city-prev">${fmtValue(ci.prev)}</td>
                             <td class="r rank-city-val">${fmtValue(ci.cur)}</td>
                             <td class="r rank-city-evol ${cgCls}"><strong>${cgTxt}</strong></td>
-                        </tr>`;
+                        </tr>${brickRows}`;
                     }).join('') + (extraCount > 0 ? `<tr class="rank-city-more-row">
                             <td colspan="5" class="rank-city-more-cell">
                                 <button type="button" class="rank-city-more" data-more="${extraCount}">Mostrar mais ${extraCount} cidade${extraCount > 1 ? 's' : ''} ▾</button>
@@ -1428,6 +1541,22 @@ function renderResumo() {
         });
     });
 
+    // v7.6 — Ativa botões "+" de venda por brick dentro de cada cidade
+    el.querySelectorAll('.rank-brick-toggle').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const id = this.getAttribute('data-target');
+            const tbody = this.closest('tbody');
+            if (!tbody) return;
+            const rows = tbody.querySelectorAll(`.rank-brick-row[data-parent="${id}"]`);
+            const open = this.classList.toggle('rank-brick-toggle-open');
+            rows.forEach(tr => { tr.style.display = open ? 'table-row' : 'none'; });
+            this.textContent = open ? '−' : '+';
+            const cityTr = tbody.querySelector(`.rank-city-row[data-city="${id}"]`);
+            if (cityTr) cityTr.classList.toggle('rank-city-open', open);
+        });
+    });
+
     // Ativa botões "Mostrar mais / Mostrar menos" das tabelas de cidades
     el.querySelectorAll('.rank-city-more').forEach(btn => {
         btn.addEventListener('click', function (e) {
@@ -1437,6 +1566,11 @@ function renderResumo() {
             const extras = tbody.querySelectorAll('.rank-city-extra');
             const expanded = this.classList.toggle('rank-city-more-open');
             extras.forEach(tr => { tr.style.display = expanded ? 'table-row' : 'none'; });
+            if (!expanded) {
+                /* recolhe também os bricks abertos das cidades extras */
+                tbody.querySelectorAll('.rank-city-extra-child').forEach(tr => { tr.style.display = 'none'; });
+                tbody.querySelectorAll('.rank-city-extra .rank-brick-toggle').forEach(b => { b.textContent = '+'; b.classList.remove('rank-brick-toggle-open'); });
+            }
             const n = this.getAttribute('data-more');
             this.textContent = expanded
                 ? 'Mostrar menos ▴'
