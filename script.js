@@ -3728,6 +3728,10 @@ function saveCnpjCache() {
    Cresc.TRI(p.y.) | Cresc.TRI(p.p.)
    v7.4 — opcionalmente: MES(p.y.) | MES(p.p.) | MES  (mês atual x mesmo mês
    do ano anterior; "Mês Ano Anterior"/"Mês Ant." também são reconhecidos)
+   v7.5 — também aceita o export IQVIA "Regional | Distrital | Setor | Marca |
+   Brick | Bandeira | PDV | Apresentação | ... | Mês (p.y.) | Mês (p.p.) | Mês |
+   Mês Aberto", com bloco "Filtros aplicados: Tipo de Métrica é Unidades/Reais"
+   nas primeiras linhas (define a métrica) e cabeçalho na linha 3.
 
    PDV = "CNPJ | RAZAO SOCIAL | BAIRRO - CIDADE / UF"
 */
@@ -3755,7 +3759,9 @@ async function parsePDVFile(file, forceUnit) {
     const fname = (file.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     let unitMode = /reais?|r\$|\$|\bppp\b|valor/.test(fname) ? 'RS'
         : /unidades?|\buni\b|\bun\b|dddunid/.test(fname) ? 'UN'
-            : forceUnit || null;
+            : null;
+    /* v7.5 — forceUnit só entra se nem o nome do arquivo nem o bloco
+       "Filtros aplicados" da planilha identificarem a métrica. */
 
     // ── Abre o XLSX como ZIP e extrai XMLs ───────────────────────────────
     setProgress('Abrindo arquivo...');
@@ -3795,19 +3801,56 @@ async function parsePDVFile(file, forceUnit) {
             .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#xD;/g, ''));
     }
 
-    // ── Regex de célula — sem backtracking ────────────────────────────────
-    const cellRe = /<c r="([A-Z]+)\d+"([^>]*)>(?:<v>([^<]*)<\/v>)?/g;
+    // ── Regex de célula ───────────────────────────────────────────────────
+    // v7.5 — suporta dois formatos de célula:
+    //   (a) Excel clássico:  <c r="B4" t="s"><v>12</v></c>   (string via sharedStrings)
+    //   (b) export IQVIA "Regional|Distrito|Setor|...|PDV|Apresentação":
+    //       <c t="str"><v>texto</v></c> / <c><v>900</v></c> / <c></c>  — sem atributo r,
+    //       colunas posicionais, strings inline (t="str"), células vazias <c></c>.
+    const cellRe = /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+    const vRe = /<v>([\s\S]*?)<\/v>/;
+    const isTRe = /<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g;
+    const decodeXml = (t) => t.indexOf('&') < 0 ? t : t
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#xD;/gi, '').replace(/&#13;/g, '');
+    const colLetter = (n) => { let out = ''; n += 1; while (n > 0) { const m = (n - 1) % 26; out = String.fromCharCode(65 + m) + out; n = Math.floor((n - 1) / 26); } return out; };
 
     const parseRow = (rowContent) => {
         const cells = {};
         cellRe.lastIndex = 0;
-        let cm;
+        let cm, idx = 0;
         while ((cm = cellRe.exec(rowContent)) !== null) {
-            const col = cm[1], attrs = cm[2] || '', val = cm[3] || '';
-            cells[col] = (attrs.indexOf('t="s"') >= 0 && val !== '')
-                ? (sharedStrings[parseInt(val)] || '') : val;
+            const attrs = cm[1] || '', inner = cm[2] || '';
+            const rm = attrs.match(/\br="([A-Z]+)\d+"/);
+            const col = rm ? rm[1] : colLetter(idx);
+            idx = rm ? (col.split('').reduce((a, ch) => a * 26 + (ch.charCodeAt(0) - 64), 0)) : idx + 1;
+            let val = '';
+            if (inner) {
+                const vm = inner.match(vRe);
+                if (vm) val = vm[1];
+                else if (inner.indexOf('<is>') >= 0) {
+                    // inlineStr: concatena todos os <t>
+                    isTRe.lastIndex = 0; let tm2; const parts = [];
+                    while ((tm2 = isTRe.exec(inner)) !== null) parts.push(tm2[1]);
+                    val = parts.join('');
+                }
+            }
+            if (attrs.indexOf('t="s"') >= 0 && val !== '') val = sharedStrings[parseInt(val)] || '';
+            else if (val) val = decodeXml(val);
+            cells[col] = val;
         }
         return cells;
+    };
+
+    /* v7.5 — identifica a métrica pelo bloco "Filtros aplicados" (linhas acima do cabeçalho).
+       Ex.: "Tipo de Métrica é Unidades" → UN | "... é Reais" / "R$" / "Valor" / "PPP" → RS */
+    const detectMetaUnit = (text) => {
+        const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const m = t.match(/tipo\s+de\s+metrica[^\n\r|;]*/);
+        const scope = m ? m[0] : t;
+        if (/reais?|r\$|\bppp\b|valor|faturamento|venda\s*em\s*\$/.test(scope)) return 'RS';
+        if (/unidades?|\bun\b|\buni\b|\bunid\b|caixas?/.test(scope)) return 'UN';
+        return null;
     };
 
     // ── SPLIT por <row  — NUNCA usa regex no XML de 45MB inteiro ─────────
@@ -3820,16 +3863,32 @@ async function parsePDVFile(file, forceUnit) {
     // rowParts[0] = cabeçalho XML (antes da 1ª row) — ignorar
     // rowParts[i] = 'r="N" ...>CÉLULAS</row>...'  para i >= 1
 
-    // ── Detecta colunas no header (r="1") ────────────────────────────────
-    let headerContent = '';
-    for (let i = 1; i < rowParts.length; i++) {
-        if (rowParts[i].startsWith('r="1"') || rowParts[i].startsWith("r='1'")) {
-            const gt = rowParts[i].indexOf('>');
-            const end = rowParts[i].indexOf('</row>');
-            if (gt >= 0 && end > gt) { headerContent = rowParts[i].slice(gt + 1, end); break; }
+    // ── Detecta a linha de cabeçalho ──────────────────────────────────────
+    // v7.5 — o cabeçalho não é mais obrigatoriamente a linha 1: o export IQVIA
+    // "Regional|Distrito|Setor|Marca|Brick|Bandeira|PDV|Apresentação" traz um bloco
+    // "Filtros aplicados: ..." nas primeiras linhas. Procuramos (nas 30 primeiras
+    // linhas) a primeira que contenha PDV e Brick; o texto acima vira metadado.
+    let headerContent = '', headerRowNum = 0, metaText = '';
+    for (let i = 1; i < rowParts.length && i <= 30; i++) {
+        const rMatch0 = rowParts[i].match(/^r=["'](\d+)["']/);
+        const rn = rMatch0 ? parseInt(rMatch0[1]) : i;
+        const gt = rowParts[i].indexOf('>');
+        const end = rowParts[i].indexOf('</row>');
+        if (gt < 0 || end <= gt) continue;
+        const content = rowParts[i].slice(gt + 1, end);
+        const cells = parseRow(content);
+        const vals = Object.values(cells).map(v => String(v).toLowerCase());
+        if (vals.some(v => v.includes('pdv') || v.includes('cnpj')) && vals.some(v => v.includes('brick'))) {
+            headerContent = content; headerRowNum = rn; break;
         }
+        metaText += vals.join('\n') + '\n';
     }
-    if (!headerContent) throw new Error('Linha de cabeçalho não encontrada.');
+    if (!headerContent) throw new Error('Linha de cabeçalho não encontrada (precisa conter as colunas PDV e Brick).');
+
+    const metaUnit = detectMetaUnit(metaText);
+    if (!unitMode && metaUnit) unitMode = metaUnit;
+    if (!unitMode && forceUnit) unitMode = forceUnit;
+    if (metaText.trim()) console.log('[PDV] Filtros aplicados na planilha:', metaText.trim().replace(/\n+/g, ' | '), '→ métrica:', metaUnit || '(não identificada)');
 
     const headerCells = parseRow(headerContent);
     const colMap = {};
@@ -3850,6 +3909,7 @@ async function parsePDVFile(file, forceUnit) {
     const cMrc = colByName([/^marca$/, /marca/]);
     const cBrk = colByName([/^brick$/, /brick/]);
     const cPdv = colByName([/^pdv$/, /pdv/, /cnpj/]);
+    const cBan = colByName([/^bandeira$/, /bandeira/, /^rede$/]);   // v7.5 — opcional
     const cMatA = colByName([/^mat$/]);
     const cMatP = colByName([/^mat\s*\(p\.?p\.?\)/]);
     const cYtdA = colByName([/^ytd$/]);
@@ -3897,9 +3957,10 @@ async function parsePDVFile(file, forceUnit) {
             await new Promise(r => setTimeout(r, 0));
         }
 
-        // Extrai rowNum do atributo r="N"
-        const rMatch = rowParts[i].match(/^r="(\d+)"/);
-        if (!rMatch || parseInt(rMatch[1]) <= 1) continue;
+        // Extrai rowNum do atributo r="N" (ou posição, se ausente) e pula até o cabeçalho
+        const rMatch = rowParts[i].match(/^r=["'](\d+)["']/);
+        const rowNum = rMatch ? parseInt(rMatch[1]) : i;
+        if (rowNum <= headerRowNum) continue;
 
         const gt = rowParts[i].indexOf('>');
         const end = rowParts[i].indexOf('</row>');
@@ -3928,6 +3989,7 @@ async function parsePDVFile(file, forceUnit) {
 
         const marca = cMrc ? (cells[cMrc] || '').trim() : '';
         const brick = cBrk ? (cells[cBrk] || '').trim() : '';
+        const bandeira = cBan ? (cells[cBan] || '').trim() : '';
         const matA = parseNum(cMatA ? cells[cMatA] : 0);
         const matP = parseNum(cMatP ? cells[cMatP] : 0);
         const ytdA = parseNum(cYtdA ? cells[cYtdA] : 0);
@@ -3944,7 +4006,7 @@ async function parsePDVFile(file, forceUnit) {
 
         rows.push({
             cnpj: cnpjRaw, razao, bairro, cidade, uf,
-            regional, distrital, setor, marca, brick,
+            regional, distrital, setor, marca, brick, bandeira,
             mat_cur: matA, mat_prev: matP,
             ytd_cur: ytdA, ytd_prev: ytdP,
             tri_cur: triA, tri_prev: triY, tri_qprev: triP,
@@ -3953,20 +4015,32 @@ async function parsePDVFile(file, forceUnit) {
         });
     }
 
+    if (!unitMode) unitMode = 'UN';
     setProgress('');
-    return { rows, unitMode, mesPrevKind };
+    return { rows, unitMode, mesPrevKind, metaUnit, headerRowNum };
 }
 
 /* Fallback AOA quando JSZip não disponível */
 async function _parsePDVFromAoa(aoa, unitMode, forceUnit, fileName, setProgress) {
     const fname = (fileName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (!unitMode) unitMode = /reais?|r\$|\$|\bppp\b|valor/.test(fname) ? 'RS' : /unidades?|\buni\b|\bun\b|dddunid/.test(fname) ? 'UN' : forceUnit || 'UN';
-    let headerIdx = 0;
-    for (let i = 0; i < Math.min(5, aoa.length); i++) { const row = aoa[i].map(c => String(c || '').toLowerCase()); if (row.some(c => c.includes('pdv')) && row.some(c => c.includes('brick'))) { headerIdx = i; break; } }
+    if (!unitMode) unitMode = /reais?|r\$|\$|\bppp\b|valor/.test(fname) ? 'RS' : /unidades?|\buni\b|\bun\b|dddunid/.test(fname) ? 'UN' : null;
+    let headerIdx = -1, metaText = '';
+    for (let i = 0; i < Math.min(30, aoa.length); i++) {
+        const row = (aoa[i] || []).map(c => String(c == null ? '' : c).toLowerCase());
+        if (row.some(c => c.includes('pdv') || c.includes('cnpj')) && row.some(c => c.includes('brick'))) { headerIdx = i; break; }
+        metaText += row.join('\n') + '\n';
+    }
+    if (headerIdx < 0) throw new Error('Linha de cabeçalho não encontrada (precisa conter as colunas PDV e Brick).');
+    /* v7.5 — métrica pelo bloco "Filtros aplicados" (Tipo de Métrica é Unidades / Reais) */
+    const mt = metaText.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const mm = mt.match(/tipo\s+de\s+metrica[^\n\r|;]*/); const scope = mm ? mm[0] : mt;
+    const metaUnit = /reais?|r\$|\bppp\b|valor|faturamento/.test(scope) ? 'RS' : /unidades?|\bun\b|\buni\b|\bunid\b|caixas?/.test(scope) ? 'UN' : null;
+    if (!unitMode) unitMode = metaUnit || forceUnit || 'UN';
     const header = aoa[headerIdx].map(c => String(c || '').toLowerCase().trim());
     const ix = (pats) => header.findIndex(h => pats.some(p => p.test(h)));
     const iReg = ix([/^regional$/]), iDst = ix([/^distrital$/]), iSet = ix([/^setor$/, /setor/]);
     const iMrc = ix([/^marca$/, /marca/]), iBrk = ix([/^brick$/, /brick/]), iPdv = ix([/^pdv$/, /pdv/, /cnpj/]);
+    const iBan = ix([/^bandeira$/, /bandeira/, /^rede$/]);
     const iMatA = header.findIndex(h => /^mat$/i.test(h)), iMatP = header.findIndex(h => /^mat\s*\(p\.?p\.?\)/i.test(h));
     const iYtdA = header.findIndex(h => /^ytd$/i.test(h)), iYtdP = header.findIndex(h => /^ytd\s*\(p\.?p\.?\)/i.test(h));
     const iTriA = header.findIndex(h => /^tri$/i.test(h)), iTriP = header.findIndex(h => /^tri\s*\(p\.?p\.?\)/i.test(h));
@@ -3991,6 +4065,7 @@ async function _parsePDVFromAoa(aoa, unitMode, forceUnit, fileName, setProgress)
         let distrital = iDst >= 0 ? String(row[iDst] || '').trim() : ''; if (!distrital && setorCode.length >= 4) distrital = setorCode.slice(0, 4) + '00';
         let regional = iReg >= 0 ? String(row[iReg] || '').trim() : ''; if (!regional && setorCode.length >= 3) regional = setorCode.slice(0, 3) + '000';
         const marca = String(row[iMrc] || '').trim(), brick = String(row[iBrk] || '').trim();
+        const bandeira = iBan >= 0 ? String(row[iBan] || '').trim() : '';
         const matA = iMatA >= 0 ? parseNum(row[iMatA]) : 0, matP = iMatP >= 0 ? parseNum(row[iMatP]) : 0;
         const ytdA = iYtdA >= 0 ? parseNum(row[iYtdA]) : 0, ytdP = iYtdP >= 0 ? parseNum(row[iYtdP]) : 0;
         const triA = iTriA >= 0 ? parseNum(row[iTriA]) : 0, triP = iTriP >= 0 ? parseNum(row[iTriP]) : 0;
@@ -4001,14 +4076,14 @@ async function _parsePDVFromAoa(aoa, unitMode, forceUnit, fileName, setProgress)
         const mesPrev = mesPrevKind === 'PY' ? mesY : (mesPrevKind === 'PP' ? mesP : 0);
         if (matA + matP + ytdA + ytdP + triA + triP + mesA + mesPrev === 0) continue;
         rows.push({
-            cnpj: cnpjRaw, razao, bairro, cidade, uf, regional, distrital, setor, marca, brick,
+            cnpj: cnpjRaw, razao, bairro, cidade, uf, regional, distrital, setor, marca, brick, bandeira,
             mat_cur: matA, mat_prev: matP, ytd_cur: ytdA, ytd_prev: ytdP,
             tri_cur: triA, tri_prev: triY, tri_qprev: triP,
             mes_cur: mesA, mes_prev: mesPrev, mes_mprev: mesP, unitMode
         });
     }
     setProgress('');
-    return { rows, unitMode, mesPrevKind };
+    return { rows, unitMode, mesPrevKind, metaUnit, headerRowNum: headerIdx + 1 };
 }
 
 
@@ -4022,7 +4097,7 @@ function aggregatePDVs(rows) {
                 cnpj: r.cnpj, razao: r.razao, bairro: r.bairro,
                 cidade: r.cidade, uf: r.uf,
                 bricks: new Set(), setores: new Set(), marcas: new Set(),
-                regionais: new Set(), distritais: new Set(),
+                regionais: new Set(), distritais: new Set(), bandeiras: new Set(),
                 mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0,
                 tri_cur: 0, tri_prev: 0, tri_qprev: 0,
                 mes_cur: 0, mes_prev: 0, mes_mprev: 0,
@@ -4035,6 +4110,7 @@ function aggregatePDVs(rows) {
         if (r.marca) p.marcas.add(r.marca);
         if (r.regional) p.regionais.add(r.regional);
         if (r.distrital) p.distritais.add(r.distrital);
+        if (r.bandeira) p.bandeiras.add(r.bandeira);
         p.mat_cur += r.mat_cur; p.mat_prev += r.mat_prev;
         p.ytd_cur += r.ytd_cur; p.ytd_prev += r.ytd_prev;
         p.tri_cur += r.tri_cur; p.tri_prev += r.tri_prev; p.tri_qprev += (r.tri_qprev || 0);
@@ -4054,7 +4130,8 @@ function aggregatePDVs(rows) {
         setores: [...p.setores].sort(),
         marcas: [...p.marcas].sort(),
         regionais: [...p.regionais].sort(),
-        distritais: [...p.distritais].sort()
+        distritais: [...p.distritais].sort(),
+        bandeiras: [...p.bandeiras].sort()
     }));
 }
 
@@ -4179,7 +4256,8 @@ async function handlePDVUpload(files, opts) {
     for (const f of files) {
         try {
             _showPDVLoading(f.name);
-            const { rows, unitMode, mesPrevKind } = await parsePDVFile(f, forceUnit);
+            const { rows, unitMode, mesPrevKind, metaUnit } = await parsePDVFile(f, forceUnit);
+            if (metaUnit) toast('Planilha identificada pelo bloco "Filtros aplicados": métrica ' + (metaUnit === 'RS' ? 'R$' : 'Unidades') + '.');
             // Substitui (não acumula) o conjunto correspondente — comportamento mais previsível.
             PDV.rowsByValueMode[unitMode] = rows;
             PDV.pdvsByValueMode[unitMode] = classificarPDVs(aggregatePDVs(rows));
