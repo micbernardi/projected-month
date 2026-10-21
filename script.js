@@ -310,12 +310,47 @@ function _persistDashboard() {
     }).catch(e => console.warn('[SUPERA] Erro ao salvar dados:', e));
 }
 
-/* Períodos disponíveis na base de PDVs (planilha IQVIA de PDV não traz mês).
-   Quando o header estiver em MÊS, a aba PDV usa MAT como referência.       */
-const PDV_PERIODS = ['MAT', 'YTD', 'TRI'];
+/* Períodos disponíveis na base de PDVs.
+   v7.4 — MÊS passa a ser suportado quando a planilha de PDVs (MDTR PDVS) traz
+   as colunas de mês ("MES", "MES (P.Y.)" / "Mês Ano Anterior"). Sem elas,
+   com o header em MÊS a aba PDV continua usando MAT como referência.       */
+const PDV_PERIODS = ['MAT', 'YTD', 'TRI', 'MES'];
+const PDV_PERIODS_BASE = ['MAT', 'YTD', 'TRI'];
+/* Modo de valor efetivo da aba PDV (PDV.viewMode tem prioridade). */
+function pdvActiveMode() {
+    const vm = (typeof PDV !== 'undefined' && PDV.viewMode) ? PDV.viewMode : null;
+    return vm || ((typeof UI !== 'undefined' && UI.unitMode) ? UI.unitMode : 'UN');
+}
+/* A base de PDVs do modo ativo possui colunas de mês? */
+function pdvHasMES(mode) {
+    if (typeof PDV === 'undefined' || !PDV.hasMESByValueMode) return false;
+    return !!PDV.hasMESByValueMode[mode || pdvActiveMode()];
+}
+/* Recalcula o flag de mês de um modo a partir das linhas brutas. */
+function pdvRefreshMESFlag(mode) {
+    if (typeof PDV === 'undefined') return;
+    PDV.hasMESByValueMode = PDV.hasMESByValueMode || { UN: false, RS: false };
+    const rows = (PDV.rowsByValueMode && PDV.rowsByValueMode[mode]) || [];
+    PDV.hasMESByValueMode[mode] = rows.some(r => (+r.mes_cur || 0) !== 0 || (+r.mes_prev || 0) !== 0);
+}
+/* Rótulo da coluna "anterior" do mês: ano anterior (P.Y.) ou mês anterior (P.P.). */
+function pdvMesPrevLbl(mode) {
+    const kind = (typeof PDV !== 'undefined' && PDV.mesPrevKind) ? PDV.mesPrevKind[mode || pdvActiveMode()] : null;
+    return kind === 'PP' ? 'MÊS Mês Ant.' : 'MÊS Ano Ant.';
+}
+/* Períodos exibidos na aba PDV (MÊS só quando a base do modo ativo o traz). */
+function pdvPeriodsAvail(mode) {
+    return pdvHasMES(mode) ? ['MAT', 'YTD', 'TRI', 'MES'] : PDV_PERIODS_BASE.slice();
+}
 function pdvPeriod() {
     const p = (typeof UI !== 'undefined' && UI.periodMode) ? UI.periodMode : 'MAT';
-    return PDV_PERIODS.includes(p) ? p : 'MAT';
+    if (p === 'MES') return pdvHasMES() ? 'MES' : 'MAT';
+    return PDV_PERIODS_BASE.includes(p) ? p : 'MAT';
+}
+/* Ordem de exibição dos períodos na aba PDV: ativo primeiro, depois os demais. */
+function pdvPeriodOrder(pd, mode) {
+    const avail = pdvPeriodsAvail(mode);
+    return [pd, ...avail.filter(x => x !== pd)];
 }
 
 /* Classifica produto via mapa; fallback no sufixo (SP0) para Supera */
@@ -1994,8 +2029,13 @@ function setPeriodMode(mode) {
     /* v7.1 — MES só é selecionável quando a planilha carregada traz as colunas
        "Mês" e "Mês Ano Anterior". Sem elas, mantém o período atual. */
     if (mode === 'MES' && DB.rows && DB.rows.length && !DB.hasMES) {
-        toast('A base carregada não possui as colunas "Mês" e "Mês Ano Anterior".');
-        return;
+        /* v7.4 — se a base de PDVs trouxer mês, libera MÊS (válido só na aba PDV) */
+        if (typeof pdvHasMES === 'function' && pdvHasMES()) {
+            toast('Base DDD sem colunas de mês — visão MÊS disponível apenas na aba PDV.');
+        } else {
+            toast('A base carregada não possui as colunas "Mês" e "Mês Ano Anterior".');
+            return;
+        }
     }
     UI.periodMode = mode;
     document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
@@ -2011,7 +2051,7 @@ function updatePeriodButtons() {
     const btnMes = $('btnMES');
     if (btnMes) {
         const hasData = !!(DB.rows && DB.rows.length);
-        const enabled = !hasData || !!DB.hasMES;
+        const enabled = !hasData || !!DB.hasMES || (typeof pdvHasMES === 'function' && pdvHasMES());
         btnMes.disabled = !enabled;
         btnMes.classList.toggle('period-btn-off', !enabled);
         btnMes.title = enabled
@@ -3647,6 +3687,8 @@ const PDV = {
     rowsByValueMode: { UN: [], RS: [] },  // todas as linhas brutas (uma por CNPJ × Marca × Brick)
     pdvsByValueMode: { UN: [], RS: [] },  // agregadas: 1 obj por CNPJ
     cnpjCache: {},                         // cache local de respostas BrasilAPI
+    hasMESByValueMode: { UN: false, RS: false }, // v7.4 — base traz colunas de mês?
+    mesPrevKind: { UN: null, RS: null },         // v7.4 — 'PY' (ano anterior) | 'PP' (mês anterior)
     sortKey: 'mat_cur',
     sortDir: 'desc',
     filter: { brick: [], cidade: [], setor: [], marca: [], classe: 'all', search: '' }
@@ -3684,9 +3726,19 @@ function saveCnpjCache() {
    Setor | Marca | Brick | PDV | MAT(p.p) | MAT | Cresc.MAT |
    YTD(p.p.) | YTD | Cresc.YTD | TRI(p.y.) | TRI(p.p.) | TRI |
    Cresc.TRI(p.y.) | Cresc.TRI(p.p.)
+   v7.4 — opcionalmente: MES(p.y.) | MES(p.p.) | MES  (mês atual x mesmo mês
+   do ano anterior; "Mês Ano Anterior"/"Mês Ant." também são reconhecidos)
 
    PDV = "CNPJ | RAZAO SOCIAL | BAIRRO - CIDADE / UF"
 */
+/* v7.4 — padrões de cabeçalho das colunas de mês na planilha de PDVs.
+   cur: mês atual | py: mesmo mês do ano anterior | pp: mês imediatamente anterior */
+const PDV_MES_PATS = {
+    cur: [/^m[eê]s$/, /^m[eê]s\s*un\.?$/, /^m[eê]s\s*r\$?$/, /^m[eê]s\s*valor$/, /^m[eê]s\s*unidades?$/, /^m[eê]s\s*atual$/],
+    py: [/^m[eê]s\s*\(p\.?y\.?\)/, /^m[eê]s\s*ano\s*ant/, /^m[eê]s\s*\(a\.?a\.?\)/, /^m[eê]s\s*a\.?a\.?$/],
+    pp: [/^m[eê]s\s*\(p\.?p\.?\)/, /^m[eê]s\s+ant(erior)?\.?$/]
+};
+
 async function parsePDVFile(file, forceUnit) {
     const setProgress = (msg) => {
         ['uploadProgress', 'pdvUploadProgress', 'pdvWorkerProgress'].forEach(id => {
@@ -3805,6 +3857,12 @@ async function parsePDVFile(file, forceUnit) {
     const cTriA = colByName([/^tri$/]);
     const cTriP = colByName([/^tri\s*\(p\.?p\.?\)/]);
     const cTriY = colByName([/^tri\s*\(p\.?y\.?\)/]);
+    /* v7.4 — colunas de mês (opcionais) */
+    const cMesA = colByName(PDV_MES_PATS.cur);
+    const cMesY = colByName(PDV_MES_PATS.py);
+    const cMesP = colByName(PDV_MES_PATS.pp);
+    const mesPrevKind = cMesA ? (cMesY ? 'PY' : (cMesP ? 'PP' : null)) : null;
+    if (cMesA && mesPrevKind === 'PP') console.warn('[PDV] Coluna de mês do ano anterior não encontrada — usando mês anterior (P.P.) como referência.');
 
     if (!cPdv || !cBrk) {
         throw new Error('Colunas PDV/Brick não encontradas. Colunas: ' + Object.values(colMap).join(', '));
@@ -3813,7 +3871,7 @@ async function parsePDVFile(file, forceUnit) {
     // ── Detecta R$/Un. por amostra ───────────────────────────────────────
     if (!unitMode) {
         let total = 0, decimals = 0;
-        const numCols = [cMatA, cMatP, cYtdA, cYtdP, cTriA, cTriP].filter(Boolean);
+        const numCols = [cMatA, cMatP, cYtdA, cYtdP, cTriA, cTriP, cMesA].filter(Boolean);
         for (let i = 1; i < Math.min(202, rowParts.length); i++) {
             const gt = rowParts[i].indexOf('>');
             const end = rowParts[i].indexOf('</row>');
@@ -3877,8 +3935,12 @@ async function parsePDVFile(file, forceUnit) {
         const triA = parseNum(cTriA ? cells[cTriA] : 0);
         const triP = parseNum(cTriP ? cells[cTriP] : 0);
         const triY = parseNum(cTriY ? cells[cTriY] : 0);
+        const mesA = parseNum(cMesA ? cells[cMesA] : 0);
+        const mesY = parseNum(cMesY ? cells[cMesY] : 0);
+        const mesP = parseNum(cMesP ? cells[cMesP] : 0);
+        const mesPrev = mesPrevKind === 'PY' ? mesY : (mesPrevKind === 'PP' ? mesP : 0);
 
-        if (matA + matP + ytdA + ytdP + triA + triP === 0) continue;
+        if (matA + matP + ytdA + ytdP + triA + triP + mesA + mesPrev === 0) continue;
 
         rows.push({
             cnpj: cnpjRaw, razao, bairro, cidade, uf,
@@ -3886,12 +3948,13 @@ async function parsePDVFile(file, forceUnit) {
             mat_cur: matA, mat_prev: matP,
             ytd_cur: ytdA, ytd_prev: ytdP,
             tri_cur: triA, tri_prev: triY, tri_qprev: triP,
+            mes_cur: mesA, mes_prev: mesPrev, mes_mprev: mesP,
             unitMode
         });
     }
 
     setProgress('');
-    return { rows, unitMode };
+    return { rows, unitMode, mesPrevKind };
 }
 
 /* Fallback AOA quando JSZip não disponível */
@@ -3908,6 +3971,9 @@ async function _parsePDVFromAoa(aoa, unitMode, forceUnit, fileName, setProgress)
     const iYtdA = header.findIndex(h => /^ytd$/i.test(h)), iYtdP = header.findIndex(h => /^ytd\s*\(p\.?p\.?\)/i.test(h));
     const iTriA = header.findIndex(h => /^tri$/i.test(h)), iTriP = header.findIndex(h => /^tri\s*\(p\.?p\.?\)/i.test(h));
     const iTriY = header.findIndex(h => /^tri\s*\(p\.?y\.?\)/i.test(h));
+    /* v7.4 — colunas de mês (opcionais) */
+    const iMesA = ix(PDV_MES_PATS.cur), iMesY = ix(PDV_MES_PATS.py), iMesP = ix(PDV_MES_PATS.pp);
+    const mesPrevKind = iMesA >= 0 ? (iMesY >= 0 ? 'PY' : (iMesP >= 0 ? 'PP' : null)) : null;
     if (iPdv < 0 || iBrk < 0) throw new Error('Colunas PDV/Brick não encontradas.');
     const rows = []; const tot = aoa.length - headerIdx - 1;
     for (let r = headerIdx + 1; r < aoa.length; r++) {
@@ -3929,15 +3995,20 @@ async function _parsePDVFromAoa(aoa, unitMode, forceUnit, fileName, setProgress)
         const ytdA = iYtdA >= 0 ? parseNum(row[iYtdA]) : 0, ytdP = iYtdP >= 0 ? parseNum(row[iYtdP]) : 0;
         const triA = iTriA >= 0 ? parseNum(row[iTriA]) : 0, triP = iTriP >= 0 ? parseNum(row[iTriP]) : 0;
         const triY = iTriY >= 0 ? parseNum(row[iTriY]) : 0;
-        if (matA + matP + ytdA + ytdP + triA + triP === 0) continue;
+        const mesA = iMesA >= 0 ? parseNum(row[iMesA]) : 0;
+        const mesY = iMesY >= 0 ? parseNum(row[iMesY]) : 0;
+        const mesP = iMesP >= 0 ? parseNum(row[iMesP]) : 0;
+        const mesPrev = mesPrevKind === 'PY' ? mesY : (mesPrevKind === 'PP' ? mesP : 0);
+        if (matA + matP + ytdA + ytdP + triA + triP + mesA + mesPrev === 0) continue;
         rows.push({
             cnpj: cnpjRaw, razao, bairro, cidade, uf, regional, distrital, setor, marca, brick,
             mat_cur: matA, mat_prev: matP, ytd_cur: ytdA, ytd_prev: ytdP,
-            tri_cur: triA, tri_prev: triY, tri_qprev: triP, unitMode
+            tri_cur: triA, tri_prev: triY, tri_qprev: triP,
+            mes_cur: mesA, mes_prev: mesPrev, mes_mprev: mesP, unitMode
         });
     }
     setProgress('');
-    return { rows, unitMode };
+    return { rows, unitMode, mesPrevKind };
 }
 
 
@@ -3954,6 +4025,7 @@ function aggregatePDVs(rows) {
                 regionais: new Set(), distritais: new Set(),
                 mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0,
                 tri_cur: 0, tri_prev: 0, tri_qprev: 0,
+                mes_cur: 0, mes_prev: 0, mes_mprev: 0,
                 products: []
             };
             map.set(r.cnpj, p);
@@ -3966,12 +4038,14 @@ function aggregatePDVs(rows) {
         p.mat_cur += r.mat_cur; p.mat_prev += r.mat_prev;
         p.ytd_cur += r.ytd_cur; p.ytd_prev += r.ytd_prev;
         p.tri_cur += r.tri_cur; p.tri_prev += r.tri_prev; p.tri_qprev += (r.tri_qprev || 0);
+        p.mes_cur += (+r.mes_cur || 0); p.mes_prev += (+r.mes_prev || 0); p.mes_mprev += (+r.mes_mprev || 0);
         p.products.push({
             marca: r.marca, brick: r.brick, setor: r.setor,
             regional: r.regional, distrital: r.distrital,
             mat_cur: r.mat_cur, mat_prev: r.mat_prev,
             ytd_cur: r.ytd_cur, ytd_prev: r.ytd_prev,
-            tri_cur: r.tri_cur, tri_prev: r.tri_prev
+            tri_cur: r.tri_cur, tri_prev: r.tri_prev,
+            mes_cur: (+r.mes_cur || 0), mes_prev: (+r.mes_prev || 0)
         });
     });
     return [...map.values()].map(p => ({
@@ -4060,7 +4134,7 @@ function savePDVData() {
         return;
     }
     try {
-        const data = JSON.stringify({ UN: PDV.rowsByValueMode.UN, RS: PDV.rowsByValueMode.RS });
+        const data = JSON.stringify({ UN: PDV.rowsByValueMode.UN, RS: PDV.rowsByValueMode.RS, mesPrevKind: PDV.mesPrevKind || {} });
         localStorage.setItem('SUPERA_PDV_DATA_v1', data);
     } catch (e) {
         try { localStorage.removeItem('SUPERA_PDV_DATA_v1'); } catch (_) { }
@@ -4077,6 +4151,9 @@ function loadPDVData() {
             PDV.rowsByValueMode.RS = obj.RS || [];
             PDV.pdvsByValueMode.UN = classificarPDVs(aggregatePDVs(PDV.rowsByValueMode.UN));
             PDV.pdvsByValueMode.RS = classificarPDVs(aggregatePDVs(PDV.rowsByValueMode.RS));
+            pdvRefreshMESFlag('UN'); pdvRefreshMESFlag('RS');
+            const kinds = obj.mesPrevKind || {};
+            PDV.mesPrevKind = { UN: kinds.UN || null, RS: kinds.RS || null };
         }
     } catch (e) { /* ignore */ }
 }
@@ -4102,10 +4179,21 @@ async function handlePDVUpload(files, opts) {
     for (const f of files) {
         try {
             _showPDVLoading(f.name);
-            const { rows, unitMode } = await parsePDVFile(f, forceUnit);
+            const { rows, unitMode, mesPrevKind } = await parsePDVFile(f, forceUnit);
             // Substitui (não acumula) o conjunto correspondente — comportamento mais previsível.
             PDV.rowsByValueMode[unitMode] = rows;
             PDV.pdvsByValueMode[unitMode] = classificarPDVs(aggregatePDVs(rows));
+            /* v7.4 — registra se a base traz colunas de mês */
+            PDV.mesPrevKind = PDV.mesPrevKind || { UN: null, RS: null };
+            PDV.mesPrevKind[unitMode] = mesPrevKind || null;
+            pdvRefreshMESFlag(unitMode);
+            if (pdvHasMES(unitMode)) {
+                toast(mesPrevKind === 'PP'
+                    ? 'Base de PDVs com coluna de mês (comparando com o mês anterior — sem coluna do ano anterior).'
+                    : 'Base de PDVs com coluna de mês: visão MÊS disponível na aba PDV.');
+            } else if (typeof UI !== 'undefined' && UI.periodMode === 'MES') {
+                toast('A planilha de PDVs não traz colunas de mês — a aba PDV exibirá MAT.');
+            }
             countOk++;
         } catch (e) {
             console.error('[PDV] Erro parse:', e);
@@ -4138,6 +4226,8 @@ async function handlePDVUpload(files, opts) {
 function clearPDVData() {
     PDV.rowsByValueMode = { UN: [], RS: [] };
     PDV.pdvsByValueMode = { UN: [], RS: [] };
+    PDV.hasMESByValueMode = { UN: false, RS: false };
+    PDV.mesPrevKind = { UN: null, RS: null };
     try { localStorage.removeItem('SUPERA_PDV_DATA_v1'); } catch (e) { }
     PDV.filter = { brick: [], cidade: [], setor: [], marca: [], classe: 'all', search: '', distrital: [] };
     PDV.viewMode = null; // null = usa UI.unitMode global
@@ -4202,8 +4292,9 @@ function renderPDV() {
     // Toolbar + filtros
     const totalUN = (PDV.pdvsByValueMode.UN || []).length;
     const totalRS = (PDV.pdvsByValueMode.RS || []).length;
-    const periodLblHeader = pdvPeriod();
-    const _pdvFallbackMes = (typeof UI !== 'undefined' && UI.periodMode === 'MES');
+    const periodLblHeader = periodLabel(pdvPeriod());
+    /* v7.4 — fallback só quando o header está em MÊS e a base de PDVs não traz mês */
+    const _pdvFallbackMes = (typeof UI !== 'undefined' && UI.periodMode === 'MES' && !pdvHasMES(mode));
     /* v6.0 — detecta antecipadamente as marcas filtradas para mostrar no badge da toolbar */
     const _gMkt = (typeof UI !== 'undefined' && UI.market && UI.market !== 'all') ? UI.market : null;
     const _localMkts = (PDV.filter && PDV.filter.marca && PDV.filter.marca.length) ? PDV.filter.marca : null;
@@ -4391,11 +4482,12 @@ function renderPDV() {
     const projectByBrands = (p, brandsArr) => {
         const items = (p.products || []).filter(pr => matchProductBrand(pr.marca, brandsArr));
         if (!items.length) return null;
-        const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0, _brandView: brandsArr.join(', '), _brandBricks: new Set() };
+        const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0, mes_cur: 0, mes_prev: 0, _brandView: brandsArr.join(', '), _brandBricks: new Set() };
         items.forEach(it => {
             acc.mat_cur += +it.mat_cur || 0; acc.mat_prev += +it.mat_prev || 0;
             acc.ytd_cur += +it.ytd_cur || 0; acc.ytd_prev += +it.ytd_prev || 0;
             acc.tri_cur += +it.tri_cur || 0; acc.tri_prev += +it.tri_prev || 0;
+            acc.mes_cur += +it.mes_cur || 0; acc.mes_prev += +it.mes_prev || 0;
             if (it.brick) acc._brandBricks.add(it.brick);
         });
         acc.bricks = [...acc._brandBricks].sort();
@@ -4425,12 +4517,13 @@ function renderPDV() {
     const projectBySector = (p) => {
         const items = (p.products || []).filter(pr => matchProductSector(pr.setor));
         if (!items.length) return null;
-        const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0 };
+        const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0, mes_cur: 0, mes_prev: 0 };
         const brickSet = new Set();
         items.forEach(it => {
             acc.mat_cur += +it.mat_cur || 0; acc.mat_prev += +it.mat_prev || 0;
             acc.ytd_cur += +it.ytd_cur || 0; acc.ytd_prev += +it.ytd_prev || 0;
             acc.tri_cur += +it.tri_cur || 0; acc.tri_prev += +it.tri_prev || 0;
+            acc.mes_cur += +it.mes_cur || 0; acc.mes_prev += +it.mes_prev || 0;
             if (it.brick) brickSet.add(it.brick);
         });
         acc.bricks = [...brickSet].sort();
@@ -4455,14 +4548,14 @@ function renderPDV() {
     if (gSector || gDistrital || (localDistrital && localDistrital.length)) {
         filtered = filtered
             .map(p => projectBySector(p))
-            .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
+            .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev || p.mes_cur || p.mes_prev));
     }
 
     /* v6.0 — substitui cada PDV pela projeção das marcas selecionadas */
     if (activeBrands.length) {
         filtered = filtered
             .map(p => projectByBrands(p, activeBrands))
-            .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
+            .filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev || p.mes_cur || p.mes_prev));
     }
 
     // Ordenação (suporta crescimento mat_g/ytd_g/tri_g e GAP mat_gap/ytd_gap/tri_gap calculados on the fly)
@@ -4483,9 +4576,11 @@ function renderPDV() {
         else if (k === 'mat_g') { av = calcG(a, 'mat'); bv = calcG(b, 'mat'); }
         else if (k === 'ytd_g') { av = calcG(a, 'ytd'); bv = calcG(b, 'ytd'); }
         else if (k === 'tri_g') { av = calcG(a, 'tri'); bv = calcG(b, 'tri'); }
+        else if (k === 'mes_g') { av = calcG(a, 'mes'); bv = calcG(b, 'mes'); }
         else if (k === 'mat_gap') { av = calcGap(a, 'mat'); bv = calcGap(b, 'mat'); }
         else if (k === 'ytd_gap') { av = calcGap(a, 'ytd'); bv = calcGap(b, 'ytd'); }
         else if (k === 'tri_gap') { av = calcGap(a, 'tri'); bv = calcGap(b, 'tri'); }
+        else if (k === 'mes_gap') { av = calcGap(a, 'mes'); bv = calcGap(b, 'mes'); }
         else { av = a[k]; bv = b[k]; }
         return ((av || 0) - (bv || 0)) * dir;
     });
@@ -4499,15 +4594,14 @@ function renderPDV() {
 
     // v5: período ativo do header (TRI/YTD/MAT) define a coluna "Atual" e "Anterior" em destaque
     // v7.1: a base de PDVs não traz colunas de mês — em MÊS usa MAT como referência.
+    // v7.4: MÊS exibido quando a base de PDVs do modo ativo traz as colunas de mês.
     const pd = pdvPeriod();
-    const periodLbl = pd === 'TRI' ? 'TRI' : pd === 'YTD' ? 'YTD' : 'MAT';
+    const periodLbl = periodLabel(pd);
     const keyAnt = pd.toLowerCase() + '_prev';
     const keyCur = pd.toLowerCase() + '_cur';
 
     // Monta a ordem de exibição dos períodos: ativo primeiro, depois os outros
-    const periodOrder = pd === 'MAT' ? ['MAT', 'YTD', 'TRI']
-        : pd === 'YTD' ? ['YTD', 'MAT', 'TRI']
-            : ['TRI', 'MAT', 'YTD'];
+    const periodOrder = pdvPeriodOrder(pd, mode);
 
     const thDefs = {
         MAT: [
@@ -4528,6 +4622,12 @@ function renderPDV() {
             sh('tri_gap', 'GAP TRI', 'r', 'Diferença absoluta TRI (atual − anterior)'),
             sh('tri_g', 'Cresc. TRI', 'r mark', 'Crescimento TRI vs mesmo trimestre do ano anterior'),
         ],
+        MES: [
+            sh('mes_prev', pdvMesPrevLbl(mode), 'r', PDV.mesPrevKind && PDV.mesPrevKind[mode] === 'PP' ? 'Mês imediatamente anterior' : 'Mesmo mês do ano anterior'),
+            sh('mes_cur', 'MÊS', 'r', 'Mês atual (último mês fechado)'),
+            sh('mes_gap', 'GAP MÊS', 'r', 'Diferença absoluta MÊS (atual − anterior)'),
+            sh('mes_g', 'Cresc. MÊS', 'r mark', 'Crescimento MÊS vs período anterior'),
+        ],
     };
 
     html += `
@@ -4542,7 +4642,7 @@ function renderPDV() {
                 </tr></thead>
                 <tbody>`;
 
-    const colCount = 15;
+    const colCount = 4 + periodOrder.length * 4;
     if (!filtered.length) {
         html += `<tr><td colspan="${colCount}" class="pdv-empty">Nenhuma farmácia encontrada com os filtros atuais.</td></tr>`;
     } else {
@@ -4550,10 +4650,12 @@ function renderPDV() {
             const gMAT = p.mat_prev > 0 ? (p.mat_cur - p.mat_prev) / p.mat_prev : null;
             const gYTD = p.ytd_prev > 0 ? (p.ytd_cur - p.ytd_prev) / p.ytd_prev : null;
             const gTRI = p.tri_prev > 0 ? (p.tri_cur - p.tri_prev) / p.tri_prev : null;
+            const gMES = p.mes_prev > 0 ? (p.mes_cur - p.mes_prev) / p.mes_prev : null;
             // v6.11 — GAP absoluto = atual − anterior
             const gapMAT = (p.mat_cur || 0) - (p.mat_prev || 0);
             const gapYTD = (p.ytd_cur || 0) - (p.ytd_prev || 0);
             const gapTRI = (p.tri_cur || 0) - (p.tri_prev || 0);
+            const gapMES = (p.mes_cur || 0) - (p.mes_prev || 0);
             const gC = (g) => g == null ? '' : (g >= 0 ? 'pdv-growth-pos' : 'pdv-growth-neg');
             const gapC = (v) => v > 0 ? 'pdv-growth-pos' : (v < 0 ? 'pdv-growth-neg' : '');
             const fmtG = (g) => g == null ? '—' : fmtPct(g);
@@ -4583,6 +4685,12 @@ function renderPDV() {
                     `<td class="r ${pd === 'TRI' ? 'period-active' : ''}">${fmtValue(p.tri_cur)}</td>`,
                     `<td class="r ${gapC(gapTRI)} ${pd === 'TRI' ? 'period-active period-sub' : ''}">${fmtGap(gapTRI)}</td>`,
                     `<td class="r mark ${gC(gTRI)} ${pd === 'TRI' ? 'period-active period-sub' : ''}">${fmtG(gTRI)}</td>`,
+                ],
+                MES: [
+                    `<td class="r ${pd === 'MES' ? 'period-active' : ''}">${fmtValue(p.mes_prev || 0)}</td>`,
+                    `<td class="r ${pd === 'MES' ? 'period-active' : ''}">${fmtValue(p.mes_cur || 0)}</td>`,
+                    `<td class="r ${gapC(gapMES)} ${pd === 'MES' ? 'period-active period-sub' : ''}">${fmtGap(gapMES)}</td>`,
+                    `<td class="r mark ${gC(gMES)} ${pd === 'MES' ? 'period-active period-sub' : ''}">${fmtG(gMES)}</td>`,
                 ],
             };
 
@@ -4861,12 +4969,13 @@ async function exportPDVXLSX() {
     const _projectSect = (p) => {
         const items = (p.products || []).filter(pr => _matchProdSect(pr.setor));
         if (!items.length) return null;
-        const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0 };
+        const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0, mes_cur: 0, mes_prev: 0 };
         const bs = new Set();
         items.forEach(it => {
             acc.mat_cur += +it.mat_cur || 0; acc.mat_prev += +it.mat_prev || 0;
             acc.ytd_cur += +it.ytd_cur || 0; acc.ytd_prev += +it.ytd_prev || 0;
             acc.tri_cur += +it.tri_cur || 0; acc.tri_prev += +it.tri_prev || 0;
+            acc.mes_cur += +it.mes_cur || 0; acc.mes_prev += +it.mes_prev || 0;
             if (it.brick) bs.add(it.brick);
         });
         acc.bricks = [...bs].sort();
@@ -4875,12 +4984,13 @@ async function exportPDVXLSX() {
     const _projectMkt = (p, brand) => {
         const items = (p.products || []).filter(pr => _matchProdMkt(pr.marca, brand));
         if (!items.length) return null;
-        const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0 };
+        const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0, mes_cur: 0, mes_prev: 0 };
         const bs = new Set();
         items.forEach(it => {
             acc.mat_cur += +it.mat_cur || 0; acc.mat_prev += +it.mat_prev || 0;
             acc.ytd_cur += +it.ytd_cur || 0; acc.ytd_prev += +it.ytd_prev || 0;
             acc.tri_cur += +it.tri_cur || 0; acc.tri_prev += +it.tri_prev || 0;
+            acc.mes_cur += +it.mes_cur || 0; acc.mes_prev += +it.mes_prev || 0;
             if (it.brick) bs.add(it.brick);
         });
         acc.bricks = [...bs].sort();
@@ -4907,7 +5017,7 @@ async function exportPDVXLSX() {
 
     // Reprojecta volumes pelo setor/distrital ativo
     if (gSector || gDistrital) {
-        filtered = filtered.map(p => _projectSect(p)).filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
+        filtered = filtered.map(p => _projectSect(p)).filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev || p.mes_cur || p.mes_prev));
     }
     // Reprojecta pela(s) marca(s) ativa(s) — suporta múltiplas
     const activeBrandsXL = (f.marca && f.marca.length) ? f.marca : (gMarket ? [gMarket] : []);
@@ -4919,27 +5029,29 @@ async function exportPDVXLSX() {
                 return activeBrandsXL.some(t => { const tb = String(t).toUpperCase().trim().replace(/\s*\(.*?\)\s*$/, '').trim(); return a === String(t).toUpperCase().trim() || aBase === tb; });
             });
             if (!items.length) return null;
-            const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0 };
+            const acc = { ...p, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0, mes_cur: 0, mes_prev: 0 };
             const bs = new Set();
-            items.forEach(it => { acc.mat_cur += +it.mat_cur || 0; acc.mat_prev += +it.mat_prev || 0; acc.ytd_cur += +it.ytd_cur || 0; acc.ytd_prev += +it.ytd_prev || 0; acc.tri_cur += +it.tri_cur || 0; acc.tri_prev += +it.tri_prev || 0; if (it.brick) bs.add(it.brick); });
+            items.forEach(it => { acc.mat_cur += +it.mat_cur || 0; acc.mat_prev += +it.mat_prev || 0; acc.ytd_cur += +it.ytd_cur || 0; acc.ytd_prev += +it.ytd_prev || 0; acc.tri_cur += +it.tri_cur || 0; acc.tri_prev += +it.tri_prev || 0; acc.mes_cur += +it.mes_cur || 0; acc.mes_prev += +it.mes_prev || 0; if (it.brick) bs.add(it.brick); });
             acc.bricks = [...bs].sort();
             return acc;
-        }).filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev));
+        }).filter(p => p && (p.mat_cur || p.mat_prev || p.ytd_cur || p.ytd_prev || p.tri_cur || p.tri_prev || p.mes_cur || p.mes_prev));
     }
     if (!filtered.length) { toast('Nenhuma farmácia encontrada com os filtros atuais.'); return; }
 
-    const periodOrder = pd === 'MAT' ? ['MAT', 'YTD', 'TRI'] : pd === 'YTD' ? ['YTD', 'MAT', 'TRI'] : ['TRI', 'MAT', 'YTD'];
+    const periodOrder = pdvPeriodOrder(pd, mode);
+    const pdLblXL = periodLabel(pd);
     const COL = {};
     periodOrder.forEach((p2, pi) => {
         const base = 7 + pi * 4, key = p2.toLowerCase();
         COL[key + '_prev'] = base; COL[key + '_cur'] = base + 1; COL[key + '_gap'] = base + 2; COL[key + '_cresc'] = base + 3;
     });
-    const TOTAL_COLS = 18;
+    const TOTAL_COLS = 6 + periodOrder.length * 4;
     const FIXED_HDRS = ['Classe', 'CNPJ', 'Razão Social', 'Cidade', 'UF', 'Brick'];
     const PERIOD_HDRS = {
         MAT: ['MAT Ano Ant.', 'MAT', 'GAP MAT', 'Cresc. MAT'],
         YTD: ['YTD Ano Ant.', 'YTD', 'GAP YTD', 'Cresc. YTD'],
         TRI: ['TRI Ano Ant.', 'TRI', 'GAP TRI', 'Cresc. TRI'],
+        MES: [pdvMesPrevLbl(mode), 'MÊS', 'GAP MÊS', 'Cresc. MÊS'],
     };
     const allHdrs = [...FIXED_HDRS, ...periodOrder.flatMap(p2 => PERIOD_HDRS[p2])];
 
@@ -4954,15 +5066,15 @@ async function exportPDVXLSX() {
         gDistrital ? `Distrital: ${gDistrital}` : '',
         gSector ? `Setor: ${gSector}` : '',
     ].filter(Boolean).join(' | ') || 'Todos os setores';
-    const ctxText = ` Período: ${pd}   |   Base: ${mode === 'RS' ? 'R$' : 'Unidades'}   |   Registros: ${filtered.length}   |   Filtros: ${activeFilters}`;
+    const ctxText = ` Período: ${pdLblXL}   |   Base: ${mode === 'RS' ? 'R$' : 'Unidades'}   |   Registros: ${filtered.length}   |   Filtros: ${activeFilters}`;
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Supera Farma';
-    const sheetRaw = activeBrandXL ? `Marca ${activeBrandXL}` : `PDVs ${pd} ${mode}`;
+    const sheetRaw = activeBrandXL ? `Marca ${activeBrandXL}` : `PDVs ${pdLblXL} ${mode}`;
     const sheetName = sheetRaw.replace(/[:\\/?*\[\]]/g, '').slice(0, 31);
     const ws = wb.addWorksheet(sheetName);
-    [8.83, 20.83, 36.83, 22.83, 5.83, 47.83, 11.75, 4.0, 8.0, 9.41, 12.5, 4.75, 8.75, 13.75, 11.16, 3.41, 7.41, 8.83]
-        .forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    [8.83, 20.83, 36.83, 22.83, 5.83, 47.83, 11.75, 4.0, 8.0, 9.41, 12.5, 4.75, 8.75, 13.75, 11.16, 3.41, 7.41, 8.83, 12.5, 6.0, 9.0, 10.5]
+        .slice(0, TOTAL_COLS).forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
     const isRS = mode === 'RS';
     const ACCOUNTING = '_("R$"* #,##0.00_);_("R$"* \\(#,##0.00\\);_("R$"* "-"??_);_(@_)';
@@ -5231,9 +5343,10 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         // Período ativo: define quais colunas aparecem na tabela de produtos
         const periodUpper = pdvPeriod();
         const period = periodUpper.toLowerCase();
-        const pdLbl = periodUpper;
+        const pdLbl = periodLabel(periodUpper);
         const curK = period + '_cur';
         const prevK = period + '_prev';
+        const hasMesModal = pdvHasMES(mode);
 
         // ── Filtro de setor/distrital ativo no header ─────────────────────────
         const gSector = pdvSectorLabel();
@@ -5298,11 +5411,12 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         // Recalcula KPIs totais com base nos produtos filtrados
         let kpiData = localPdv; // fallback: usa o PDV inteiro
         if (activeFilter && filteredProducts.length > 0) {
-            const acc = { mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0 };
+            const acc = { mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0, mes_cur: 0, mes_prev: 0 };
             filteredProducts.forEach(pr => {
                 acc.mat_cur += pr.mat_cur || 0; acc.mat_prev += pr.mat_prev || 0;
                 acc.ytd_cur += pr.ytd_cur || 0; acc.ytd_prev += pr.ytd_prev || 0;
                 acc.tri_cur += pr.tri_cur || 0; acc.tri_prev += pr.tri_prev || 0;
+                acc.mes_cur += pr.mes_cur || 0; acc.mes_prev += pr.mes_prev || 0;
             });
             kpiData = { ...localPdv, ...acc };
         }
@@ -5311,6 +5425,7 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
         const gMAT2 = kpiData.mat_prev > 0 ? (kpiData.mat_cur - kpiData.mat_prev) / kpiData.mat_prev : null;
         const gYTD2 = kpiData.ytd_prev > 0 ? (kpiData.ytd_cur - kpiData.ytd_prev) / kpiData.ytd_prev : null;
         const gTRI2 = kpiData.tri_prev > 0 ? (kpiData.tri_cur - kpiData.tri_prev) / kpiData.tri_prev : null;
+        const gMES2 = (kpiData.mes_prev || 0) > 0 ? ((kpiData.mes_cur || 0) - kpiData.mes_prev) / kpiData.mes_prev : null;
         const sub2 = (g) => g == null ? '<div class="pdv-kpi-sub">—</div>' : `<div class="pdv-kpi-sub ${g < 0 ? 'neg' : ''}">${fmtPct(g)}</div>`;
         const classeLabels = { AA: '⭐⭐ AA · Estratégica', A: '⭐ A · Prioritária', B: 'B · Desenvolvimento', C: 'C · Monitoramento' };
         const classeCls = { AA: 'pdv-classe-aa', A: 'pdv-classe-a', B: 'pdv-classe-b', C: 'pdv-classe-c' };
@@ -5342,16 +5457,18 @@ function renderPDVModalContent(cnpj, info, localPdv, fromCache, err) {
                 <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">MAT (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(kpiData.mat_cur)}</div>${sub2(gMAT2)}</div>
                 <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">YTD (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(kpiData.ytd_cur)}</div>${sub2(gYTD2)}</div>
                 <div class="pdv-kpi" style="min-width:110px"><div class="pdv-kpi-lbl">TRI (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(kpiData.tri_cur)}</div>${sub2(gTRI2)}</div>
+                ${hasMesModal ? `<div class="pdv-kpi" style="min-width:110px" title="${PDV.mesPrevKind && PDV.mesPrevKind[mode] === 'PP' ? 'Mês atual vs. mês anterior' : 'Mês atual vs. mesmo mês do ano anterior'}"><div class="pdv-kpi-lbl">MÊS (${modeLbl})</div><div class="pdv-kpi-val" style="font-size:14px">${fmtValue(kpiData.mes_cur || 0)}</div>${sub2(gMES2)}</div>` : ''}
             </div>`;
 
         // Lista produtos agrupados por marca, usando APENAS os produtos filtrados
         const prodMap = new Map();
         filteredProducts.forEach(p => {
             const k = p.marca + '||' + p.brick;
-            const cur = prodMap.get(k) || { marca: p.marca, brick: p.brick, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0 };
+            const cur = prodMap.get(k) || { marca: p.marca, brick: p.brick, mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0, mes_cur: 0, mes_prev: 0 };
             cur.mat_cur += p.mat_cur; cur.mat_prev += p.mat_prev;
             cur.ytd_cur += p.ytd_cur; cur.ytd_prev += p.ytd_prev || 0;
             cur.tri_cur += p.tri_cur; cur.tri_prev += p.tri_prev || 0;
+            cur.mes_cur += p.mes_cur || 0; cur.mes_prev += p.mes_prev || 0;
             prodMap.set(k, cur);
         });
 
@@ -5481,9 +5598,21 @@ async function exportPDVModal(cnpjRaw) {
     const gMAT = p.mat_prev > 0 ? (p.mat_cur - p.mat_prev) / p.mat_prev : null;
     const gYTD = p.ytd_prev > 0 ? (p.ytd_cur - p.ytd_prev) / p.ytd_prev : null;
     const gTRI = p.tri_prev > 0 ? (p.tri_cur - p.tri_prev) / p.tri_prev : null;
+    const gMES = (p.mes_prev || 0) > 0 ? ((p.mes_cur || 0) - p.mes_prev) / p.mes_prev : null;
     const gapMAT = (p.mat_cur || 0) - (p.mat_prev || 0);
     const gapYTD = (p.ytd_cur || 0) - (p.ytd_prev || 0);
     const gapTRI = (p.tri_cur || 0) - (p.tri_prev || 0);
+    const gapMES = (p.mes_cur || 0) - (p.mes_prev || 0);
+
+    /* v7.4 — grupos de período exportados: MÊS entra quando a base de PDVs o traz */
+    const hasMes = pdvHasMES(mode);
+    const mesPrevHdr = (PDV.mesPrevKind && PDV.mesPrevKind[mode] === 'PP') ? 'MÊS Mês Ant.' : 'MÊS Ant.';
+    const GROUPS = hasMes ? ['mat', 'ytd', 'tri', 'mes'] : ['mat', 'ytd', 'tri'];
+    const GROUP_LBL = { mat: 'MAT', ytd: 'YTD', tri: 'TRI', mes: 'MÊS' };
+    const LAST_COL = 1 + GROUPS.length * 4;           // 13 sem mês, 17 com mês
+    const R_PER_HDR = 11;                              // cabeçalho de períodos
+    const R_PER_END = R_PER_HDR + GROUPS.length;       // última linha de período
+    const R_PROD_HDR = R_PER_END + 2;                  // cabeçalho de produtos (após linha vazia)
 
     const endFull = info ? [
         [info.logradouro, info.numero, info.complemento].filter(Boolean).join(', '),
@@ -5518,14 +5647,15 @@ async function exportPDVModal(cnpjRaw) {
         const k = pr.marca + '||' + pr.brick;
         const c = prodMap.get(k) || {
             marca: pr.marca, brick: pr.brick,
-            mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0
+            mat_cur: 0, mat_prev: 0, ytd_cur: 0, ytd_prev: 0, tri_cur: 0, tri_prev: 0, mes_cur: 0, mes_prev: 0
         };
         c.mat_cur += pr.mat_cur; c.mat_prev += pr.mat_prev;
         c.ytd_cur += pr.ytd_cur; c.ytd_prev += pr.ytd_prev || 0;
         c.tri_cur += pr.tri_cur; c.tri_prev += pr.tri_prev || 0;
+        c.mes_cur += pr.mes_cur || 0; c.mes_prev += pr.mes_prev || 0;
         prodMap.set(k, c);
     });
-    const prodList = [...prodMap.values()].sort((a, b) => b[curK] - a[curK]);
+    const prodList = [...prodMap.values()].sort((a, b) => (b[curK] || 0) - (a[curK] || 0));
 
     // Carrega ExcelJS se necessario
     if (!window.ExcelJS) {
@@ -5543,16 +5673,13 @@ async function exportPDVModal(cnpjRaw) {
     const ws = wb.addWorksheet('PDV');
 
     // Larguras — exatamente como na planilha modelo aprovada
+    // (padrão repetido por grupo de período: Ant. = 16 | meio default | Cresc. % = 13)
     ws.getColumn(1).width = 28;  // A  - Marca/Label
-    ws.getColumn(2).width = 16;  // B  - Ant. período 1
-    // C e D: largura default do Excel (colunas do meio de cada grupo)
-    ws.getColumn(5).width = 13;  // E  - Cresc. %
-    ws.getColumn(6).width = 16;  // F  - Ant. período 2
-    // G e H: largura default
-    ws.getColumn(9).width = 13;  // I  - Cresc. %
-    ws.getColumn(10).width = 16;  // J  - Ant. período 3
-    // K e L: largura default
-    ws.getColumn(13).width = 13;  // M  - Cresc. %
+    GROUPS.forEach((g, gi) => {
+        const base = 2 + gi * 4;
+        ws.getColumn(base).width = 16;      // Ant.
+        ws.getColumn(base + 3).width = 13;  // Cresc. %
+    });
 
     // Estilos — idênticos ao modelo PLANILHA_EXPORTADA_MODELO_.xlsx
     const FONT = 'Aptos Narrow';
@@ -5616,15 +5743,15 @@ async function exportPDVModal(cnpjRaw) {
         cell.border = ALL_BORDER;
     };
 
-    // Helper: aplica borda fina em todas as células de uma linha (colunas 1 a 13)
+    // Helper: aplica borda fina em todas as células de uma linha (colunas 1 a LAST_COL)
     const applyRowBorders = (rowNum) => {
         const row = ws.getRow(rowNum);
-        for (let c = 1; c <= 13; c++) {
+        for (let c = 1; c <= LAST_COL; c++) {
             row.getCell(c).border = ALL_BORDER;
         }
     };
 
-    // Campos cadastrais R1-R9 (altura default, mescla B:M)
+    // Campos cadastrais R1-R9 (altura default, mescla B até a última coluna)
     // IMPORTANTE: bordas devem ser aplicadas em todas as células ANTES de mesclar,
     // pois mergeCells preserva apenas a borda da célula superior-esquerda da mesclagem.
     const cadFields = [
@@ -5641,74 +5768,72 @@ async function exportPDVModal(cnpjRaw) {
     cadFields.forEach(([l, v], i) => {
         const rowNum = i + 1;
         const row = ws.getRow(rowNum);
-        // Aplica bordas em todas as 13 colunas ANTES de mesclar
-        for (let c = 1; c <= 13; c++) {
+        // Aplica bordas em todas as colunas ANTES de mesclar
+        for (let c = 1; c <= LAST_COL; c++) {
             row.getCell(c).border = ALL_BORDER;
         }
         setLbl(row.getCell(1), l);
         setDat(row.getCell(2), v);
-        ws.mergeCells(rowNum, 2, rowNum, 13);
+        ws.mergeCells(rowNum, 2, rowNum, LAST_COL);
     });
 
     // R10: linha vazia de separação — aplica bordas em todas as colunas
     applyRowBorders(10);
 
     // Cabeçalho períodos R11 (height default)
-    const r11 = ws.getRow(11);
+    const r11 = ws.getRow(R_PER_HDR);
     ['Periodo', 'Ano Anterior (' + modeLbl + ')', 'Atual (' + modeLbl + ')', 'GAP (' + modeLbl + ')', 'Crescimento %']
         .forEach((h, c) => setHdr(r11.getCell(c + 1), h));
-    // Aplica bordas nas colunas F-M que ficam além dos 5 cabeçalhos de período
-    for (let c = 6; c <= 13; c++) {
+    // Aplica bordas nas colunas que ficam além dos 5 cabeçalhos de período
+    for (let c = 6; c <= LAST_COL; c++) {
         r11.getCell(c).border = ALL_BORDER;
     }
 
-    // Dados períodos R12-R14 (height default)
-    [
+    // Dados períodos R12-R14 (R12-R15 com MÊS) — v7.4: linha MÊS (mês atual x mesmo mês do ano anterior)
+    const periodRows = [
         ['MAT', p.mat_prev, p.mat_cur, gapMAT, gMAT],
         ['YTD', p.ytd_prev, p.ytd_cur, gapYTD, gYTD],
         ['TRI', p.tri_prev, p.tri_cur, gapTRI, gTRI],
-    ].forEach(([lb, ant, cur, gp, g], i) => {
-        const row = ws.getRow(12 + i);
+    ];
+    if (hasMes) periodRows.push([(PDV.mesPrevKind && PDV.mesPrevKind[mode] === 'PP') ? 'MÊS (vs mês ant.)' : 'MÊS', p.mes_prev || 0, p.mes_cur || 0, gapMES, gMES]);
+    periodRows.forEach(([lb, ant, cur, gp, g], i) => {
+        const row = ws.getRow(R_PER_HDR + 1 + i);
         setLbl(row.getCell(1), lb);
         setNum(row.getCell(2), ant);
         setNum(row.getCell(3), cur);
         setGap(row.getCell(4), gp);
         setPct(row.getCell(5), fmtPct2(g), g);
-        // Colunas F-M além dos dados de período recebem borda vazia
-        for (let c = 6; c <= 13; c++) {
+        // Colunas além dos dados de período recebem borda vazia
+        for (let c = 6; c <= LAST_COL; c++) {
             row.getCell(c).border = ALL_BORDER;
         }
     });
 
-    // R15: linha vazia de separação — aplica bordas em todas as colunas
-    applyRowBorders(15);
+    // Linha vazia de separação — aplica bordas em todas as colunas
+    applyRowBorders(R_PER_END + 1);
 
-    // Cabeçalho produtos R16 (height default)
-    const r16 = ws.getRow(16);
-    ['Marca', 'MAT Ant.', 'MAT', 'GAP MAT', 'Cresc. MAT %',
-        'YTD Ant.', 'YTD', 'GAP YTD', 'Cresc. YTD %',
-        'TRI Ant.', 'TRI', 'GAP TRI', 'Cresc. TRI %']
-        .forEach((h, c) => setHdr(r16.getCell(c + 1), h));
+    // Cabeçalho produtos (height default) — um bloco de 4 colunas por período
+    const rProdHdr = ws.getRow(R_PROD_HDR);
+    const prodHdrs = ['Marca'];
+    GROUPS.forEach(g => {
+        const L = GROUP_LBL[g];
+        prodHdrs.push(g === 'mes' ? mesPrevHdr : L + ' Ant.', L, 'GAP ' + L, 'Cresc. ' + L + ' %');
+    });
+    prodHdrs.forEach((h, c) => setHdr(rProdHdr.getCell(c + 1), h));
 
-    // Linhas de produtos R17+ (height default)
+    // Linhas de produtos (height default)
     prodList.forEach((pr, i) => {
-        const row = ws.getRow(17 + i);
-        const gm = pr.mat_prev > 0 ? (pr.mat_cur - pr.mat_prev) / pr.mat_prev : null;
-        const gy = pr.ytd_prev > 0 ? (pr.ytd_cur - pr.ytd_prev) / pr.ytd_prev : null;
-        const gt = pr.tri_prev > 0 ? (pr.tri_cur - pr.tri_prev) / pr.tri_prev : null;
+        const row = ws.getRow(R_PROD_HDR + 1 + i);
         setLbl(row.getCell(1), pr.marca);
-        setNum(row.getCell(2), pr.mat_prev);
-        setNum(row.getCell(3), pr.mat_cur);
-        setGap(row.getCell(4), pr.mat_cur - pr.mat_prev);
-        setPct(row.getCell(5), fmtPct2(gm), gm);
-        setNum(row.getCell(6), pr.ytd_prev);
-        setNum(row.getCell(7), pr.ytd_cur);
-        setGap(row.getCell(8), pr.ytd_cur - pr.ytd_prev);
-        setPct(row.getCell(9), fmtPct2(gy), gy);
-        setNum(row.getCell(10), pr.tri_prev);
-        setNum(row.getCell(11), pr.tri_cur);
-        setGap(row.getCell(12), pr.tri_cur - pr.tri_prev);
-        setPct(row.getCell(13), fmtPct2(gt), gt);
+        GROUPS.forEach((g, gi) => {
+            const base = 2 + gi * 4;
+            const prev = +(pr[g + '_prev'] || 0), cur = +(pr[g + '_cur'] || 0);
+            const gr = prev > 0 ? (cur - prev) / prev : null;
+            setNum(row.getCell(base), prev);
+            setNum(row.getCell(base + 1), cur);
+            setGap(row.getCell(base + 2), cur - prev);
+            setPct(row.getCell(base + 3), fmtPct2(gr), gr);
+        });
     });
 
     const buffer = await wb.xlsx.writeBuffer();
